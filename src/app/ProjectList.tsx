@@ -4,9 +4,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import React from 'react';
+import { type Project } from '@/lib/types'; // Import our new type
 
 type ProjectListProps = {
-  projects: any[];
+  projects: Project[]; // Use the specific Project type
 };
 
 const statusColors: { [key: string]: string } = {
@@ -43,19 +44,19 @@ export default function ProjectList({ projects }: ProjectListProps) {
         projects.map((project) => {
           const isExpanded = expandedProjectIds.includes(project.id);
           const totalCount = project.videos.length;
-          const doneCount = project.videos.filter((v: any) => v.status === 'Done').length;
+          const doneCount = project.videos.filter((v) => v.status === 'Done').length;
           const progress = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
           const isOverdue = project.due_date && new Date(project.due_date) < new Date() && progress < 100;
           
-          const mainTeam = project.project_assignments.filter((a: any) => a.role === 'Main Editor / Videographer');
+          const mainTeam = project.project_assignments.filter((a) => a.role === 'Main Editor / Videographer');
           
           const mainTeamNames = mainTeam
-            .map((a: any) => a.profiles?.full_name)
+            .map((a) => a.profiles?.full_name)
             .filter(Boolean)
             .join(', ');
             
           const allTeamNames = project.project_assignments
-            .map((a: any) => a.profiles?.full_name)
+            .map((a) => a.profiles?.full_name)
             .filter(Boolean)
             .join(', ');
 
@@ -90,7 +91,7 @@ export default function ProjectList({ projects }: ProjectListProps) {
                       <div className="flex justify-between items-center mb-2">
                         <h4 className="font-semibold text-sm ml-2">Videos in this Project:</h4>
                         <button
-                          onClick={() => router.push(`/projects/${project.id}`)}
+                          onClick={(e) => { e.stopPropagation(); router.push(`/projects/${project.id}`); }}
                           className="text-sm bg-white border border-gray-300 rounded-md px-3 py-1 hover:bg-gray-100"
                         >
                           Manage Project
@@ -105,7 +106,7 @@ export default function ProjectList({ projects }: ProjectListProps) {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {project.videos.map((video: any) => (
+                          {project.videos.map((video) => (
                             <tr key={video.id} className="bg-white">
                               <td className="px-4 py-2 text-sm text-gray-800">{video.title}</td>
                               <td className="px-4 py-2">
