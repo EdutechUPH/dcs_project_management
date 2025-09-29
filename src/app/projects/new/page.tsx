@@ -1,11 +1,12 @@
 // src/app/projects/new/page.tsx
 import { createClient } from '@/lib/supabase/server';
-import ProjectRequestForm from './ProjectRequestForm'; // Import our new form component
+import ProjectRequestForm from './ProjectRequestForm';
 
 export const revalidate = 0;
 
 export default async function NewProjectPage() {
   const supabase = createClient();
+
   // Fetch all necessary data for dropdowns in parallel
   const [
     { data: terms },

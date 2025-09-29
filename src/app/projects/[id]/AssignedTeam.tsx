@@ -4,7 +4,8 @@
 import { assignTeamMember, removeTeamMemberAssignment } from './actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useActionState } from 'react';
-import { useMemo } from 'react'; // Import useMemo
+import { useMemo } from 'react';
+import { PROJECT_ROLES } from '@/lib/constants';
 
 type Workload = {
   member_name: string;
@@ -14,29 +15,30 @@ type Workload = {
 type AssignedTeamProps = {
   projectId: number;
   assignments: any[];
-  teamMembers: any[];
-  workloadData: Workload[]; // Add workload data prop
+  profiles: any[];
+  workloadData: Workload[];
 };
 
-const projectRoles = ['Main Editor / Videographer', 'Assistant Editor', 'Assistant Videographer', 'Sound Engineer'];
 const initialState = { message: '' };
 
-export default function AssignedTeam({ projectId, assignments, teamMembers, workloadData }: AssignedTeamProps) {
+export default function AssignedTeam({ projectId, assignments, profiles, workloadData }: AssignedTeamProps) {
   const assignMemberWithId = assignTeamMember.bind(null, projectId);
   const [state, formAction] = useActionState(assignMemberWithId, initialState);
+  
+  // A separate state is needed for the remove action since it's a different form
   const [removeState, removeFormAction] = useActionState(removeTeamMemberAssignment, initialState);
 
-  // This logic merges the team member list with their workload and sorts it.
-  // useMemo ensures this only recalculates when the data changes.
-  const sortedTeamMembers = useMemo(() => {
+  const sortedProfiles = useMemo(() => {
     const workloadMap = new Map(workloadData.map(item => [item.member_name, item.active_videos]));
-    return teamMembers
-      .map(member => ({
-        ...member,
-        workload: workloadMap.get(member.name) || 0,
+    return profiles
+      .map(profile => ({
+        ...profile,
+        workload: workloadMap.get(profile.full_name) || 0,
       }))
       .sort((a, b) => a.workload - b.workload);
-  }, [teamMembers, workloadData]);
+  }, [profiles, workloadData]);
+
+  const validAssignments = assignments.filter(a => a.profiles);
 
   return (
     <div className="mt-8 lg:mt-0">
@@ -45,12 +47,11 @@ export default function AssignedTeam({ projectId, assignments, teamMembers, work
         <form action={formAction} className="grid grid-cols-1 gap-4 items-end mb-6 pb-6 border-b">
           <div>
             <label className="block text-sm font-medium text-gray-700">Team Member</label>
-            <select name="team_member_id" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+            <select name="profile_id" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
               <option value="">Select a member...</option>
-              {/* UPDATED DROPDOWN */}
-              {sortedTeamMembers.map(member => (
-                <option key={member.id} value={member.id}>
-                  {member.name} ({member.workload} active videos)
+              {sortedProfiles.map(profile => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.full_name} ({profile.workload} active videos)
                 </option>
               ))}
             </select>
@@ -59,7 +60,7 @@ export default function AssignedTeam({ projectId, assignments, teamMembers, work
             <label className="block text-sm font-medium text-gray-700">Project Role</label>
             <select name="role" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
               <option value="">Select a role</option>
-              {projectRoles.map(role => <option key={role}>{role}</option>)}
+              {PROJECT_ROLES.map(role => <option key={role}>{role}</option>)}
             </select>
           </div>
           <SubmitButton className="bg-gray-800 text-white rounded-md shadow-sm py-2 px-4 hover:bg-gray-700 disabled:bg-gray-400" pendingText="Assigning...">
@@ -69,11 +70,11 @@ export default function AssignedTeam({ projectId, assignments, teamMembers, work
         </form>
 
         <div className="space-y-3">
-          {assignments.length > 0 ? (
-            assignments.map(assignment => (
+          {validAssignments.length > 0 ? (
+            validAssignments.map(assignment => (
               <div key={assignment.id} className="flex justify-between items-center">
                 <div>
-                  <p className="font-medium">{assignment.team_members.name}</p>
+                  <p className="font-medium">{assignment.profiles.full_name}</p>
                   <p className="text-sm text-gray-500">{assignment.role}</p>
                 </div>
                 <form action={removeFormAction}>

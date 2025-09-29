@@ -8,7 +8,7 @@ const navLinks = [
   { href: '/admin/faculties', label: 'Faculties' },
   { href: '/admin/prodi', label: 'Study Programs' },
   { href: '/admin/lecturers', label: 'Lecturers' },
-  { href: '/admin/team_members', label: 'Team Members' },
+  { href: '/admin/users', label: 'Manage Users' },
   { href: '/admin/terms', label: 'Terms' },
 ];
 

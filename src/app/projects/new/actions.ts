@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 export async function createProject(prevState: any, formData: FormData) {
-  const supabase = createClient(); // Create the client instance here
+  const supabase = createClient();
   
   const course_name = formData.get('course_name') as string;
   const term_id = Number(formData.get('term_id'));
@@ -19,11 +19,11 @@ export async function createProject(prevState: any, formData: FormData) {
   }
 
   const projectData = {
-    course_name: formData.get('course_name') as string,
-    term_id: Number(formData.get('term_id')),
-    faculty_id: Number(formData.get('faculty_id')),
-    prodi_id: Number(formData.get('prodi_id')),
-    lecturer_id: Number(formData.get('lecturer_id')),
+    course_name,
+    term_id,
+    faculty_id,
+    prodi_id,
+    lecturer_id,
     notes: formData.get('notes') as string,
     due_date: formData.get('due_date') as string,
   };
@@ -36,7 +36,7 @@ export async function createProject(prevState: any, formData: FormData) {
 
   if (projectError || !newProject) {
     console.error('Error creating project:', projectError);
-    return { message: `Database Error: Failed to create project. ${projectError?.message}` };
+    return { message: `Database Error: Failed to create project. Check terminal for details.` };
   }
 
   const videoCount = Number(formData.get('video_count'));
@@ -52,7 +52,7 @@ export async function createProject(prevState: any, formData: FormData) {
     const { error: videoError } = await supabase.from('videos').insert(videosToInsert);
     if (videoError) {
       console.error('Error creating videos:', videoError);
-      return { message: `Database Error: Failed to create videos. ${videoError?.message}` };
+      return { message: `Database Error: Failed to create videos. Check terminal for details.` };
     }
   }
   
@@ -62,12 +62,9 @@ export async function createProject(prevState: any, formData: FormData) {
 }
 
 export async function getLecturersByProdi(prodiId: number) {
-  const supabase = createClient(); // Also create the client instance here
-  
+  const supabase = createClient();
   if (!prodiId) return [];
-  
   const { data, error } = await supabase.from('lecturer_prodi_join').select('lecturers(*)').eq('prodi_id', prodiId);
-  
   if (error) {
     console.error('Error fetching lecturers:', error);
     return [];

@@ -1,5 +1,5 @@
 // src/app/projects/[id]/page.tsx
-import { createClient } from '@/lib/supabase/server'; // This is the corrected import
+import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import EditProjectDetails from './EditProjectDetails';
@@ -10,16 +10,20 @@ import FeedbackManager from './FeedbackManager';
 export const revalidate = 0;
 
 export default async function ProjectDetailPage({ params: { id } }: { params: { id: string } }) {
-  const supabase = createClient(); // Now this function will be correctly imported
+  const supabase = createClient();
   const projectId = id;
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: userProfile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).single() : { data: null };
 
   const projectPromise = supabase
     .from('projects')
-    .select(`*, lecturers(name), terms(name), prodi(name, faculties(name)), videos(*), project_assignments(*, team_members(name)), feedback_submission(submission_uuid)`)
+    .select(`*, lecturers(name), terms(name), prodi(name, faculties(name)), videos(*), project_assignments(*, profiles(full_name)), feedback_submission(submission_uuid, submitted_at)`)
     .eq('id', projectId)
+    .order('created_at', { foreignTable: 'videos', ascending: true })
     .single();
 
-  const teamMembersPromise = supabase.from('team_members').select('*').order('name');
+  const profilesPromise = supabase.from('profiles').select('*').order('full_name');
   const termsPromise = supabase.from('terms').select('*');
   const facultiesPromise = supabase.from('faculties').select('*');
   const prodiPromise = supabase.from('prodi').select('*');
@@ -27,19 +31,31 @@ export default async function ProjectDetailPage({ params: { id } }: { params: { 
 
   const [
     { data: project, error },
-    { data: teamMembers },
+    { data: profiles },
     { data: terms },
     { data: faculties },
     { data: prodi },
     { data: workloadData }
-  ] = await Promise.all([projectPromise, teamMembersPromise, termsPromise, facultiesPromise, prodiPromise, workloadPromise]);
+  ] = await Promise.all([
+    projectPromise,
+    profilesPromise,
+    termsPromise,
+    facultiesPromise,
+    prodiPromise,
+    workloadPromise
+  ]);
 
   if (error || !project) {
+    console.error("Error fetching project details:", error);
     notFound();
   }
 
-  const masterLists = { terms: terms || [], faculties: faculties || [], prodi: prodi || [] };
-  const feedbackUuid = project.feedback_submission?.submission_uuid || null;
+  const masterLists = { 
+    terms: terms || [], 
+    faculties: faculties || [], 
+    prodi: prodi || [] 
+  };
+  const feedbackSubmission = project.feedback_submission || null;
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -52,19 +68,28 @@ export default async function ProjectDetailPage({ params: { id } }: { params: { 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           <div className="p-6 border rounded-lg bg-white">
-            <EditProjectDetails project={project as any} masterLists={masterLists} />
+            <EditProjectDetails 
+              project={project as any} 
+              masterLists={masterLists} 
+              userRole={userProfile?.role || ''} 
+            />
           </div>
-          <VideoList videos={project.videos} projectId={project.id} />
+          <VideoList 
+            videos={project.videos} 
+            projectId={project.id} 
+            profiles={profiles || []}
+            assignments={project.project_assignments || []} 
+          />
         </div>
         
         <div className="lg:col-span-1 space-y-8">
           <AssignedTeam 
             projectId={project.id}
             assignments={project.project_assignments}
-            teamMembers={teamMembers || []}
+            profiles={profiles || []}
             workloadData={workloadData || []}
           />
-          <FeedbackManager projectId={project.id} initialUuid={feedbackUuid} />
+          <FeedbackManager projectId={project.id} feedbackSubmission={feedbackSubmission} />
         </div>
       </div>
     </div>

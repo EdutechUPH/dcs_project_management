@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, Calendar, Timer } from 'lucide-react'; // Import new icons
+import { ChevronDown, ChevronRight, Calendar, Timer } from 'lucide-react';
 import React from 'react';
 
 const statusColors: { [key: string]: string } = {
@@ -23,7 +23,6 @@ export default function WorkloadList({ workloadData }: { workloadData: any[] }) 
     );
   };
 
-  // Helper function to calculate days
   const calculateDaysRunning = (dateString: string) => {
     if (!dateString) return 0;
     const assignedDate = new Date(dateString);
@@ -35,19 +34,19 @@ export default function WorkloadList({ workloadData }: { workloadData: any[] }) 
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {workloadData.map(member => {
-        const totalVideos = member.ongoing_projects.reduce((acc: number, item: any) => acc + item.projects.videos.length, 0);
+      {workloadData.map(profile => {
+        const totalVideos = profile.ongoing_projects.reduce((acc: number, item: any) => acc + item.projects.videos.length, 0);
         return (
-          <div key={member.id} className="bg-white border rounded-lg shadow flex flex-col">
+          <div key={profile.id} className="bg-white border rounded-lg shadow flex flex-col">
             <div className="p-4 border-b">
-              <h2 className="text-lg font-semibold">{member.name}</h2>
-              <p className="text-sm text-gray-600">{member.role}</p>
+              <h2 className="text-lg font-semibold">{profile.full_name}</h2>
+              <p className="text-sm text-gray-600">{profile.role}</p>
               <p className="text-sm font-bold mt-2">
-                {member.ongoing_projects.length} Ongoing Project(s) / {totalVideos} Video(s)
+                {profile.ongoing_projects.length} Ongoing Project(s) / {totalVideos} Video(s)
               </p>
             </div>
             <div className="p-2 space-y-1 flex-grow">
-              {member.ongoing_projects.map((assignment: any) => {
+              {profile.ongoing_projects.map((assignment: any) => {
                 const project = assignment.projects;
                 const isExpanded = expandedProjects.includes(project.id);
                 const doneCount = project.videos.filter((v: any) => v.status === 'Done').length;
@@ -55,14 +54,14 @@ export default function WorkloadList({ workloadData }: { workloadData: any[] }) 
                 const daysRunning = calculateDaysRunning(assignment.assigned_at);
                 
                 return (
-                  <div key={project.id} className="rounded-md hover:bg-gray-50">
+                  // THE FIX IS HERE: Use the unique assignment_id for the key
+                  <div key={assignment.assignment_id} className="rounded-md hover:bg-gray-50">
                     <div className="p-2 cursor-pointer" onClick={() => toggleProject(project.id)}>
                       <div className="flex justify-between items-center">
                         <div className="flex-1">
                           <p className="font-semibold text-gray-800 text-sm">{project.course_name}</p>
                           <p className="text-xs text-gray-500">as <span className="font-medium">{assignment.role}</span></p>
                           
-                          {/* NEW: Display for assignment date and duration */}
                           <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
                             <span className="flex items-center gap-1"><Calendar size={12} /> Assigned: {new Date(assignment.assigned_at).toLocaleDateString('en-GB')}</span>
                             <span className="flex items-center gap-1"><Timer size={12} /> {daysRunning} days ago</span>

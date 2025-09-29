@@ -13,20 +13,19 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
     .from('projects')
     .select(`
       *, due_date, lecturers(name), prodi(name), videos(*), 
-      project_assignments!inner(*, team_members(name)), 
+      project_assignments(*, profiles(full_name)), 
       feedback_submission(submitted_at)
     `);
 
-  // Apply filters
+  // Apply filters from the URL
   if (searchParams.faculty) {
     query = query.eq('faculty_id', searchParams.faculty);
   }
   if (searchParams.term) {
     query = query.eq('term_id', searchParams.term);
   }
-  // NEW: Filter by assigned team member
   if (searchParams.teamMember) {
-    query = query.eq('project_assignments.team_member_id', searchParams.teamMember);
+    query = query.eq('project_assignments.profile_id', searchParams.teamMember);
   }
 
   const { data: projects, error } = await query.order('due_date', { ascending: true });
@@ -34,16 +33,29 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
   // Fetch data for the filter dropdowns
   const { data: faculties } = await supabase.from('faculties').select('id, name');
   const { data: terms } = await supabase.from('terms').select('id, name');
-  const { data: teamMembers } = await supabase.from('team_members').select('id, name');
+  // Changed to fetch from profiles
+  const { data: teamMembers } = await supabase.from('profiles').select('id, full_name').order('full_name');
 
   if (error) {
     console.error("Dashboard fetch error:", error);
     return <p>Error fetching projects: {error.message}</p>;
   }
   
-  // Split projects into incomplete and complete lists
-  const incompleteProjects = projects?.filter(p => p.videos.some(v => v.status !== 'Done') || p.videos.length === 0) || [];
-  const completeProjects = projects?.filter(p => p.videos.length > 0 && p.videos.every(v => v.status === 'Done')) || [];
+  // --- THIS IS THE CORRECTED LOGIC ---
+  // First, filter by status if the URL param exists
+  const statusFilteredProjects = projects?.filter(project => {
+    if (searchParams.status === 'complete') {
+      return project.videos.length > 0 && project.videos.every(v => v.status === 'Done');
+    }
+    if (searchParams.status === 'incomplete') {
+      return project.videos.some(v => v.status !== 'Done') || project.videos.length === 0;
+    }
+    return true; // If no status filter, return all
+  }) || [];
+
+  // Then, split the result into two lists for display
+  const incompleteProjects = statusFilteredProjects.filter(p => p.videos.some(v => v.status !== 'Done') || p.videos.length === 0);
+  const completeProjects = statusFilteredProjects.filter(p => p.videos.length > 0 && p.videos.every(v => v.status === 'Done'));
 
   return (
     <div className="p-8">
@@ -55,7 +67,7 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
       <FilterControls 
         faculties={faculties ?? []} 
         terms={terms ?? []} 
-        teamMembers={teamMembers ?? []} 
+        teamMembers={teamMembers?.map(p => ({ id: p.id, name: p.full_name })) ?? []} 
       />
 
       {/* Incomplete Projects Table */}

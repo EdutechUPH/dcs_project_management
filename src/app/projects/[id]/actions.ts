@@ -3,8 +3,12 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation'; // We need this for the new version
+import { redirect } from 'next/navigation';
+import { MAIN_EDITOR_ROLE } from '@/lib/constants'; // Import our constant
 
+/**
+ * Updates the main details of a project (course name, lecturer, etc.).
+ */
 export async function updateProjectDetails(projectId: number, formData: FormData) {
   const supabase = createClient();
   const projectData = {
@@ -25,11 +29,29 @@ export async function updateProjectDetails(projectId: number, formData: FormData
   revalidatePath('/');
 }
 
+/**
+ * Adds a new video to an existing project.
+ */
 export async function addVideoToProject(projectId: number, formData: FormData) {
   const supabase = createClient();
   const title = formData.get('title') as string;
   if (!title) return;
-  const newVideo = { project_id: projectId, title: title, status: 'Requested' };
+
+  const { data: mainEditorAssignment } = await supabase
+    .from('project_assignments')
+    .select('profile_id')
+    .eq('project_id', projectId)
+    .eq('role', MAIN_EDITOR_ROLE)
+    .limit(1)
+    .single();
+
+  const newVideo = {
+    project_id: projectId,
+    title: title,
+    status: 'Requested',
+    main_editor_id: mainEditorAssignment?.profile_id || null,
+  };
+
   const { error } = await supabase.from('videos').insert(newVideo);
   if (error) {
     console.error('Error adding video:', error);
@@ -38,6 +60,9 @@ export async function addVideoToProject(projectId: number, formData: FormData) {
   revalidatePath(`/projects/${projectId}`);
 }
 
+/**
+ * Deletes a video from a project.
+ */
 export async function deleteVideo(formData: FormData) {
   const supabase = createClient();
   const videoId = formData.get('videoId') as string;
@@ -51,11 +76,17 @@ export async function deleteVideo(formData: FormData) {
   revalidatePath(`/projects/${projectId}`);
 }
 
+/**
+ * Updates all details for an individual video.
+ */
 export async function updateVideo(formData: FormData) {
   const supabase = createClient();
   const videoId = formData.get('videoId') as string;
   const projectId = formData.get('projectId') as string;
   if (!videoId || !projectId) return;
+
+  const mainEditorId = formData.get('main_editor_id') as string;
+
   const videoData = {
     title: formData.get('title') as string,
     status: formData.get('status') as string,
@@ -65,6 +96,7 @@ export async function updateVideo(formData: FormData) {
     has_english_subtitle: formData.get('has_english_subtitle') === 'on',
     has_indonesian_subtitle: formData.get('has_indonesian_subtitle') === 'on',
     video_link: formData.get('video_link') as string,
+    main_editor_id: mainEditorId || null,
   };
   const { error } = await supabase.from('videos').update(videoData).eq('id', videoId);
   if (error) {
@@ -74,31 +106,55 @@ export async function updateVideo(formData: FormData) {
   revalidatePath(`/projects/${projectId}`);
 }
 
+/**
+ * Assigns a user (from profiles) to a project with a specific role.
+ */
 export async function assignTeamMember(projectId: number, prevState: any, formData: FormData) {
   const supabase = createClient();
-  const team_member_id = Number(formData.get('team_member_id'));
+  const profile_id = formData.get('profile_id') as string;
   const role = formData.get('role') as string;
-  if (!team_member_id || !role) {
+
+  if (!profile_id || !role) {
     return { message: 'Please select a member and a role.' };
   }
-  const { error } = await supabase.from('project_assignments').insert({
-    project_id: projectId, team_member_id, role,
+
+  const { error: assignmentError } = await supabase.from('project_assignments').insert({
+    project_id: projectId,
+    profile_id,
+    role,
   });
-  if (error) {
-    console.error('Supabase error assigning member:', error);
+
+  if (assignmentError) {
+    console.error('Error assigning team member:', assignmentError);
     return { message: 'Failed to assign member. Check terminal for details.' };
   }
+
+  // Use the constant for the check
+  if (role === MAIN_EDITOR_ROLE) {
+    const { error: updateVideosError } = await supabase
+      .from('videos')
+      .update({ main_editor_id: profile_id })
+      .eq('project_id', projectId)
+      .is('main_editor_id', null);
+
+    if (updateVideosError) {
+      console.error('Error auto-assigning main editor to videos:', updateVideosError);
+    }
+  }
+
   revalidatePath(`/projects/${projectId}`);
   return { message: '' };
 }
 
+/**
+ * Removes a team member's assignment from a project.
+ */
 export async function removeTeamMemberAssignment(prevState: any, formData: FormData) {
   const supabase = createClient();
   const assignmentId = formData.get('assignmentId') as string;
   const projectId = formData.get('projectId') as string;
-  if (!assignmentId || !projectId) {
-    return { message: 'Missing required IDs.' };
-  }
+  if (!assignmentId || !projectId) return { message: 'Missing required IDs.' };
+
   const { error } = await supabase.from('project_assignments').delete().eq('id', assignmentId);
   if (error) {
     console.error('Supabase error removing assignment:', error);
@@ -108,6 +164,9 @@ export async function removeTeamMemberAssignment(prevState: any, formData: FormD
   return { message: '' };
 }
 
+/**
+ * Generates a feedback link for a project.
+ */
 export async function requestFeedback(projectId: number) {
   const supabase = createClient();
   const { data: existing, error: selectError } = await supabase
@@ -120,22 +179,51 @@ export async function requestFeedback(projectId: number) {
     console.error("Error checking for existing feedback:", selectError);
     return { error: 'Database error.' };
   }
-
   if (existing) {
     return { uuid: existing.submission_uuid };
   }
-
   const { data: newSubmission, error: insertError } = await supabase
     .from('feedback_submission')
     .insert({ project_id: projectId })
     .select('submission_uuid')
     .single();
-
   if (insertError || !newSubmission) {
     console.error("Error creating new feedback submission:", insertError);
     return { error: 'Failed to create feedback link.' };
   }
-
   revalidatePath(`/projects/${projectId}`);
   return { uuid: newSubmission.submission_uuid };
+}
+
+/**
+ * Deletes an entire project and all its related data (via cascading).
+ */
+export async function deleteProject(prevState: any, formData: FormData) {
+  const supabase = createClient();
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'You must be logged in to delete a project.' };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+  
+  if (profile?.role !== 'Admin') {
+    return { error: 'You do not have permission to delete this project.' };
+  }
+
+  const projectId = formData.get('projectId') as string;
+  if (!projectId) return { error: 'Project ID is missing.'};
+
+  const { error } = await supabase.from('projects').delete().eq('id', projectId);
+
+  if (error) {
+    console.error('Error deleting project:', error);
+    return { error: 'Database error: Could not delete the project.' };
+  }
+  
+  revalidatePath('/');
+  redirect('/');
 }

@@ -1,29 +1,28 @@
 // src/app/projects/[id]/FeedbackManager.tsx
 'use client';
 
-import { useState, useTransition, useEffect } from 'react'; // Import useEffect
+import { useState, useTransition, useEffect } from 'react';
 import { requestFeedback } from './actions';
 
 type FeedbackManagerProps = {
   projectId: number;
-  initialUuid: string | null;
+  feedbackSubmission: {
+    submission_uuid: string;
+    submitted_at: string | null;
+  } | null;
 };
 
-export default function FeedbackManager({ projectId, initialUuid }: FeedbackManagerProps) {
-  const [uuid, setUuid] = useState(initialUuid);
+export default function FeedbackManager({ projectId, feedbackSubmission }: FeedbackManagerProps) {
+  const [uuid, setUuid] = useState(feedbackSubmission?.submission_uuid || null);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-
-  // NEW: State to hold the fully constructed link
   const [feedbackLink, setFeedbackLink] = useState('');
 
-  // NEW: useEffect to safely build the link on the client-side
   useEffect(() => {
     if (uuid) {
-      // This code will only run in the browser where 'window' exists
       setFeedbackLink(`${window.location.origin}/feedback/${uuid}`);
     }
-  }, [uuid]); // This runs whenever the 'uuid' state changes
+  }, [uuid]);
 
   const handleRequestFeedback = () => {
     setError('');
@@ -37,9 +36,20 @@ export default function FeedbackManager({ projectId, initialUuid }: FeedbackMana
     });
   };
 
+  const isSubmitted = !!feedbackSubmission?.submitted_at;
+
   return (
-    <div className="mt-8">
-      <h2 className="text-xl font-semibold mb-4">Lecturer Feedback</h2>
+    <div className="mt-8 lg:mt-0">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Lecturer Feedback</h2>
+        {uuid && (
+          isSubmitted ? (
+            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Received</span>
+          ) : (
+            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Pending</span>
+          )
+        )}
+      </div>
       <div className="p-6 border rounded-lg bg-white">
         {feedbackLink ? (
           <div>

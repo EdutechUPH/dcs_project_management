@@ -2,17 +2,24 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import WorkloadList from './WorkloadList';
+import { redirect } from 'next/navigation';
 
 export const revalidate = 0;
 
 export default async function WorkloadPage() {
   const supabase = createClient();
 
-  const { data: teamMembers, error } = await supabase
-    .from('team_members')
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  const { data: profiles, error } = await supabase
+    .from('profiles')
     .select(`
       *,
       project_assignments (
+        id,
         role,
         created_at, 
         projects (
@@ -22,26 +29,26 @@ export default async function WorkloadPage() {
         )
       )
     `)
-    .order('name');
+    .order('full_name');
 
   if (error) {
     console.error("Error fetching workload page data:", error);
     return <p>Error loading data. Please check the server console.</p>;
   }
 
-  // Process the data to only include members with ongoing projects
-  const workloadData = teamMembers?.map(member => {
-    const ongoingProjects = member.project_assignments
+  const workloadData = profiles?.map(profile => {
+    const ongoingProjects = profile.project_assignments
       .filter(assignment => assignment.projects)
       .map(assignment => ({
+        assignment_id: assignment.id, // Pass the unique assignment ID
         role: assignment.role,
-        assigned_at: assignment.created_at, // Pass the assignment date
+        assigned_at: assignment.created_at,
         projects: assignment.projects,
       }))
       .filter(item => item.projects.videos.length === 0 || item.projects.videos.some((v: any) => v.status !== 'Done'));
     
     return {
-      ...member,
+      ...profile,
       ongoing_projects: ongoingProjects,
     };
   }).filter(member => member.ongoing_projects.length > 0);
