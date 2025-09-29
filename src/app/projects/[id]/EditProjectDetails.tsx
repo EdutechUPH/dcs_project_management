@@ -5,22 +5,10 @@ import { useState, useEffect } from 'react';
 import { updateProjectDetails, deleteProject } from './actions';
 import { getLecturersByProdi } from '@/app/projects/new/actions';
 import SubmitButton from '@/components/SubmitButton';
-import { useActionState } from 'react'; // UPDATED: Import from 'react'
+import { useActionState } from 'react';
+import { type Project as ProjectType } from '@/lib/types';
 
-type Project = {
-  id: number;
-  course_name: string;
-  notes: string | null;
-  terms: { name: string } | null;
-  prodi: { name: string, faculties: { name: string } | null } | null;
-  lecturers: { name: string } | null;
-  term_id: number;
-  faculty_id: number;
-  prodi_id: number;
-  lecturer_id: number;
-  due_date: string;
-};
-
+// Define MasterLists type locally for this component
 type MasterLists = {
   terms: { id: number; name: string }[];
   faculties: { id: number; name: string }[];
@@ -28,10 +16,12 @@ type MasterLists = {
 };
 
 type EditProjectDetailsProps = {
-  project: Project;
+  project: ProjectType;
   masterLists: MasterLists;
   userRole: string;
 };
+
+type Lecturer = { id: number; name: string; };
 
 const DetailItem = ({ label, value }: { label: string; value: string | null | undefined }) => (
   <div>
@@ -43,24 +33,14 @@ const DetailItem = ({ label, value }: { label: string; value: string | null | un
 export default function EditProjectDetails({ project, masterLists, userRole }: EditProjectDetailsProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedFaculty, setSelectedFaculty] = useState(project.faculty_id.toString());
-  const [filteredProdi, setFilteredProdi] = useState<any[]>([]);
+  const [filteredProdi, setFilteredProdi] = useState<{ id: number; name: string }[]>([]);
   const [selectedProdi, setSelectedProdi] = useState(project.prodi_id.toString());
-  const [filteredLecturers, setFilteredLecturers] = useState<any[]>([]);
+  const [filteredLecturers, setFilteredLecturers] = useState<Lecturer[]>([]);
   const [isLoadingLecturers, setIsLoadingLecturers] = useState(false);
 
   useEffect(() => {
     if (selectedFaculty) {
       setFilteredProdi(masterLists.prodi.filter(p => p.faculty_id === parseInt(selectedFaculty)));
-    }
-  }, []);
-
-  useEffect(() => {
-    if (selectedFaculty) {
-      const newFilteredProdi = masterLists.prodi.filter(p => p.faculty_id === parseInt(selectedFaculty));
-      setFilteredProdi(newFilteredProdi);
-      if (!newFilteredProdi.some(p => p.id.toString() === selectedProdi)) {
-        setSelectedProdi('');
-      }
     }
   }, [selectedFaculty, masterLists.prodi]);
 
@@ -68,19 +48,18 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
     async function fetchLecturers() {
       if (selectedProdi) {
         setIsLoadingLecturers(true);
-        // We need to get the full lecturer objects, not just names
         const lecturersData = await getLecturersByProdi(parseInt(selectedProdi));
-        setFilteredLecturers(lecturersData.filter(Boolean)); // Filter out any nulls
+        setFilteredLecturers(lecturersData.filter(Boolean) as Lecturer[]);
         setIsLoadingLecturers(false);
       } else {
         setFilteredLecturers([]);
       }
     }
+    // Initial fetch for the pre-selected prodi
     fetchLecturers();
   }, [selectedProdi]);
 
   const updateDetailsWithId = updateProjectDetails.bind(null, project.id);
-  // UPDATED: Renamed to useActionState
   const [deleteState, deleteAction] = useActionState(deleteProject, { error: null });
 
   if (isEditing) {
@@ -98,7 +77,6 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
             </div>
             <div>
               <label htmlFor="due_date" className="text-sm font-medium text-gray-500">Due Date</label>
-              {/* Added a split to handle the date format correctly */}
               <input type="date" name="due_date" id="due_date" defaultValue={project.due_date?.split('T')[0]} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
             </div>
             <div>
@@ -123,7 +101,7 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
             <div>
               <label htmlFor="lecturer_id" className="text-sm font-medium text-gray-500">Lecturer</label>
               <select name="lecturer_id" id="lecturer_id" defaultValue={project.lecturer_id} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                {isLoadingLecturers ? <option>Loading...</option> : filteredLecturers.map((item: any) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                {isLoadingLecturers ? <option>Loading...</option> : filteredLecturers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </div>
             <div className="md:col-span-2">

@@ -6,6 +6,7 @@ import SubmitButton from '@/components/SubmitButton';
 import { useActionState } from 'react';
 import { useMemo } from 'react';
 import { PROJECT_ROLES } from '@/lib/constants';
+import { type Assignment, type Profile } from '@/lib/types';
 
 type Workload = {
   member_name: string;
@@ -14,8 +15,8 @@ type Workload = {
 
 type AssignedTeamProps = {
   projectId: number;
-  assignments: any[];
-  profiles: any[];
+  assignments: Assignment[];
+  profiles: Profile[];
   workloadData: Workload[];
 };
 
@@ -25,7 +26,7 @@ export default function AssignedTeam({ projectId, assignments, profiles, workloa
   const assignMemberWithId = assignTeamMember.bind(null, projectId);
   const [state, formAction] = useActionState(assignMemberWithId, initialState);
   
-  // A separate state is needed for the remove action since it's a different form
+  // A separate state is needed for the remove action since each button is in its own form
   const [removeState, removeFormAction] = useActionState(removeTeamMemberAssignment, initialState);
 
   const sortedProfiles = useMemo(() => {
