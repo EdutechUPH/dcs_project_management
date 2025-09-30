@@ -3,10 +3,11 @@
 
 import { updateUserRole } from './actions';
 import SubmitButton from '@/components/SubmitButton';
+import { type Profile } from '@/lib/types';
 
 const userRoles = ['Admin', 'Instructional Designer', 'Digital Content Specialist'];
 
-export default function UserList({ profiles }: { profiles: any[] }) {
+export default function UserList({ profiles }: { profiles: Profile[] }) {
   return (
     <div className="mt-4 border rounded-lg bg-white">
       {/* Header Row */}

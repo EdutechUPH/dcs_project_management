@@ -3,10 +3,16 @@
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
+type ChartData = {
+  category: string;
+  active_count: number;
+  completed_count: number;
+};
+
 type ChartProps = {
-  data: any[];
+  data: ChartData[];
   title: string;
-  dataKey: string;
+  dataKey: "active_count" | "completed_count";
   fillColor: string;
 };
 

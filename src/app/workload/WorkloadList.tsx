@@ -5,14 +5,28 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, Calendar, Timer } from 'lucide-react';
 import React from 'react';
+import { type Profile } from '@/lib/types';
 
-const statusColors: { [key: string]: string } = {
-  'Done': 'bg-green-100 text-green-800', 'Review': 'bg-yellow-100 text-yellow-800',
-  'Video Editing': 'bg-purple-100 text-purple-800', 'Audio Editing': 'bg-pink-100 text-pink-800',
-  'Scheduled for Taping': 'bg-indigo-100 text-indigo-800', 'Requested': 'bg-gray-100 text-gray-800',
+// Define a more specific type for the workload data
+type WorkloadProfile = Profile & {
+  ongoing_projects: {
+    assignment_id: number;
+    role: string;
+    assigned_at: string;
+    projects: any; // Keeping this flexible as project shape is complex here
+  }[];
 };
 
-export default function WorkloadList({ workloadData }: { workloadData: any[] }) {
+const statusColors: { [key: string]: string } = {
+  'Done': 'bg-green-100 text-green-800',
+  'Review': 'bg-yellow-100 text-yellow-800',
+  'Video Editing': 'bg-purple-100 text-purple-800',
+  'Audio Editing': 'bg-pink-100 text-pink-800',
+  'Scheduled for Taping': 'bg-indigo-100 text-indigo-800',
+  'Requested': 'bg-gray-100 text-gray-800',
+};
+
+export default function WorkloadList({ workloadData }: { workloadData: WorkloadProfile[] }) {
   const [expandedProjects, setExpandedProjects] = useState<number[]>([]);
 
   const toggleProject = (projectId: number) => {
@@ -35,7 +49,7 @@ export default function WorkloadList({ workloadData }: { workloadData: any[] }) 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {workloadData.map(profile => {
-        const totalVideos = profile.ongoing_projects.reduce((acc: number, item: any) => acc + item.projects.videos.length, 0);
+        const totalVideos = profile.ongoing_projects.reduce((acc: number, item) => acc + item.projects.videos.length, 0);
         return (
           <div key={profile.id} className="bg-white border rounded-lg shadow flex flex-col">
             <div className="p-4 border-b">
@@ -46,7 +60,7 @@ export default function WorkloadList({ workloadData }: { workloadData: any[] }) 
               </p>
             </div>
             <div className="p-2 space-y-1 flex-grow">
-              {profile.ongoing_projects.map((assignment: any) => {
+              {profile.ongoing_projects.map((assignment) => {
                 const project = assignment.projects;
                 const isExpanded = expandedProjects.includes(project.id);
                 const doneCount = project.videos.filter((v: any) => v.status === 'Done').length;
@@ -54,7 +68,6 @@ export default function WorkloadList({ workloadData }: { workloadData: any[] }) 
                 const daysRunning = calculateDaysRunning(assignment.assigned_at);
                 
                 return (
-                  // THE FIX IS HERE: Use the unique assignment_id for the key
                   <div key={assignment.assignment_id} className="rounded-md hover:bg-gray-50">
                     <div className="p-2 cursor-pointer" onClick={() => toggleProject(project.id)}>
                       <div className="flex justify-between items-center">
