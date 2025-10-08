@@ -1,38 +1,44 @@
 // src/app/admin/users/actions.ts
-'use server';
+&#39;use server&#39;;
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-export async function updateUserRole(formData: FormData) {
-  const supabase = createClient();
+type ActionState = {
+error?: string | null;
+};
 
-  // First, check if the person making the request is an Admin
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'You must be logged in.' };
+// THE FIX: Add 'prevState' as the first argument
+export async function updateUserRole(prevState: ActionState, formData: FormData): Promise&lt;ActionState&gt; {
+const supabase = createClient();
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-  if (profile?.role !== 'Admin') {
-    return { error: 'You do not have permission to change user roles.' };
-  }
+// First, check if the person making the request is an Admin
+const { data: { user } } = await supabase.auth.getUser();
+if (\!user) return { error: 'You must be logged in.' };
 
-  // If they are an admin, proceed with the update
-  const profileId = formData.get('profileId') as string;
-  const newRole = formData.get('role') as string;
+const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+if (profile?.role \!== 'Admin') {
+return { error: 'You do not have permission to change user roles.' };
+}
 
-  if (!profileId || !newRole) {
-    return { error: 'Missing profile ID or role.' };
-  }
+// If they are an admin, proceed with the update
+const profileId = formData.get('profileId') as string;
+const newRole = formData.get('role') as string;
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({ role: newRole })
-    .eq('id', profileId);
+if (\!profileId || \!newRole) {
+return { error: 'Missing profile ID or role.' };
+}
 
-  if (error) {
-    console.error("Error updating role:", error);
-    return { error: 'Database error: Could not update role.' };
-  }
+const { error } = await supabase
+.from('profiles')
+.update({ role: newRole })
+.eq('id', profileId);
 
-  revalidatePath('/admin/users');
+if (error) {
+console.error("Error updating role:", error);
+return { error: 'Database error: Could not update role.' };
+}
+
+revalidatePath('/admin/users');
+return { error: null }; // Return success state
 }
