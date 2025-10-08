@@ -4,10 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import AnalyticsFilters from "./AnalyticsFilters";
 import AnalyticsChart from "./AnalyticsChart";
 import KeyMetrics from "./KeyMetrics";
-import { type KeyMetricsData, type Profile, type Option, type AnalyticsData, type AnalyticsRpcParams } from "@/lib/types";
+import { type KeyMetricsData, type AnalyticsData, type AnalyticsRpcParams } from "@/lib/types";
 
-// Define a union type for items that can be mapped
-type Mappable = Option | Profile;
+// THE FIX IS HERE: We make the 'Mappable' type less strict.
+type Mappable = {
+  id: number | string;
+  name?: string;
+  full_name?: string;
+};
 
 export const revalidate = 0;
 
@@ -32,11 +36,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     start_date: from,
     end_date: to,
     group_by_key: groupBy,
-    faculty_ids: facultyIds as string[] | null,
-    prodi_ids: prodiIds as string[] | null,
-    lecturer_ids: lecturerIds as string[] | null,
-    term_ids: termIds as string[] | null,
-    editor_ids: editorIds as string[] | null
+    faculty_ids: facultyIds,
+    prodi_ids: prodiIds,
+    lecturer_ids: lecturerIds,
+    term_ids: termIds,
+    editor_ids: editorIds
   };
   
   const analyticsPromise = supabase.rpc('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
@@ -49,7 +53,6 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
 
   const analyticsData: AnalyticsData[] | null = analyticsResult.data as AnalyticsData[] | null;
   const analyticsError = analyticsResult.error;
-  // THE FIX IS HERE: We use 'as' to tell TypeScript the shape of the data
   const keyMetricsData: KeyMetricsData | null = keyMetricsResult.data as KeyMetricsData | null;
   const keyMetricsError = keyMetricsResult.error;
 
@@ -73,7 +76,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
   const mapToOptions = (items: Mappable[] | null) => {
     return items?.map(item => ({ 
       value: item.id.toString(), 
-      label: ('full_name' in item ? item.full_name : item.name) || '' 
+      label: item.full_name || item.name || '' 
     })) || [];
   }
 
