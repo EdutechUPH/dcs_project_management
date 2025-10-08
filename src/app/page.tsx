@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import ProjectList from './ProjectList';
 import FilterControls from './FilterControls';
+import { type Project, type Video, type Profile, type Option } from '@/lib/types';
+
+// Define a union type for items that can be mapped for the filter
+type Mappable = Option | Profile;
 
 export const revalidate = 0;
 
@@ -17,7 +21,6 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
       feedback_submission(submitted_at)
     `);
 
-  // Apply filters from the URL
   if (searchParams.faculty) {
     query = query.eq('faculty_id', searchParams.faculty);
   }
@@ -30,32 +33,34 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
 
   const { data: projects, error } = await query.order('due_date', { ascending: true });
 
-  // Fetch data for the filter dropdowns
   const { data: faculties } = await supabase.from('faculties').select('id, name');
   const { data: terms } = await supabase.from('terms').select('id, name');
-  // Changed to fetch from profiles
-  const { data: teamMembers } = await supabase.from('profiles').select('id, full_name').order('full_name');
+  const { data: profiles } = await supabase.from('profiles').select('id, full_name');
 
   if (error) {
     console.error("Dashboard fetch error:", error);
     return <p>Error fetching projects: {error.message}</p>;
   }
   
-  // --- THIS IS THE CORRECTED LOGIC ---
-  // First, filter by status if the URL param exists
-  const statusFilteredProjects = projects?.filter(project => {
+  const statusFilteredProjects = (projects as Project[])?.filter(project => {
     if (searchParams.status === 'complete') {
-      return project.videos.length > 0 && project.videos.every(v => v.status === 'Done');
+      return project.videos.length > 0 && project.videos.every((v: Video) => v.status === 'Done');
     }
     if (searchParams.status === 'incomplete') {
-      return project.videos.some(v => v.status !== 'Done') || project.videos.length === 0;
+      return project.videos.some((v: Video) => v.status !== 'Done') || project.videos.length === 0;
     }
-    return true; // If no status filter, return all
+    return true;
   }) || [];
 
-  // Then, split the result into two lists for display
-  const incompleteProjects = statusFilteredProjects.filter(p => p.videos.some(v => v.status !== 'Done') || p.videos.length === 0);
-  const completeProjects = statusFilteredProjects.filter(p => p.videos.length > 0 && p.videos.every(v => v.status === 'Done'));
+  const incompleteProjects = statusFilteredProjects.filter(p => p.videos.some((v: Video) => v.status !== 'Done') || p.videos.length === 0);
+  const completeProjects = statusFilteredProjects.filter(p => p.videos.length > 0 && p.videos.every((v: Video) => v.status === 'Done'));
+
+  const mapToOptions = (items: Mappable[] | null) => {
+    return items?.map(item => ({ 
+      value: item.id.toString(), 
+      label: ('full_name' in item ? item.full_name : item.name) || '' 
+    })) || [];
+  };
 
   return (
     <div className="p-8">
@@ -65,12 +70,11 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
       </div>
 
       <FilterControls 
-        faculties={faculties ?? []} 
-        terms={terms ?? []} 
-        teamMembers={teamMembers?.map(p => ({ id: p.id, name: p.full_name })) ?? []} 
+        faculties={mapToOptions(faculties)} 
+        terms={mapToOptions(terms)} 
+        teamMembers={mapToOptions(profiles)} 
       />
 
-      {/* Incomplete Projects Table */}
       <h2 className="text-2xl font-semibold mb-4">Incomplete Projects</h2>
       <div className="border rounded-lg overflow-x-auto mb-8">
         <table className="min-w-full divide-y divide-gray-200">
@@ -87,7 +91,6 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
         </table>
       </div>
 
-      {/* Complete Projects Table */}
       <h2 className="text-2xl font-semibold mb-4">Completed Projects</h2>
       <div className="border rounded-lg overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
