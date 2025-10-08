@@ -11,7 +11,7 @@ type Mappable = Option | Profile;
 
 export const revalidate = 0;
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined }}) {
+export default async function AnalyticsPage({ searchParams }: { searchParams: { [key:string]: string | string[] | undefined }}) {
   const supabase = createClient();
 
   const toArray = (value: string | string[] | undefined) => {
@@ -38,7 +38,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     editor_ids: editorIds
   };
 
-  const analyticsPromise = supabase.rpc<AnalyticsData>('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
+  // THE FIX IS HERE: The type should be an array, AnalyticsData[]
+  const analyticsPromise = supabase.rpc<AnalyticsData[]>('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
   const keyMetricsPromise = supabase.rpc<KeyMetricsData>('get_key_metrics', rpcParams).single();
 
   const [
@@ -46,6 +47,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     { data: keyMetricsData, error: keyMetricsError }
   ] = await Promise.all([analyticsPromise, keyMetricsPromise]);
 
+  // Fetch data for the filter dropdowns
   const facultiesPromise = supabase.from('faculties').select('id, name');
   const prodiPromise = supabase.from('prodi').select('id, name');
   const lecturersPromise = supabase.from('lecturers').select('id, name');
@@ -62,7 +64,6 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     return <p>Error loading data. Please check the server console.</p>;
   }
 
-  // UPDATED FUNCTION: It now intelligently checks for 'full_name' or 'name'
   const mapToOptions = (items: Mappable[] | null) => {
     return items?.map(item => ({ 
       value: item.id.toString(), 
