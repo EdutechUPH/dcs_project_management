@@ -11,7 +11,6 @@ export default async function AssignProgramsPage({ params }: { params: { id: str
   const lecturerId = parseInt(params.id);
 
   const lecturerPromise = supabase.from('lecturers').select('id, name').eq('id', lecturerId).single();
-  // We now need faculty_id to group the programs
   const allProdiPromise = supabase.from('prodi').select('id, name, faculty_id').order('name');
   const allFacultiesPromise = supabase.from('faculties').select('id, name');
   const assignmentsPromise = supabase.from('lecturer_prodi_join').select('prodi_id').eq('lecturer_id', lecturerId);
@@ -26,15 +25,15 @@ export default async function AssignProgramsPage({ params }: { params: { id: str
   const assignedProdiIds = new Set(assignmentsData?.map(a => a.prodi_id));
   const updateAssignmentsWithId = updateLecturerAssignments.bind(null, lecturerId);
 
-  // --- NEW: Grouping logic ---
-  // Create a structure like: { "Faculty Name": [prodi1, prodi2], ... }
+  type Prodi = { id: number; name: string; faculty_id: number; };
+
   const groupedProdi = allFaculties?.reduce((acc, faculty) => {
     const programsInFaculty = allProdi?.filter(p => p.faculty_id === faculty.id) || [];
     if (programsInFaculty.length > 0) {
       acc[faculty.name] = programsInFaculty;
     }
     return acc;
-  }, {} as Record<string, typeof allProdi>);
+  }, {} as Record<string, Prodi[]>);
 
   return (
     <div>
@@ -43,12 +42,12 @@ export default async function AssignProgramsPage({ params }: { params: { id: str
       
       <form action={updateAssignmentsWithId}>
         <div className="border rounded-lg p-4 bg-white">
-          {/* --- NEW: Rendering logic --- */}
           {groupedProdi && Object.keys(groupedProdi).map(facultyName => (
             <div key={facultyName} className="mb-4">
               <h3 className="font-semibold text-gray-800 border-b pb-1 mb-2">{facultyName}</h3>
               <div className="space-y-3">
-                {groupedProdi[facultyName].map(prodi => (
+                {/* THE FIX IS HERE: Add a '?' for optional chaining */}
+                {groupedProdi[facultyName]?.map(prodi => (
                   <div key={prodi.id} className="relative flex items-start ml-2">
                     <div className="flex h-6 items-center">
                       <input
