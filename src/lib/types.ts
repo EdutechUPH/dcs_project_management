@@ -101,3 +101,10 @@ export interface Workload {
   member_name: string;
   active_videos: number;
 }
+
+// Add this to the bottom of src/lib/types.ts
+export interface KeyMetricsData {
+  total_videos_completed: number;
+  total_duration_minutes: number;
+  total_duration_seconds: number;
+}

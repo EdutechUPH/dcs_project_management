@@ -4,14 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import AnalyticsFilters from "./AnalyticsFilters";
 import AnalyticsChart from "./AnalyticsChart";
 import KeyMetrics from "./KeyMetrics";
-import { type Profile } from "@/lib/types"; // Import a specific type we might need
-
-// Define a simple type for items that can be mapped to options
-type Mappable = {
-  id: number | string;
-  name?: string;
-  full_name?: string;
-}
+import { type KeyMetricsData, type Profile, type Option } from "@/lib/types"; // Import new type
 
 export const revalidate = 0;
 
@@ -43,13 +36,15 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
   };
 
   const analyticsPromise = supabase.rpc('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
-  const keyMetricsPromise = supabase.rpc('get_key_metrics', rpcParams).single();
+  // THE FIX IS HERE: We tell the rpc call what type to expect
+  const keyMetricsPromise = supabase.rpc<KeyMetricsData>('get_key_metrics', rpcParams).single();
 
   const [
     { data: analyticsData, error: analyticsError },
     { data: keyMetricsData, error: keyMetricsError }
   ] = await Promise.all([analyticsPromise, keyMetricsPromise]);
 
+  // Fetch data for the filter dropdowns
   const facultiesPromise = supabase.from('faculties').select('id, name');
   const prodiPromise = supabase.from('prodi').select('id, name');
   const lecturersPromise = supabase.from('lecturers').select('id, name');
@@ -66,9 +61,12 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     return <p>Error loading data. Please check the server console.</p>;
   }
 
-  // UPDATED FUNCTION with a specific type instead of 'any'
-  const mapToOptions = (items: Mappable[] | null, labelKey: 'name' | 'full_name' = 'name') => {
-    return items?.map(item => ({ value: item.id.toString(), label: item[labelKey] || '' })) || [];
+  const mapToOptions = (items: (Option | Profile)[] | null, labelKey: 'name' | 'full_name' = 'name') => {
+    return items?.map(item => ({ 
+      value: item.id.toString(), 
+      // A bit of typescript magic to handle 'name' or 'full_name'
+      label: (item as any)[labelKey] || '' 
+    })) || [];
   }
 
   return (
@@ -87,7 +85,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
         prodi={mapToOptions(prodi)}
         lecturers={mapToOptions(lecturers)}
         terms={mapToOptions(terms)}
-        editors={mapToOptions(editors as Profile[])}
+        editors={mapToOptions(editors, 'full_name')}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
