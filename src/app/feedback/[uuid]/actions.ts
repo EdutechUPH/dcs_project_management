@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-// Define a specific state for our form
 type FormState = {
   message: string;
 };
@@ -35,7 +34,8 @@ export async function submitFeedback(submissionUuid: string, prevState: FormStat
     .from('feedback_submission')
     .update(submissionData)
     .eq('submission_uuid', submissionUuid)
-    .select('projects(id)')
+    // The query returns `projects` as an array
+    .select('projects(id)') 
     .single();
 
   if (error || !data) {
@@ -43,6 +43,11 @@ export async function submitFeedback(submissionUuid: string, prevState: FormStat
     return { message: 'Database Error: Could not submit feedback.' };
   }
   
-  revalidatePath(`/projects/${data.projects?.id}`);
+  // THE FIX: Access the first item in the 'projects' array
+  const projectId = Array.isArray(data.projects) ? data.projects[0]?.id : data.projects?.id;
+  if (projectId) {
+    revalidatePath(`/projects/${projectId}`);
+  }
+  
   redirect('/feedback/thank-you');
 }
