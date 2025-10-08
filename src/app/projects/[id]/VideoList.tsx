@@ -4,14 +4,14 @@
 import { addVideoToProject, deleteVideo, updateVideo } from './actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useRef, useState } from 'react';
-import Link from 'next/link';
 import { MAIN_EDITOR_ROLE } from '@/lib/constants';
+import { type Video, type Profile, type Assignment } from '@/lib/types';
 
 type VideoListProps = {
-  videos: any[];
+  videos: Video[];
   projectId: number;
-  profiles: any[];
-  assignments: any[];
+  profiles: Profile[];
+  assignments: Assignment[];
 };
 
 const statusColors: { [key: string]: string } = {
@@ -54,7 +54,7 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
 
       <div className="space-y-4">
         {videos.length > 0 ? (
-          videos.map((video: any) => (
+          videos.map((video) => (
             <div key={video.id} className="p-4 border rounded-lg bg-white">
               {editingId === video.id ? (
                 <form action={updateVideo} onSubmit={() => setEditingId(null)} className="space-y-4">
@@ -80,7 +80,6 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
                       >
                         <option value="">Unassigned</option>
-                        {/* THE FIX IS HERE: We now map over all profiles */}
                         {profiles.map(profile => (
                           <option key={profile.id} value={profile.id}>{profile.full_name}</option>
                         ))}
@@ -94,12 +93,12 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                     </div>
                     <div>
                       <label className="text-sm font-medium">Video Link</label>
-                      <input type="text" name="video_link" defaultValue={video.video_link} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
+                      <input type="text" name="video_link" defaultValue={video.video_link || ''} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
                     </div>
                      <div className="flex items-center gap-2">
                         <label className="text-sm font-medium">Duration:</label>
-                        <input type="number" name="duration_minutes" placeholder="Mins" defaultValue={video.duration_minutes} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
-                        <input type="number" name="duration_seconds" placeholder="Secs" defaultValue={video.duration_seconds} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
+                        <input type="number" name="duration_minutes" placeholder="Mins" defaultValue={video.duration_minutes || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
+                        <input type="number" name="duration_seconds" placeholder="Secs" defaultValue={video.duration_seconds || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
                     </div>
                      <div className="flex items-center gap-4 pt-4">
                         <div className="flex items-center gap-2">

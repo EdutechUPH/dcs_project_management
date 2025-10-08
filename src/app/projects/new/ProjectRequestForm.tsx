@@ -8,21 +8,24 @@ import { createProject, getLecturersByProdi } from './actions';
 import { useRouter } from 'next/navigation';
 import AddLecturerModal from './AddLecturerModal';
 import { PlusCircle } from 'lucide-react';
+import { type Option, type ProdiOption, type LecturerOption } from '@/lib/types';
 
-type DataProps = { terms: any[], faculties: any[], prodi: any[], lecturers: any[] };
-type Lecturer = { id: number; name: string; email: string | null };
+type DataProps = {
+  terms: Option[];
+  faculties: Option[];
+  prodi: ProdiOption[];
+};
 
 const initialState = { message: '' };
 
-export default function ProjectRequestForm({ terms, faculties, prodi, lecturers: initialLecturers }: DataProps) {
+export default function ProjectRequestForm({ terms, faculties, prodi }: DataProps) {
   const [state, formAction] = useActionState(createProject, initialState);
   const router = useRouter();
   
-  const [lecturers, setLecturers] = useState(initialLecturers);
   const [selectedFaculty, setSelectedFaculty] = useState('');
-  const [filteredProdi, setFilteredProdi] = useState<any[]>([]);
+  const [filteredProdi, setFilteredProdi] = useState<ProdiOption[]>([]);
   const [selectedProdi, setSelectedProdi] = useState('');
-  const [filteredLecturers, setFilteredLecturers] = useState<Lecturer[]>([]);
+  const [filteredLecturers, setFilteredLecturers] = useState<LecturerOption[]>([]);
   const [isLoadingLecturers, setIsLoadingLecturers] = useState(false);
   const [videoCount, setVideoCount] = useState<number | ''>(1);
   const [courseName, setCourseName] = useState('');
@@ -30,10 +33,6 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers:
   const prevCourseNameRef = useRef('');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  useEffect(() => {
-    setLecturers(initialLecturers);
-  }, [initialLecturers]);
-  
   const handleVideoCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     const count = value === '' ? '' : parseInt(value, 10);
@@ -63,7 +62,7 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers:
       if (selectedProdi) {
         setIsLoadingLecturers(true);
         const lecturersData = await getLecturersByProdi(parseInt(selectedProdi));
-        setFilteredLecturers(lecturersData as Lecturer[]);
+        setFilteredLecturers(lecturersData as LecturerOption[]);
         setIsLoadingLecturers(false);
       } else {
         setFilteredLecturers([]);

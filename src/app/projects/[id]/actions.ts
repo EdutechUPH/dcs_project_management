@@ -4,7 +4,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { MAIN_EDITOR_ROLE } from '@/lib/constants'; // Import our constant
+import { MAIN_EDITOR_ROLE } from '@/lib/constants';
+
+// Define a specific type for our form state
+type FormState = {
+  message?: string | null;
+  error?: string | null;
+};
 
 /**
  * Updates the main details of a project (course name, lecturer, etc.).
@@ -109,7 +115,7 @@ export async function updateVideo(formData: FormData) {
 /**
  * Assigns a user (from profiles) to a project with a specific role.
  */
-export async function assignTeamMember(projectId: number, prevState: any, formData: FormData) {
+export async function assignTeamMember(projectId: number, prevState: FormState, formData: FormData): Promise<FormState> {
   const supabase = createClient();
   const profile_id = formData.get('profile_id') as string;
   const role = formData.get('role') as string;
@@ -129,7 +135,6 @@ export async function assignTeamMember(projectId: number, prevState: any, formDa
     return { message: 'Failed to assign member. Check terminal for details.' };
   }
 
-  // Use the constant for the check
   if (role === MAIN_EDITOR_ROLE) {
     const { error: updateVideosError } = await supabase
       .from('videos')
@@ -149,7 +154,7 @@ export async function assignTeamMember(projectId: number, prevState: any, formDa
 /**
  * Removes a team member's assignment from a project.
  */
-export async function removeTeamMemberAssignment(prevState: any, formData: FormData) {
+export async function removeTeamMemberAssignment(prevState: FormState, formData: FormData): Promise<FormState> {
   const supabase = createClient();
   const assignmentId = formData.get('assignmentId') as string;
   const projectId = formData.get('projectId') as string;
@@ -198,7 +203,7 @@ export async function requestFeedback(projectId: number) {
 /**
  * Deletes an entire project and all its related data (via cascading).
  */
-export async function deleteProject(prevState: any, formData: FormData) {
+export async function deleteProject(prevState: FormState, formData: FormData): Promise<FormState> {
   const supabase = createClient();
   
   const { data: { user } } = await supabase.auth.getUser();

@@ -1,8 +1,8 @@
 // src/app/workload/page.tsx
 import { createClient } from '@/lib/supabase/server';
-import Link from 'next/link';
 import WorkloadList from './WorkloadList';
 import { redirect } from 'next/navigation';
+import { type Profile, type Video } from '@/lib/types';
 
 export const revalidate = 0;
 
@@ -36,16 +36,18 @@ export default async function WorkloadPage() {
     return <p>Error loading data. Please check the server console.</p>;
   }
 
-  const workloadData = profiles?.map(profile => {
+  // Process the data to only include members with ongoing projects
+  const workloadData = (profiles as Profile[])?.map(profile => {
     const ongoingProjects = profile.project_assignments
       .filter(assignment => assignment.projects)
       .map(assignment => ({
-        assignment_id: assignment.id, // Pass the unique assignment ID
+        assignment_id: assignment.id,
         role: assignment.role,
         assigned_at: assignment.created_at,
         projects: assignment.projects,
       }))
-      .filter(item => item.projects.videos.length === 0 || item.projects.videos.some((v: any) => v.status !== 'Done'));
+      // Apply the 'Video' type here to fix the error
+      .filter(item => item.projects.videos.length === 0 || item.projects.videos.some((v: Video) => v.status !== 'Done'));
     
     return {
       ...profile,

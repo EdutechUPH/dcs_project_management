@@ -4,6 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import AnalyticsFilters from "./AnalyticsFilters";
 import AnalyticsChart from "./AnalyticsChart";
 import KeyMetrics from "./KeyMetrics";
+import { type Profile } from "@/lib/types"; // Import a specific type we might need
+
+// Define a simple type for items that can be mapped to options
+type Mappable = {
+  id: number | string;
+  name?: string;
+  full_name?: string;
+}
 
 export const revalidate = 0;
 
@@ -24,7 +32,6 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
   const termIds = toArray(searchParams.terms);
   const editorIds = toArray(searchParams.editors);
 
-  // Create a single params object for our functions
   const rpcParams = {
     start_date: from,
     end_date: to,
@@ -35,7 +42,6 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     editor_ids: editorIds
   };
 
-  // Fetch data for all reports in parallel
   const analyticsPromise = supabase.rpc('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
   const keyMetricsPromise = supabase.rpc('get_key_metrics', rpcParams).single();
 
@@ -44,12 +50,12 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     { data: keyMetricsData, error: keyMetricsError }
   ] = await Promise.all([analyticsPromise, keyMetricsPromise]);
 
-  // Fetch data for the filter dropdowns
   const facultiesPromise = supabase.from('faculties').select('id, name');
   const prodiPromise = supabase.from('prodi').select('id, name');
   const lecturersPromise = supabase.from('lecturers').select('id, name');
   const termsPromise = supabase.from('terms').select('id, name');
   const editorsPromise = supabase.from('profiles').select('id, full_name');
+
   const [
     { data: faculties }, { data: prodi }, { data: lecturers }, { data: terms }, { data: editors }
   ] = await Promise.all([facultiesPromise, prodiPromise, lecturersPromise, termsPromise, editorsPromise]);
@@ -60,8 +66,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     return <p>Error loading data. Please check the server console.</p>;
   }
 
-  const mapToOptions = (items: any[], labelKey = 'name') => {
-    return items?.map(item => ({ value: item.id.toString(), label: item[labelKey] })) || [];
+  // UPDATED FUNCTION with a specific type instead of 'any'
+  const mapToOptions = (items: Mappable[] | null, labelKey: 'name' | 'full_name' = 'name') => {
+    return items?.map(item => ({ value: item.id.toString(), label: item[labelKey] || '' })) || [];
   }
 
   return (
@@ -80,7 +87,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
         prodi={mapToOptions(prodi)}
         lecturers={mapToOptions(lecturers)}
         terms={mapToOptions(terms)}
-        editors={mapToOptions(editors, 'full_name')}
+        editors={mapToOptions(editors as Profile[])}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">

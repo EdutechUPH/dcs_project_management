@@ -5,17 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, Calendar, Timer } from 'lucide-react';
 import React from 'react';
-import { type Profile } from '@/lib/types';
-
-// Define a more specific type for the workload data
-type WorkloadProfile = Profile & {
-  ongoing_projects: {
-    assignment_id: number;
-    role: string;
-    assigned_at: string;
-    projects: any; // Keeping this flexible as project shape is complex here
-  }[];
-};
+import { type WorkloadProfile, type Video } from '@/lib/types';
 
 const statusColors: { [key: string]: string } = {
   'Done': 'bg-green-100 text-green-800',
@@ -49,7 +39,7 @@ export default function WorkloadList({ workloadData }: { workloadData: WorkloadP
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {workloadData.map(profile => {
-        const totalVideos = profile.ongoing_projects.reduce((acc: number, item) => acc + item.projects.videos.length, 0);
+        const totalVideos = profile.ongoing_projects.reduce((acc, item) => acc + item.projects.videos.length, 0);
         return (
           <div key={profile.id} className="bg-white border rounded-lg shadow flex flex-col">
             <div className="p-4 border-b">
@@ -63,7 +53,7 @@ export default function WorkloadList({ workloadData }: { workloadData: WorkloadP
               {profile.ongoing_projects.map((assignment) => {
                 const project = assignment.projects;
                 const isExpanded = expandedProjects.includes(project.id);
-                const doneCount = project.videos.filter((v: any) => v.status === 'Done').length;
+                const doneCount = project.videos.filter((v: Video) => v.status === 'Done').length;
                 const totalCount = project.videos.length;
                 const daysRunning = calculateDaysRunning(assignment.assigned_at);
                 
@@ -90,7 +80,7 @@ export default function WorkloadList({ workloadData }: { workloadData: WorkloadP
                     {isExpanded && (
                       <div className="pb-2 px-2">
                         <ul className="pl-4 border-l-2 ml-1 space-y-1 mt-1">
-                          {project.videos.map((video: any) => (
+                          {project.videos.map((video: Video) => (
                             <li key={video.id} className="flex justify-between items-center text-sm">
                               <span className="text-gray-600">- {video.title}</span>
                               <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${statusColors[video.status] || 'bg-gray-100'}`}>{video.status}</span>

@@ -5,7 +5,12 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-export async function createProject(prevState: any, formData: FormData) {
+// Define a specific type for our form state
+type FormState = {
+  message: string;
+}
+
+export async function createProject(prevState: FormState, formData: FormData): Promise<FormState> {
   const supabase = createClient();
   
   const course_name = formData.get('course_name') as string;
@@ -69,5 +74,5 @@ export async function getLecturersByProdi(prodiId: number) {
     console.error('Error fetching lecturers:', error);
     return [];
   }
-  return data.map(item => item.lecturers);
+  return data.map(item => item.lecturers).filter(Boolean); // Filter out nulls
 }

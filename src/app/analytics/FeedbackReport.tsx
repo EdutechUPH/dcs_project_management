@@ -1,6 +1,8 @@
 // src/app/analytics/FeedbackReport.tsx
 'use client';
 
+import { type FeedbackSummary } from "@/lib/types";
+
 // A simple component to display a single statistic
 const StatCard = ({ title, rating }: { title: string; rating: number | null }) => {
   const displayRating = rating ? rating.toFixed(1) : 'N/A';
@@ -12,7 +14,7 @@ const StatCard = ({ title, rating }: { title: string; rating: number | null }) =
   );
 };
 
-export default function FeedbackReport({ data }: { data: any }) {
+export default function FeedbackReport({ data }: { data: FeedbackSummary[] }) {
   // Supabase returns an array with one object, so we get the first item.
   const summary = data?.[0];
 
