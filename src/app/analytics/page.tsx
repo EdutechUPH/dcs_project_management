@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import AnalyticsFilters from "./AnalyticsFilters";
 import AnalyticsChart from "./AnalyticsChart";
 import KeyMetrics from "./KeyMetrics";
-import { type KeyMetricsData, type Profile, type Option, type AnalyticsData, type AnalyticsRpcParams } from "@/lib/types"; // Import new type
+import { type KeyMetricsData, type Profile, type Option, type AnalyticsData, type AnalyticsRpcParams } from "@/lib/types";
 
 // Define a union type for items that can be mapped
 type Mappable = Option | Profile;
@@ -28,26 +28,33 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
   const termIds = toArray(searchParams.terms);
   const editorIds = toArray(searchParams.editors);
 
-  const rpcParams = {
+  const rpcParams: AnalyticsRpcParams = {
     start_date: from,
     end_date: to,
-    group_by_key: groupBy,
-    faculty_ids: facultyIds as string[] | null,
-    prodi_ids: prodiIds as string[] | null,
-    lecturer_ids: lecturerIds as string[] | null,
-    term_ids: termIds as string[] | null,
-    editor_ids: editorIds as string[] | null
+    faculty_ids: facultyIds,
+    prodi_ids: prodiIds,
+    lecturer_ids: lecturerIds,
+    term_ids: termIds,
+    editor_ids: editorIds
   };
 
-  // THE FIX IS HERE: We provide both the return type and the parameters type
-  const analyticsPromise = supabase.rpc<AnalyticsData, AnalyticsRpcParams>('get_analytics_data', rpcParams);
-  const keyMetricsPromise = supabase.rpc<KeyMetricsData>('get_key_metrics', rpcParams).single();
+  // --- THIS IS THE FIX ---
+  // We remove the types from the rpc() call itself.
+  const analyticsPromise = supabase.rpc('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
+  const keyMetricsPromise = supabase.rpc('get_key_metrics', rpcParams).single();
 
   const [
-    { data: analyticsData, error: analyticsError },
-    { data: keyMetricsData, error: keyMetricsError }
+    analyticsResult,
+    keyMetricsResult
   ] = await Promise.all([analyticsPromise, keyMetricsPromise]);
 
+  // We apply the types to the destructured data.
+  const analyticsData: AnalyticsData[] | null = analyticsResult.data;
+  const analyticsError = analyticsResult.error;
+  const keyMetricsData: KeyMetricsData | null = keyMetricsResult.data;
+  const keyMetricsError = keyMetricsResult.error;
+
+  // Fetch data for the filter dropdowns
   const facultiesPromise = supabase.from('faculties').select('id, name');
   const prodiPromise = supabase.from('prodi').select('id, name');
   const lecturersPromise = supabase.from('lecturers').select('id, name');
