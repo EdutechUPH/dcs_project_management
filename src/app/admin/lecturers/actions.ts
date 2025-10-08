@@ -3,8 +3,16 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { type LecturerOption } from '@/lib/types';
 
-export async function addLecturer(formData: FormData) {
+// Define a state type for this action's return value
+type ActionState = {
+  error?: string | null;
+  data?: LecturerOption | null;
+}
+
+// THE FIX: Add 'prevState' as the first argument
+export async function addLecturer(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const supabase = createClient();
   const name = formData.get('name') as string;
   const email = formData.get('email') as string;
@@ -12,11 +20,10 @@ export async function addLecturer(formData: FormData) {
   
   if (!name) return { error: 'Lecturer name is required.' };
 
-  // Step 1: Insert the new lecturer and get their ID back
   const { data: newLecturer, error: lecturerError } = await supabase
     .from('lecturers')
     .insert([{ name, email }])
-    .select('id')
+    .select('id, name, email') // Select the full object
     .single();
 
   if (lecturerError) {
@@ -24,7 +31,6 @@ export async function addLecturer(formData: FormData) {
     return { error: 'Database error: Could not add lecturer.' };
   }
 
-  // Step 2: If study programs were selected, link them in the join table
   if (prodiIds && prodiIds.length > 0) {
     const assignments = prodiIds.map(prodiId => ({
       lecturer_id: newLecturer.id,
@@ -41,8 +47,8 @@ export async function addLecturer(formData: FormData) {
     }
   }
   
-  revalidatePath('/projects/new'); // Revalidate the request form page
-  revalidatePath('/admin/lecturers'); // Also revalidate the admin page
+  revalidatePath('/projects/new');
+  revalidatePath('/admin/lecturers');
   return { data: newLecturer };
 }
 
