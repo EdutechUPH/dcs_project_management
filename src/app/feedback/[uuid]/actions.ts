@@ -34,8 +34,8 @@ export async function submitFeedback(submissionUuid: string, prevState: FormStat
     .from('feedback_submission')
     .update(submissionData)
     .eq('submission_uuid', submissionUuid)
-    // The query returns `projects` as an array
-    .select('projects(id)') 
+    // THE FIX IS HERE: We select the project_id directly
+    .select('project_id') 
     .single();
 
   if (error || !data) {
@@ -43,8 +43,8 @@ export async function submitFeedback(submissionUuid: string, prevState: FormStat
     return { message: 'Database Error: Could not submit feedback.' };
   }
   
-  // THE FIX: Access the first item in the 'projects' array
-  const projectId = Array.isArray(data.projects) ? data.projects[0]?.id : data.projects?.id;
+  // We can now access the project_id much more simply
+  const projectId = data.project_id;
   if (projectId) {
     revalidatePath(`/projects/${projectId}`);
   }
