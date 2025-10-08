@@ -6,6 +6,7 @@ import AnalyticsChart from "./AnalyticsChart";
 import KeyMetrics from "./KeyMetrics";
 import { type KeyMetricsData, type Profile, type Option, type AnalyticsData, type AnalyticsRpcParams } from "@/lib/types";
 
+// Define a union type for items that can be mapped
 type Mappable = Option | Profile;
 
 export const revalidate = 0;
@@ -27,25 +28,28 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
   const termIds = toArray(searchParams.terms);
   const editorIds = toArray(searchParams.editors);
 
+  // This rpcParams object is now correct and complete
   const rpcParams: AnalyticsRpcParams = {
     start_date: from,
     end_date: to,
-    group_by_key: groupBy, // This line was missing
-    faculty_ids: facultyIds as string[] | null,
-    prodi_ids: prodiIds as string[] | null,
-    lecturer_ids: lecturerIds as string[] | null,
-    term_ids: termIds as string[] | null,
-    editor_ids: editorIds as string[] | null
+    group_by_key: groupBy,
+    faculty_ids: facultyIds,
+    prodi_ids: prodiIds,
+    lecturer_ids: lecturerIds,
+    term_ids: termIds,
+    editor_ids: editorIds
   };
   
-  const analyticsPromise = supabase.rpc<AnalyticsData>('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
-  const keyMetricsPromise = supabase.rpc<KeyMetricsData>('get_key_metrics', rpcParams).single();
+  // THE FIX IS HERE: We make the calls without the <...> types
+  const analyticsPromise = supabase.rpc('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
+  const keyMetricsPromise = supabase.rpc('get_key_metrics', rpcParams).single();
 
   const [
     analyticsResult,
     keyMetricsResult
   ] = await Promise.all([analyticsPromise, keyMetricsPromise]);
 
+  // And we apply the types to our variables here, which is safer
   const analyticsData: AnalyticsData[] | null = analyticsResult.data;
   const analyticsError = analyticsResult.error;
   const keyMetricsData: KeyMetricsData | null = keyMetricsResult.data;
