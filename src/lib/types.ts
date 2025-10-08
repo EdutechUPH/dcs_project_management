@@ -108,3 +108,16 @@ export interface KeyMetricsData {
   total_duration_minutes: number;
   total_duration_seconds: number;
 }
+
+// Add this to the bottom of src/lib/types.ts
+
+export interface AnalyticsRpcParams {
+  start_date: string | null;
+  end_date: string | null;
+  group_by_key: string;
+  faculty_ids: string[] | null;
+  prodi_ids: string[] | null;
+  lecturer_ids: string[] | null;
+  term_ids: string[] | null;
+  editor_ids: string[] | null;
+}

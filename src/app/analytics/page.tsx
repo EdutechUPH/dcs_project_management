@@ -4,14 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import AnalyticsFilters from "./AnalyticsFilters";
 import AnalyticsChart from "./AnalyticsChart";
 import KeyMetrics from "./KeyMetrics";
-import { type KeyMetricsData, type Profile, type Option, type AnalyticsData } from "@/lib/types";
+import { type KeyMetricsData, type Profile, type Option, type AnalyticsData, type AnalyticsRpcParams } from "@/lib/types"; // Import new type
 
 // Define a union type for items that can be mapped
 type Mappable = Option | Profile;
 
 export const revalidate = 0;
 
-export default async function AnalyticsPage({ searchParams }: { searchParams: { [key:string]: string | string[] | undefined }}) {
+export default async function AnalyticsPage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined }}) {
   const supabase = createClient();
 
   const toArray = (value: string | string[] | undefined) => {
@@ -31,15 +31,16 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
   const rpcParams = {
     start_date: from,
     end_date: to,
-    faculty_ids: facultyIds,
-    prodi_ids: prodiIds,
-    lecturer_ids: lecturerIds,
-    term_ids: termIds,
-    editor_ids: editorIds
+    group_by_key: groupBy,
+    faculty_ids: facultyIds as string[] | null,
+    prodi_ids: prodiIds as string[] | null,
+    lecturer_ids: lecturerIds as string[] | null,
+    term_ids: termIds as string[] | null,
+    editor_ids: editorIds as string[] | null
   };
 
-  // THE FIX IS HERE: The type should be an array, AnalyticsData[]
-  const analyticsPromise = supabase.rpc<AnalyticsData[]>('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
+  // THE FIX IS HERE: We provide both the return type and the parameters type
+  const analyticsPromise = supabase.rpc<AnalyticsData, AnalyticsRpcParams>('get_analytics_data', rpcParams);
   const keyMetricsPromise = supabase.rpc<KeyMetricsData>('get_key_metrics', rpcParams).single();
 
   const [
@@ -47,7 +48,6 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     { data: keyMetricsData, error: keyMetricsError }
   ] = await Promise.all([analyticsPromise, keyMetricsPromise]);
 
-  // Fetch data for the filter dropdowns
   const facultiesPromise = supabase.from('faculties').select('id, name');
   const prodiPromise = supabase.from('prodi').select('id, name');
   const lecturersPromise = supabase.from('lecturers').select('id, name');
