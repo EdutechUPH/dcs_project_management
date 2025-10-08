@@ -28,19 +28,17 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
   const termIds = toArray(searchParams.terms);
   const editorIds = toArray(searchParams.editors);
 
-  // This rpcParams object is now correct and complete
   const rpcParams: AnalyticsRpcParams = {
     start_date: from,
     end_date: to,
     group_by_key: groupBy,
-    faculty_ids: facultyIds,
-    prodi_ids: prodiIds,
-    lecturer_ids: lecturerIds,
-    term_ids: termIds,
-    editor_ids: editorIds
+    faculty_ids: facultyIds as string[] | null,
+    prodi_ids: prodiIds as string[] | null,
+    lecturer_ids: lecturerIds as string[] | null,
+    term_ids: termIds as string[] | null,
+    editor_ids: editorIds as string[] | null
   };
   
-  // THE FIX IS HERE: We make the calls without the <...> types
   const analyticsPromise = supabase.rpc('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
   const keyMetricsPromise = supabase.rpc('get_key_metrics', rpcParams).single();
 
@@ -49,10 +47,10 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     keyMetricsResult
   ] = await Promise.all([analyticsPromise, keyMetricsPromise]);
 
-  // And we apply the types to our variables here, which is safer
-  const analyticsData: AnalyticsData[] | null = analyticsResult.data;
+  const analyticsData: AnalyticsData[] | null = analyticsResult.data as AnalyticsData[] | null;
   const analyticsError = analyticsResult.error;
-  const keyMetricsData: KeyMetricsData | null = keyMetricsResult.data;
+  // THE FIX IS HERE: We use 'as' to tell TypeScript the shape of the data
+  const keyMetricsData: KeyMetricsData | null = keyMetricsResult.data as KeyMetricsData | null;
   const keyMetricsError = keyMetricsResult.error;
 
   // Fetch data for the filter dropdowns
