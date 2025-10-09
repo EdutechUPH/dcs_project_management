@@ -14,11 +14,12 @@ type DataProps = {
   terms: Option[];
   faculties: Option[];
   prodi: ProdiOption[];
+  lecturers: LecturerOption[]; // ✅ Add this
 };
 
 const initialState = { message: '' };
 
-export default function ProjectRequestForm({ terms, faculties, prodi }: DataProps) {
+export default function ProjectRequestForm({ terms, faculties, prodi, lecturers }: DataProps) {
   const [state, formAction] = useActionState(createProject, initialState);
   const router = useRouter();
   
