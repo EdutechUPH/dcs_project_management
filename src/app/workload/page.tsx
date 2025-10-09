@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server';
 import WorkloadList from './WorkloadList';
 import { redirect } from 'next/navigation';
-import { type Profile, type Video } from '@/lib/types';
+import { type Profile, type Video, type Assignment, type Project } from '@/lib/types';
 
 export const revalidate = 0;
 
@@ -39,19 +39,22 @@ export default async function WorkloadPage() {
   // Process the data to only include members with ongoing projects
   const workloadData = (profiles as Profile[])?.map(profile => {
     const ongoingProjects = (profile.project_assignments ?? [])
-      .filter(assignment => assignment.projects)
+      // ✅ type guard ensures projects is not undefined
+      .filter(
+        (assignment): assignment is Assignment & { projects: Project } =>
+          Boolean(assignment.projects)
+      )
       .map(assignment => ({
         assignment_id: assignment.id,
         role: assignment.role,
         assigned_at: assignment.created_at,
         projects: assignment.projects,
       }))
-      // Apply the 'Video' type here to fix the error
       .filter(item =>
-        (item.projects?.videos?.length ?? 0) === 0 ||
-        item.projects?.videos?.some((v: Video) => v.status !== 'Done')
+        (item.projects.videos?.length ?? 0) === 0 ||
+        item.projects.videos?.some((v: Video) => v.status !== 'Done')
       );
-    
+
     return {
       ...profile,
       ongoing_projects: ongoingProjects,
