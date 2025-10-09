@@ -39,7 +39,7 @@ export async function updateProjectDetails(projectId: number, formData: FormData
  * Adds a new video to an existing project.
  */
 export async function addVideoToProject(projectId: number, formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const title = formData.get('title') as string;
   if (!title) return;
 
@@ -70,7 +70,7 @@ export async function addVideoToProject(projectId: number, formData: FormData) {
  * Deletes a video from a project.
  */
 export async function deleteVideo(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const videoId = formData.get('videoId') as string;
   const projectId = formData.get('projectId') as string;
   if (!videoId || !projectId) return;
@@ -86,7 +86,7 @@ export async function deleteVideo(formData: FormData) {
  * Updates all details for an individual video.
  */
 export async function updateVideo(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const videoId = formData.get('videoId') as string;
   const projectId = formData.get('projectId') as string;
   if (!videoId || !projectId) return;
@@ -116,7 +116,7 @@ export async function updateVideo(formData: FormData) {
  * Assigns a user (from profiles) to a project with a specific role.
  */
 export async function assignTeamMember(projectId: number, prevState: FormState, formData: FormData): Promise<FormState> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const profile_id = formData.get('profile_id') as string;
   const role = formData.get('role') as string;
 
@@ -155,7 +155,7 @@ export async function assignTeamMember(projectId: number, prevState: FormState, 
  * Removes a team member's assignment from a project.
  */
 export async function removeTeamMemberAssignment(prevState: FormState, formData: FormData): Promise<FormState> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const assignmentId = formData.get('assignmentId') as string;
   const projectId = formData.get('projectId') as string;
   if (!assignmentId || !projectId) return { message: 'Missing required IDs.' };
@@ -173,7 +173,7 @@ export async function removeTeamMemberAssignment(prevState: FormState, formData:
  * Generates a feedback link for a project.
  */
 export async function requestFeedback(projectId: number) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: existing, error: selectError } = await supabase
     .from('feedback_submission')
     .select('submission_uuid')
@@ -204,7 +204,7 @@ export async function requestFeedback(projectId: number) {
  * Deletes an entire project and all its related data (via cascading).
  */
 export async function deleteProject(prevState: FormState, formData: FormData): Promise<FormState> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'You must be logged in to delete a project.' };
