@@ -81,5 +81,8 @@ export async function getLecturersByProdi(prodiId: number): Promise<LecturerOpti
     return [];
   }
 
-  return data?.map(item => item.lecturers).filter(Boolean) as LecturerOption[] || [];
+  return (data
+    ?.map(item => item.lecturers)
+    .filter((lecturer): lecturer is LecturerOption => Boolean(lecturer))
+  ) ?? [];
 }
