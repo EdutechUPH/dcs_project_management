@@ -70,19 +70,22 @@ export async function createProject(prevState: FormState, formData: FormData): P
 export async function getLecturersByProdi(prodiId: number): Promise<LecturerOption[]> {
   const supabase = createClient();
   if (!prodiId) return [];
-  
+
+  // Explicitly tell Supabase what shape to expect
   const { data, error } = await supabase
     .from('lecturer_prodi_join')
-    .select('lecturers(*)')
+    .select('lecturers(id, name, email)')
     .eq('prodi_id', prodiId);
-  
+
   if (error) {
     console.error('Error fetching lecturers:', error);
     return [];
   }
 
-  return (data
-    ?.map(item => item.lecturers)
-    .filter((lecturer): lecturer is LecturerOption => Boolean(lecturer))
-  ) ?? [];
+  // Explicitly cast each lecturer correctly
+  const lecturers =
+    data?.map((item: { lecturers: LecturerOption | null }) => item.lecturers)
+      .filter((lecturer): lecturer is LecturerOption => Boolean(lecturer)) ?? [];
+
+  return lecturers;
 }
