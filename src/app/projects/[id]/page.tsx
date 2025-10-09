@@ -12,7 +12,7 @@ export const revalidate = 0;
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const projectId = id;
+  const projectId = params.id;
   
   const { data: { user } } = await supabase.auth.getUser();
   const { data: userProfile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).single() : { data: null };
