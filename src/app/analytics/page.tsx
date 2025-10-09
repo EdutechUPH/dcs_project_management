@@ -4,14 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import AnalyticsFilters from "./AnalyticsFilters";
 import AnalyticsChart from "./AnalyticsChart";
 import KeyMetrics from "./KeyMetrics";
-import { type KeyMetricsData, type AnalyticsData, type AnalyticsRpcParams } from "@/lib/types";
+import { type Profile, type Option, type AnalyticsData, type KeyMetricsData } from "@/lib/types";
 
-// THE FIX IS HERE: We make the 'Mappable' type less strict.
-type Mappable = {
-  id: number | string;
-  name?: string;
-  full_name?: string;
-};
+type Mappable = Option | Profile;
 
 export const revalidate = 0;
 
@@ -23,6 +18,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
     return Array.isArray(value) ? value : value.split(',');
   }
 
+  // --- Read all filters from the URL ---
   const from = searchParams.from as string || null;
   const to = searchParams.to as string || null;
   const groupBy = searchParams.groupBy as string || 'faculty';
@@ -32,51 +28,90 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
   const termIds = toArray(searchParams.terms);
   const editorIds = toArray(searchParams.editors);
 
-  const rpcParams: AnalyticsRpcParams = {
-    start_date: from,
-    end_date: to,
-    group_by_key: groupBy,
-    faculty_ids: facultyIds,
-    prodi_ids: prodiIds,
-    lecturer_ids: lecturerIds,
-    term_ids: termIds,
-    editor_ids: editorIds
-  };
+  // --- NEW, MORE DIRECT QUERY ---
+  // We fetch all videos and their related project data
+  let query = supabase
+    .from('videos')
+    .select(`
+      *,
+      projects (
+        *,
+        faculties ( id, name ),
+        prodi ( id, name ),
+        lecturers ( id, name ),
+        terms ( id, name )
+      ),
+      profiles ( id, full_name )
+    `);
+
+  // Apply filters directly to the query
+  if (from) query = query.gte('projects.created_at', from);
+  if (to) query = query.lte('projects.created_at', to);
+  if (facultyIds) query = query.in('projects.faculty_id', facultyIds);
+  if (prodiIds) query = query.in('projects.prodi_id', prodiIds);
+  if (lecturerIds) query = query.in('projects.lecturer_id', lecturerIds);
+  if (termIds) query = query.in('projects.term_id', termIds);
+  if (editorIds) query = query.in('main_editor_id', editorIds);
+
+  const { data: videos, error } = await query;
   
-  const analyticsPromise = supabase.rpc('get_analytics_data', { ...rpcParams, group_by_key: groupBy });
-  const keyMetricsPromise = supabase.rpc('get_key_metrics', rpcParams).single();
-
-  const [
-    analyticsResult,
-    keyMetricsResult
-  ] = await Promise.all([analyticsPromise, keyMetricsPromise]);
-
-  const analyticsData: AnalyticsData[] | null = analyticsResult.data as AnalyticsData[] | null;
-  const analyticsError = analyticsResult.error;
-  const keyMetricsData: KeyMetricsData | null = keyMetricsResult.data as KeyMetricsData | null;
-  const keyMetricsError = keyMetricsResult.error;
-
-  // Fetch data for the filter dropdowns
-  const facultiesPromise = supabase.from('faculties').select('id, name');
-  const prodiPromise = supabase.from('prodi').select('id, name');
-  const lecturersPromise = supabase.from('lecturers').select('id, name');
-  const termsPromise = supabase.from('terms').select('id, name');
-  const editorsPromise = supabase.from('profiles').select('id, full_name');
-
-  const [
-    { data: faculties }, { data: prodi }, { data: lecturers }, { data: terms }, { data: editors }
-  ] = await Promise.all([facultiesPromise, prodiPromise, lecturersPromise, termsPromise, editorsPromise]);
-
-  const error = analyticsError || keyMetricsError;
   if (error) {
     console.error("Error fetching analytics data:", error);
     return <p>Error loading data. Please check the server console.</p>;
   }
 
+  // --- NEW: Data Processing in JavaScript ---
+
+  // 1. Calculate Key Metrics from the filtered videos
+  const completedVideos = videos?.filter(v => v.status === 'Done') || [];
+  const totalMinutes = completedVideos.reduce((acc, v) => acc + (v.duration_minutes || 0), 0);
+  const totalSeconds = completedVideos.reduce((acc, v) => acc + (v.duration_seconds || 0), 0);
+  const keyMetricsData: KeyMetricsData = {
+    total_videos_completed: completedVideos.length,
+    total_duration_minutes: totalMinutes + Math.floor(totalSeconds / 60),
+    total_duration_seconds: totalSeconds % 60,
+  };
+
+  // 2. Calculate Aggregated Data for Charts
+  const getCategory = (video: any): string => {
+    switch (groupBy) {
+      case 'faculty': return video.projects?.faculties?.name || "N/A";
+      case 'prodi': return video.projects?.prodi?.name || "N/A";
+      case 'lecturer': return video.projects?.lecturers?.name || "N/A";
+      case 'term': return video.projects?.terms?.name || "N/A";
+      case 'editor': return video.profiles?.full_name || "Unassigned";
+      default: return 'Overall';
+    }
+  };
+  const aggregatedData = videos?.reduce((acc, video) => {
+    const category = getCategory(video);
+    if (!acc[category]) {
+      acc[category] = { category, active_count: 0, completed_count: 0 };
+    }
+    if (video.status === 'Done') {
+      acc[category].completed_count++;
+    } else {
+      acc[category].active_count++;
+    }
+    return acc;
+  }, {} as Record<string, AnalyticsData>);
+
+  const analyticsData = aggregatedData ? Object.values(aggregatedData) : [];
+  
+  // Fetch data for the filter dropdowns (unchanged)
+  const facultiesPromise = supabase.from('faculties').select('id, name');
+  const prodiPromise = supabase.from('prodi').select('id, name');
+  const lecturersPromise = supabase.from('lecturers').select('id, name');
+  const termsPromise = supabase.from('terms').select('id, name');
+  const editorsPromise = supabase.from('profiles').select('id, full_name');
+  const [
+    { data: faculties }, { data: prodi }, { data: lecturers }, { data: terms }, { data: editors }
+  ] = await Promise.all([facultiesPromise, prodiPromise, lecturersPromise, termsPromise, editorsPromise]);
+
   const mapToOptions = (items: Mappable[] | null) => {
     return items?.map(item => ({ 
       value: item.id.toString(), 
-      label: item.full_name || item.name || '' 
+      label: ('full_name' in item ? item.full_name : item.name) || '' 
     })) || [];
   }
 
@@ -100,8 +135,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <AnalyticsChart data={analyticsData || []} title="Active Videos" dataKey="active_count" fillColor="#3b82f6" />
-        <AnalyticsChart data={analyticsData || []} title="Completed Videos" dataKey="completed_count" fillColor="#10b981" />
+        <AnalyticsChart data={analyticsData} title="Active Videos" dataKey="active_count" fillColor="#3b82f6" />
+        <AnalyticsChart data={analyticsData} title="Completed Videos" dataKey="completed_count" fillColor="#10b981" />
       </div>
     </div>
   );

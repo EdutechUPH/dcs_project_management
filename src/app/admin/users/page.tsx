@@ -2,35 +2,41 @@
 import { createClient } from '@/lib/supabase/server';
 import UserList from './UserList';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { type Profile } from '@/lib/types';
 
 export const revalidate = 0;
 
 export default async function ManageUsersPage() {
   const supabase = await createClient();
 
-  // 1. Fetch all profiles from our public table
+  // 1. Fetch profiles
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
     .select('*')
     .order('full_name');
 
-  // 2. Create a special admin client to fetch all auth users
-  // This uses the Service Role Key and should ONLY be used on the server.
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-  const { data: authUsers, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
+  // 2. Guard against missing environment variables
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  if (!supabaseUrl || !serviceKey) {
+    console.error('Missing Supabase env vars for admin client');
+    return <p>Error: Server is missing configuration.</p>;
+  }
 
+  // 3. Admin client to list all auth users
+  const supabaseAdmin = createAdminClient(supabaseUrl, serviceKey);
+  const { data: authUsersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
+
+  // Handle errors
   const error = profilesError || usersError;
   if (error) {
     console.error("Error loading users:", error);
-    return <p>Error loading users: {error.message}</p>
+    return <p>Error loading users: { "message" in error ? error.message : "An unknown error occurred" }</p>
   }
   
-  // 3. Combine the two lists, adding the email to each profile
-  const usersById = new Map(authUsers?.users.map(user => [user.id, user]));
-  const profilesWithEmail = profiles?.map(profile => ({
+  // 4. Combine the two lists, adding the email to each profile
+  const usersById = new Map((authUsersData?.users ?? []).map((u) => [u.id, u]));
+  const profilesWithEmail = (profiles as Profile[])?.map(profile => ({
     ...profile,
     email: usersById.get(profile.id)?.email,
   }));
