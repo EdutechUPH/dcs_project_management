@@ -4,6 +4,7 @@
 import { addVideoToProject, deleteVideo, updateVideo } from './actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useRef, useState } from 'react';
+import Link from 'next/link';
 import { MAIN_EDITOR_ROLE } from '@/lib/constants';
 import { type Video, type Profile, type Assignment } from '@/lib/types';
 
@@ -30,9 +31,10 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
   const [editingId, setEditingId] = useState<number | null>(null);
   const addVideoWithId = addVideoToProject.bind(null, projectId);
   const formRef = useRef<HTMLFormElement>(null);
-
+  
   const projectMainEditor = assignments.find(a => a.role === MAIN_EDITOR_ROLE);
-  const projectMainEditorId = projectMainEditor?.profile_id || null;
+  // THE FIX IS HERE: Access the id from the nested 'profiles' object
+  const projectMainEditorId = projectMainEditor?.profiles?.id || null;
 
   return (
     <div className="mt-8">
