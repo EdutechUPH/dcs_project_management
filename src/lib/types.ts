@@ -22,6 +22,7 @@ export interface Profile {
   full_name: string;
   role: 'Admin' | 'Instructional Designer' | 'Digital Content Specialist';
   email?: string;
+  project_assignments?: Assignment[]; // 👈 add this line here
 }
 
 export interface Video {
