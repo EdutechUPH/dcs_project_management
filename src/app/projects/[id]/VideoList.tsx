@@ -14,6 +14,8 @@ type VideoListProps = {
   assignments: Assignment[];
 };
 
+// new
+
 const statusColors: { [key: string]: string } = {
   'Done': 'bg-green-100 text-green-800',
   'Review': 'bg-yellow-100 text-yellow-800',
@@ -22,6 +24,7 @@ const statusColors: { [key: string]: string } = {
   'Scheduled for Taping': 'bg-indigo-100 text-indigo-800',
   'Requested': 'bg-gray-100 text-gray-800',
 };
+
 
 const videoStatuses = ['Requested', 'Scheduled for Taping', 'Audio Editing', 'Video Editing', 'Review', 'Done'];
 const languageOptions = ['Indonesian', 'English', 'Others'];
