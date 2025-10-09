@@ -61,7 +61,7 @@ export async function deleteLecturer(formData: FormData) {
 }
 
 export async function updateLecturer(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const id = formData.get('id') as string;
   const name = formData.get('name') as string;
   const email = formData.get('email') as string;
