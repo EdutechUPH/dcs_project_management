@@ -47,7 +47,10 @@ export default async function WorkloadPage() {
         projects: assignment.projects,
       }))
       // Apply the 'Video' type here to fix the error
-      .filter(item => item.projects.videos.length === 0 || item.projects.videos.some((v: Video) => v.status !== 'Done'));
+      .filter(item =>
+        (item.projects?.videos?.length ?? 0) === 0 ||
+        item.projects?.videos?.some((v: Video) => v.status !== 'Done')
+      );
     
     return {
       ...profile,
