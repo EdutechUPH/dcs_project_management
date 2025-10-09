@@ -4,29 +4,36 @@ import { createClient } from '@/lib/supabase/middleware';
 
 export async function middleware(request: NextRequest) {
   const { supabase, response } = createClient(request);
-
   const { data: { session } } = await supabase.auth.getSession();
 
   const publicRoutes = ['/login', '/auth/callback'];
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
-  const isPublicRoute = publicRoutes.includes(request.nextUrl.pathname);
+  const isOnPublicRoute = publicRoutes.includes(request.nextUrl.pathname);
+  const isOnOnboarding = request.nextUrl.pathname.startsWith('/onboarding');
 
-  if (!session && !isPublicRoute) {
+  // If user is not logged in and is trying to access a protected route, redirect to login
+  if (!session && !isOnPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
 
-  if (session && isAdminRoute) {
-    // We only need the 'profile' data, so we can ignore the 'error'
+  if (session) {
+    // Fetch profile for the logged-in user
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('full_name, role')
       .eq('id', session.user.id)
       .single();
 
-    if (profile?.role !== 'Admin') {
+    // If profile is incomplete and they are not on the onboarding page, redirect them.
+    if (!profile?.full_name && !isOnOnboarding) {
+      return NextResponse.redirect(new URL('/onboarding', request.url));
+    }
+    
+    // Admin route protection
+    const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
+    if (isAdminRoute && profile?.role !== 'Admin') {
       return NextResponse.redirect(new URL('/', request.url));
     }
   }

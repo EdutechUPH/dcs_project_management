@@ -131,7 +131,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: { 
         prodi={mapToOptions(prodi)}
         lecturers={mapToOptions(lecturers)}
         terms={mapToOptions(terms)}
-        editors={mapToOptions(editors)}
+        editors={mapToOptions(editors as Mappable[] | null)}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
