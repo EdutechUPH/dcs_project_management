@@ -71,7 +71,6 @@ export async function getLecturersByProdi(prodiId: number): Promise<LecturerOpti
   const supabase = createClient();
   if (!prodiId) return [];
 
-  // Explicitly tell Supabase what shape to expect
   const { data, error } = await supabase
     .from('lecturer_prodi_join')
     .select('lecturers(id, name, email)')
@@ -82,9 +81,10 @@ export async function getLecturersByProdi(prodiId: number): Promise<LecturerOpti
     return [];
   }
 
-  // Explicitly cast each lecturer correctly
+  // Supabase returns an array of objects with lecturers: LecturerOption[]
+  // We flatten them safely and filter out nulls
   const lecturers =
-    data?.map((item: { lecturers: LecturerOption | null }) => item.lecturers)
+    data?.flatMap((item: { lecturers: LecturerOption[] | null }) => item.lecturers ?? [])
       .filter((lecturer): lecturer is LecturerOption => Boolean(lecturer)) ?? [];
 
   return lecturers;
