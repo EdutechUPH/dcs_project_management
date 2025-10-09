@@ -68,7 +68,7 @@ export async function createProject(prevState: FormState, formData: FormData): P
 }
 
 export async function getLecturersByProdi(prodiId: number): Promise<LecturerOption[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
   if (!prodiId) return [];
 
   const { data, error } = await supabase
