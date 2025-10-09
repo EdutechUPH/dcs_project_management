@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function addProdi(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const name = formData.get('name') as string;
   const faculty_id = formData.get('faculty_id') as string;
   if (!name || !faculty_id) return;
