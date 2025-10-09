@@ -4,11 +4,12 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { type LecturerOption } from '@/lib/types';
 
 // Define a specific type for our form state
 type FormState = {
   message: string;
-}
+};
 
 export async function createProject(prevState: FormState, formData: FormData): Promise<FormState> {
   const supabase = createClient();
@@ -66,13 +67,19 @@ export async function createProject(prevState: FormState, formData: FormData): P
   redirect('/');
 }
 
-export async function getLecturersByProdi(prodiId: number) {
+export async function getLecturersByProdi(prodiId: number): Promise<LecturerOption[]> {
   const supabase = createClient();
   if (!prodiId) return [];
-  const { data, error } = await supabase.from('lecturer_prodi_join').select('lecturers(*)').eq('prodi_id', prodiId);
+  
+  const { data, error } = await supabase
+    .from('lecturer_prodi_join')
+    .select('lecturers(*)')
+    .eq('prodi_id', prodiId);
+  
   if (error) {
     console.error('Error fetching lecturers:', error);
     return [];
   }
-  return data.map(item => item.lecturers).filter(Boolean); // Filter out nulls
+
+  return data?.map(item => item.lecturers).filter(Boolean) as LecturerOption[] || [];
 }

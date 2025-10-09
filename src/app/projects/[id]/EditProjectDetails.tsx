@@ -6,9 +6,8 @@ import { updateProjectDetails, deleteProject } from './actions';
 import { getLecturersByProdi } from '@/app/projects/new/actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useActionState } from 'react';
-import { type Project as ProjectType } from '@/lib/types';
+import { type Project as ProjectType, type LecturerOption } from '@/lib/types';
 
-// Define MasterLists type locally for this component
 type MasterLists = {
   terms: { id: number; name: string }[];
   faculties: { id: number; name: string }[];
@@ -20,8 +19,6 @@ type EditProjectDetailsProps = {
   masterLists: MasterLists;
   userRole: string;
 };
-
-type Lecturer = { id: number; name: string; };
 
 const DetailItem = ({ label, value }: { label: string; value: string | null | undefined }) => (
   <div>
@@ -35,7 +32,7 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
   const [selectedFaculty, setSelectedFaculty] = useState(project.faculty_id.toString());
   const [filteredProdi, setFilteredProdi] = useState<{ id: number; name: string }[]>([]);
   const [selectedProdi, setSelectedProdi] = useState(project.prodi_id.toString());
-  const [filteredLecturers, setFilteredLecturers] = useState<Lecturer[]>([]);
+  const [filteredLecturers, setFilteredLecturers] = useState<LecturerOption[]>([]);
   const [isLoadingLecturers, setIsLoadingLecturers] = useState(false);
 
   useEffect(() => {
@@ -49,13 +46,12 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
       if (selectedProdi) {
         setIsLoadingLecturers(true);
         const lecturersData = await getLecturersByProdi(parseInt(selectedProdi));
-        setFilteredLecturers(lecturersData.filter(Boolean) as Lecturer[]);
+        setFilteredLecturers(lecturersData);
         setIsLoadingLecturers(false);
       } else {
         setFilteredLecturers([]);
       }
     }
-    // Initial fetch for the pre-selected prodi
     fetchLecturers();
   }, [selectedProdi]);
 
