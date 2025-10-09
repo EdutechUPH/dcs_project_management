@@ -29,7 +29,7 @@ export default function AddLecturerModal({ prodi, onClose, onLecturerAdded }: Ad
     });
 
     startTransition(async () => {
-      const result = await addLecturer(formData);
+      const result = await addLecturer({ error: null, data: null }, formData);
       if (result?.error) {
         setError(result.error);
       } else {
