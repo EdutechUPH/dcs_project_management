@@ -38,7 +38,7 @@ export default async function WorkloadPage() {
 
   // Process the data to only include members with ongoing projects
   const workloadData = (profiles as Profile[])?.map(profile => {
-    const ongoingProjects = profile.project_assignments
+    const ongoingProjects = (profile.project_assignments ?? [])
       .filter(assignment => assignment.projects)
       .map(assignment => ({
         assignment_id: assignment.id,
