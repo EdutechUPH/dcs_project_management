@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 export async function updateLecturerAssignments(lecturerId: number, formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const prodiIds = formData.getAll('prodi_id') as string[];
 
   // 1. Delete all existing assignments for this lecturer

@@ -13,7 +13,7 @@ type ActionState = {
 
 // THE FIX: Add 'prevState' as the first argument
 export async function addLecturer(prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const name = formData.get('name') as string;
   const email = formData.get('email') as string;
   const prodiIds = formData.getAll('prodi_ids') as string[];
@@ -53,7 +53,7 @@ export async function addLecturer(prevState: ActionState, formData: FormData): P
 }
 
 export async function deleteLecturer(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const id = formData.get('id') as string;
   if (!id) return;
   await supabase.from('lecturers').delete().match({ id });

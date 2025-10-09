@@ -7,7 +7,7 @@ import SubmitButton from '@/components/SubmitButton'; // Import the button
 export const revalidate = 0;
 
 export default async function ProdiPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const prodiPromise = supabase.from('prodi').select('*, faculties(name)').order('name', { ascending: true });
   const facultiesPromise = supabase.from('faculties').select('*').order('name', { ascending: true });
 

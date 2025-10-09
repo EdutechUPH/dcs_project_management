@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'; // Use the server helper
 import { revalidatePath } from 'next/cache';
 
 export async function addFaculty(formData: FormData) {
-  const supabase = createClient(); // Create the client instance
+  const supabase = await createClient(); // Create the client instance
   const facultyName = formData.get('name') as string;
   if (!facultyName) return;
   await supabase.from('faculties').insert([{ name: facultyName }]);
@@ -13,7 +13,7 @@ export async function addFaculty(formData: FormData) {
 }
 
 export async function deleteFaculty(formData: FormData) {
-  const supabase = createClient(); // Create the client instance
+  const supabase = await createClient(); // Create the client instance
   const facultyId = formData.get('id') as string;
   if (!facultyId) return;
   await supabase.from('faculties').delete().match({ id: facultyId });
@@ -21,7 +21,7 @@ export async function deleteFaculty(formData: FormData) {
 }
 
 export async function updateFaculty(formData: FormData) {
-  const supabase = createClient(); // Create the client instance
+  const supabase = await createClient(); // Create the client instance
   const facultyId = formData.get('id') as string;
   const facultyName = formData.get('name') as string;
   if (!facultyId || !facultyName) return;

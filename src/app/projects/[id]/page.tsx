@@ -11,7 +11,7 @@ import { type Project as ProjectType } from '@/lib/types';
 export const revalidate = 0;
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const projectId = params.id;
   
   const { data: { user } } = await supabase.auth.getUser();

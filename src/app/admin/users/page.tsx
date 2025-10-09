@@ -6,7 +6,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js';
 export const revalidate = 0;
 
 export default async function ManageUsersPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1. Fetch all profiles from our public table
   const { data: profiles, error: profilesError } = await supabase

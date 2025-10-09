@@ -16,7 +16,7 @@ type Mappable = {
 export const revalidate = 0;
 
 export default async function AnalyticsPage({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined }}) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const toArray = (value: string | string[] | undefined) => {
     if (!value) return null;

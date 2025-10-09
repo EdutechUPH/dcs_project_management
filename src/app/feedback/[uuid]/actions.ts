@@ -10,7 +10,7 @@ type FormState = {
 };
 
 export async function submitFeedback(submissionUuid: string, prevState: FormState, formData: FormData): Promise<FormState> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const submissionData = {
     rating_pre_production: Number(formData.get('rating_pre_production')),

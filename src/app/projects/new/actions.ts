@@ -12,7 +12,7 @@ type FormState = {
 };
 
 export async function createProject(prevState: FormState, formData: FormData): Promise<FormState> {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   const course_name = formData.get('course_name') as string;
   const term_id = Number(formData.get('term_id'));

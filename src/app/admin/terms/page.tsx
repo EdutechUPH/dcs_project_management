@@ -7,7 +7,7 @@ import SubmitButton from '@/components/SubmitButton';
 export const revalidate = 0;
 
 export default async function TermsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: terms, error } = await supabase.from('terms').select('*').order('name', { ascending: true });
   if (error) return <p>Error: {error.message}</p>;
 

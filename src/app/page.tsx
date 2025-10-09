@@ -8,7 +8,7 @@ import { type Project, type Video, type Profile } from '@/lib/types';
 export const revalidate = 0;
 
 export default async function HomePage({ searchParams }: { searchParams: { [key: string]: string | undefined }}) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   let query = supabase
     .from('projects')

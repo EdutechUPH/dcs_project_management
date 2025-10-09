@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function addTerm(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const name = formData.get('name') as string;
   if (!name) return;
   await supabase.from('terms').insert([{ name }]);
@@ -13,7 +13,7 @@ export async function addTerm(formData: FormData) {
 }
 
 export async function deleteTerm(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const id = formData.get('id') as string;
   if (!id) return;
   await supabase.from('terms').delete().match({ id });
@@ -21,7 +21,7 @@ export async function deleteTerm(formData: FormData) {
 }
 
 export async function updateTerm(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const id = formData.get('id') as string;
   const name = formData.get('name') as string;
   if (!id || !name) return;

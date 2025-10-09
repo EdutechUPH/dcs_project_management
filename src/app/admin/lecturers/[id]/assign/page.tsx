@@ -7,7 +7,7 @@ import Link from 'next/link';
 export const revalidate = 0;
 
 export default async function AssignProgramsPage({ params }: { params: { id: string } }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const lecturerId = parseInt(params.id);
 
   const lecturerPromise = supabase.from('lecturers').select('id, name').eq('id', lecturerId).single();

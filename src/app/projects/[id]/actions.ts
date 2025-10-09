@@ -16,7 +16,7 @@ type FormState = {
  * Updates the main details of a project (course name, lecturer, etc.).
  */
 export async function updateProjectDetails(projectId: number, formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const projectData = {
     course_name: formData.get('course_name') as string,
     term_id: Number(formData.get('term_id')),

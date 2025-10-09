@@ -5,7 +5,7 @@ import ProjectRequestForm from './ProjectRequestForm';
 export const revalidate = 0;
 
 export default async function NewProjectPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Fetch all necessary data for dropdowns in parallel
   const [

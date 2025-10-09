@@ -8,7 +8,7 @@ import { deleteLecturer, updateLecturer } from './actions';
 export const revalidate = 0;
 
 export default async function LecturersPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: lecturers, error } = await supabase.from('lecturers').select('*, lecturer_prodi_join(prodi(name))').order('name', { ascending: true });
   if (error) return <p>Error: {error.message}</p>;

@@ -7,7 +7,7 @@ import { type Project, type Video } from '@/lib/types';
 export const revalidate = 0;
 
 export default async function MyProjectsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {

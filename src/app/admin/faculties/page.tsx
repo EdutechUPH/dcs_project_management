@@ -6,7 +6,7 @@ import { addFaculty, deleteFaculty, updateFaculty } from './actions';
 export const revalidate = 0;
 
 export default async function FacultiesPage() {
-  const supabase = createClient(); // Create the client instance
+  const supabase = await createClient(); // Create the client instance
 
   const { data: faculties, error } = await supabase
     .from('faculties')

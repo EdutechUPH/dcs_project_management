@@ -15,7 +15,7 @@ export async function addProdi(formData: FormData) {
 }
 
 export async function deleteProdi(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const id = formData.get('id') as string;
   if (!id) return;
   await supabase.from('prodi').delete().match({ id });
@@ -23,7 +23,7 @@ export async function deleteProdi(formData: FormData) {
 }
 
 export async function updateProdi(formData: FormData) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const id = formData.get('id') as string;
   const name = formData.get('name') as string;
   const faculty_id = formData.get('faculty_id') as string;

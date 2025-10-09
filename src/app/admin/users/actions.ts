@@ -9,7 +9,7 @@ type ActionState = {
 };
 
 export async function updateUserRole(prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // First, check if the person making the request is an Admin
   const { data: { user } } = await supabase.auth.getUser();
