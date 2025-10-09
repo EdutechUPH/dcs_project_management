@@ -6,6 +6,31 @@ import AnalyticsChart from "./AnalyticsChart";
 import KeyMetrics from "./KeyMetrics";
 import { type AnalyticsData, type KeyMetricsData } from "@/lib/types";
 
+// Minimal shapes used by this page (avoid `any`)
+type Named = { id: number | string; name: string };
+type ProfileNamed = { id: string; full_name: string | null };
+
+type ProjectJoin = {
+  created_at?: string | null;
+  faculty_id?: string | null;
+  prodi_id?: string | null;
+  lecturer_id?: string | null;
+  term_id?: string | null;
+  faculties?: Named | null;
+  prodi?: Named | null;
+  lecturers?: Named | null;
+  terms?: Named | null;
+};
+
+type VideoRow = {
+  status: string;
+  duration_minutes?: number | null;
+  duration_seconds?: number | null;
+  main_editor_id?: string | null;
+  projects?: ProjectJoin | null;
+  profiles?: ProfileNamed | null; // main editor profile
+};
+
 // Local, minimal type for mapping dropdown items
 type Mappable = {
   id: number | string;
@@ -64,21 +89,24 @@ export default async function AnalyticsPage({
   if (termIds) query = query.in("projects.term_id", termIds);
   if (editorIds) query = query.in("main_editor_id", editorIds);
 
-  const { data: videos, error } = await query;
+  const queryRes = await query;
 
-  if (error) {
-    console.error("Error fetching analytics data:", error);
+  if (queryRes.error) {
+    console.error("Error fetching analytics data:", queryRes.error);
     return <p>Error loading data. Please check the server console.</p>;
   }
 
+  // Cast to the narrow shape we use in this page
+  const videos: VideoRow[] = (queryRes.data ?? []) as VideoRow[];
+
   // --- Key Metrics from filtered videos ---
-  const completedVideos = (videos ?? []).filter((v: any) => v.status === "Done");
+  const completedVideos = videos.filter((v) => v.status === "Done");
   const totalMinutes = completedVideos.reduce(
-    (acc: number, v: any) => acc + (v.duration_minutes || 0),
+    (acc, v) => acc + (v.duration_minutes ?? 0),
     0
   );
   const totalSeconds = completedVideos.reduce(
-    (acc: number, v: any) => acc + (v.duration_seconds || 0),
+    (acc, v) => acc + (v.duration_seconds ?? 0),
     0
   );
   const keyMetricsData: KeyMetricsData = {
@@ -88,35 +116,35 @@ export default async function AnalyticsPage({
   };
 
   // --- Aggregate data for charts ---
-  const getCategory = (video: any): string => {
+  const getCategory = (video: VideoRow): string => {
     switch (groupBy) {
       case "faculty":
-        return video.projects?.faculties?.name || "N/A";
+        return video.projects?.faculties?.name ?? "N/A";
       case "prodi":
-        return video.projects?.prodi?.name || "N/A";
+        return video.projects?.prodi?.name ?? "N/A";
       case "lecturer":
-        return video.projects?.lecturers?.name || "N/A";
+        return video.projects?.lecturers?.name ?? "N/A";
       case "term":
-        return video.projects?.terms?.name || "N/A";
+        return video.projects?.terms?.name ?? "N/A";
       case "editor":
-        return video.profiles?.full_name || "Unassigned";
+        return video.profiles?.full_name ?? "Unassigned";
       default:
         return "Overall";
     }
   };
 
-  const aggregatedData = (videos ?? []).reduce((acc: Record<string, AnalyticsData>, video: any) => {
+  const aggregatedData = videos.reduce<Record<string, AnalyticsData>>((acc, video) => {
     const category = getCategory(video);
     if (!acc[category]) {
       acc[category] = { category, active_count: 0, completed_count: 0 };
     }
     if (video.status === "Done") {
-      acc[category].completed_count++;
+      acc[category].completed_count += 1;
     } else {
-      acc[category].active_count++;
+      acc[category].active_count += 1;
     }
     return acc;
-  }, {} as Record<string, AnalyticsData>);
+  }, {});
 
   const analyticsData = Object.values(aggregatedData);
 
