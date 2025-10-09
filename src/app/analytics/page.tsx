@@ -1,17 +1,12 @@
 // src/app/analytics/page.tsx
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
-import AnalyticsFilters from './AnalyticsFilters';
-import AnalyticsChart from './AnalyticsChart';
-import KeyMetrics from './KeyMetrics';
-import {
-  type KeyMetricsData,
-  // removed unused Profile, Option
-  type AnalyticsData,
-  type AnalyticsRpcParams,
-} from '@/lib/types';
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import AnalyticsFilters from "./AnalyticsFilters";
+import AnalyticsChart from "./AnalyticsChart";
+import KeyMetrics from "./KeyMetrics";
+import { type AnalyticsData, type KeyMetricsData } from "@/lib/types";
 
-// A specific type for the items we map to options
+// Local, minimal type for mapping dropdown items
 type Mappable = {
   id: number | string;
   name?: string;
@@ -27,67 +22,110 @@ export default async function AnalyticsPage({
 }) {
   const supabase = await createClient();
 
-  const toArray = (value: string | string[] | undefined) => {
-    if (!value) return null as string[] | null;
-    return Array.isArray(value) ? value : value.split(',');
+  const toArray = (value: string | string[] | undefined): string[] | null => {
+    if (!value) return null;
+    return Array.isArray(value) ? value : value.split(",");
   };
 
+  // --- Read all filters from the URL ---
   const from = (searchParams.from as string) || null;
   const to = (searchParams.to as string) || null;
-  const groupBy = (searchParams.groupBy as string) || 'faculty';
+  const groupBy = (searchParams.groupBy as string) || "faculty";
   const facultyIds = toArray(searchParams.faculties);
   const prodiIds = toArray(searchParams.prodi);
   const lecturerIds = toArray(searchParams.lecturers);
   const termIds = toArray(searchParams.terms);
   const editorIds = toArray(searchParams.editors);
 
-  const rpcParams: AnalyticsRpcParams = {
-    start_date: from,
-    end_date: to,
-    group_by_key: groupBy,
-    faculty_ids: facultyIds,
-    prodi_ids: prodiIds,
-    lecturer_ids: lecturerIds,
-    term_ids: termIds,
-    editor_ids: editorIds,
-  };
+  // --- Query videos + related project/editor info ---
+  // Use !inner so filtering on `projects.*` works as intended.
+  let query = supabase
+    .from("videos")
+    .select(
+      `
+      *,
+      projects!inner (
+        *,
+        faculties ( id, name ),
+        prodi ( id, name ),
+        lecturers ( id, name ),
+        terms ( id, name )
+      ),
+      profiles ( id, full_name )
+    `
+    );
 
-  const analyticsPromise = supabase.rpc('get_analytics_data', {
-    ...rpcParams,
-    group_by_key: groupBy,
-  });
-  const keyMetricsPromise = supabase.rpc('get_key_metrics', rpcParams).single();
+  // Apply filters directly to the query
+  if (from) query = query.gte("projects.created_at", from);
+  if (to) query = query.lte("projects.created_at", to);
+  if (facultyIds) query = query.in("projects.faculty_id", facultyIds);
+  if (prodiIds) query = query.in("projects.prodi_id", prodiIds);
+  if (lecturerIds) query = query.in("projects.lecturer_id", lecturerIds);
+  if (termIds) query = query.in("projects.term_id", termIds);
+  if (editorIds) query = query.in("main_editor_id", editorIds);
 
-  const [analyticsResult, keyMetricsResult] = await Promise.all([
-    analyticsPromise,
-    keyMetricsPromise,
-  ]);
+  const { data: videos, error } = await query;
 
-  const analyticsError = analyticsResult.error ?? null;
-  const keyMetricsError = keyMetricsResult.error ?? null;
-
-  // ✅ Early return on error (avoid extra queries and noisy logs)
-  if (analyticsError || keyMetricsError) {
-    console.error('Error fetching analytics data:', analyticsError ?? keyMetricsError);
+  if (error) {
+    console.error("Error fetching analytics data:", error);
     return <p>Error loading data. Please check the server console.</p>;
   }
 
-  const analyticsData = (analyticsResult.data as AnalyticsData[] | null) ?? [];
+  // --- Key Metrics from filtered videos ---
+  const completedVideos = (videos ?? []).filter((v: any) => v.status === "Done");
+  const totalMinutes = completedVideos.reduce(
+    (acc: number, v: any) => acc + (v.duration_minutes || 0),
+    0
+  );
+  const totalSeconds = completedVideos.reduce(
+    (acc: number, v: any) => acc + (v.duration_seconds || 0),
+    0
+  );
+  const keyMetricsData: KeyMetricsData = {
+    total_videos_completed: completedVideos.length,
+    total_duration_minutes: totalMinutes + Math.floor(totalSeconds / 60),
+    total_duration_seconds: totalSeconds % 60,
+  };
 
-  // Provide a safe fallback for KeyMetrics
-  const keyMetricsData: KeyMetricsData =
-    (keyMetricsResult.data as KeyMetricsData | null) ?? {
-      total_videos_completed: 0,
-      total_duration_minutes: 0,
-      total_duration_seconds: 0,
-    };
+  // --- Aggregate data for charts ---
+  const getCategory = (video: any): string => {
+    switch (groupBy) {
+      case "faculty":
+        return video.projects?.faculties?.name || "N/A";
+      case "prodi":
+        return video.projects?.prodi?.name || "N/A";
+      case "lecturer":
+        return video.projects?.lecturers?.name || "N/A";
+      case "term":
+        return video.projects?.terms?.name || "N/A";
+      case "editor":
+        return video.profiles?.full_name || "Unassigned";
+      default:
+        return "Overall";
+    }
+  };
 
-  // Fetch data for the filter dropdowns
-  const facultiesPromise = supabase.from('faculties').select('id, name');
-  const prodiPromise = supabase.from('prodi').select('id, name');
-  const lecturersPromise = supabase.from('lecturers').select('id, name');
-  const termsPromise = supabase.from('terms').select('id, name');
-  const editorsPromise = supabase.from('profiles').select('id, full_name');
+  const aggregatedData = (videos ?? []).reduce((acc: Record<string, AnalyticsData>, video: any) => {
+    const category = getCategory(video);
+    if (!acc[category]) {
+      acc[category] = { category, active_count: 0, completed_count: 0 };
+    }
+    if (video.status === "Done") {
+      acc[category].completed_count++;
+    } else {
+      acc[category].active_count++;
+    }
+    return acc;
+  }, {} as Record<string, AnalyticsData>);
+
+  const analyticsData = Object.values(aggregatedData);
+
+  // --- Fetch data for filter dropdowns ---
+  const facultiesPromise = supabase.from("faculties").select("id, name");
+  const prodiPromise = supabase.from("prodi").select("id, name");
+  const lecturersPromise = supabase.from("lecturers").select("id, name");
+  const termsPromise = supabase.from("terms").select("id, name");
+  const editorsPromise = supabase.from("profiles").select("id, full_name");
 
   const [
     { data: faculties },
@@ -103,13 +141,11 @@ export default async function AnalyticsPage({
     editorsPromise,
   ]);
 
-  const mapToOptions = (items: Mappable[] | null) => {
-    if (!items) return [] as { value: string; label: string }[];
-    return items.map((item) => ({
+  const mapToOptions = (items: Mappable[] | null | undefined) =>
+    (items ?? []).map((item) => ({
       value: item.id.toString(),
-      label: item.full_name || item.name || '',
+      label: item.full_name || item.name || "",
     }));
-  };
 
   return (
     <div className="p-8">
