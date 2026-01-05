@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server';
-import { updateUserRole, deleteUser } from '../actions';
 import Link from 'next/link';
 
 // Simple Client Component for the Row Actions to avoid complex table setup for now

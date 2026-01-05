@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { addFaculty, deleteFaculty } from '../actions';
+import { addFaculty, deleteFaculty } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2 } from 'lucide-react';
@@ -32,11 +32,9 @@ export default async function FacultiesPage() {
                 </div>
                 <div className="flex gap-1">
                   <EditFacultyModal faculty={f} />
-                  <form action={async () => {
-                    'use server';
-                    await deleteFaculty(f.id);
-                  }}>
-                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                  <form action={deleteFaculty}>
+                    <input type="hidden" name="id" value={f.id} />
+                    <Button type="submit" variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </form>
