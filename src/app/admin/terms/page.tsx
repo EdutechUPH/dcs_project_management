@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { addTerm, deleteTerm } from '../actions';
+import { addTerm, deleteTerm } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2 } from 'lucide-react';
@@ -26,11 +26,9 @@ export default async function TermsPage() {
             {terms?.map((t) => (
               <li key={t.id} className="px-4 py-3 flex justify-between items-center hover:bg-gray-50">
                 <span>{t.name}</span>
-                <form action={async () => {
-                  'use server';
-                  await deleteTerm(t.id);
-                }}>
-                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                <form action={deleteTerm}>
+                  <input type="hidden" name="id" value={t.id} />
+                  <Button type="submit" variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </form>
