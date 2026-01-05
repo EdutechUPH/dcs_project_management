@@ -2,7 +2,7 @@
 'use client';
 
 import { type Profile } from '@/lib/types';
-import UserRow from './UserRow';
+import { UserRow } from './UserRow';
 
 export default function UserList({ profiles }: { profiles: Profile[] }) {
   return (

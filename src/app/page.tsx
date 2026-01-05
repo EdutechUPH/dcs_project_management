@@ -103,10 +103,10 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
          Stats Row - NOW ACCURATE via lightweight global query 
       */}
       <DashboardStats
-        activeCount={globalIncomplete.length}
-        videosWipCount={globalWipVideos}
-        overdueCount={globalOverdue}
-        completedCount={globalComplete.length}
+        totalActive={globalIncomplete.length}
+        videosInProduction={globalWipVideos}
+        overdueProjects={globalOverdue}
+        totalCompleted={globalComplete.length}
       />
 
       <div className="flex justify-between items-center mb-6 mt-8 gap-4">
