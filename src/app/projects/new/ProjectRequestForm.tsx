@@ -22,7 +22,7 @@ const initialState = { message: '' };
 export default function ProjectRequestForm({ terms, faculties, prodi, lecturers }: DataProps) {
   const [state, formAction] = useActionState(createProject, initialState);
   const router = useRouter();
-  
+
   const [selectedFaculty, setSelectedFaculty] = useState('');
   const [filteredProdi, setFilteredProdi] = useState<ProdiOption[]>([]);
   const [selectedProdi, setSelectedProdi] = useState('');
@@ -47,7 +47,7 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
     newTitles[index] = value;
     setVideoTitles(newTitles);
   };
-  
+
   useEffect(() => {
     if (selectedFaculty) {
       setFilteredProdi(prodi.filter(p => p.faculty_id === parseInt(selectedFaculty)));
@@ -75,7 +75,7 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
   useEffect(() => {
     const count = Number(videoCount) || 0;
     setVideoTitles(currentTitles => {
-      const newTitles = Array.from({ length: count }, (_, i) => 
+      const newTitles = Array.from({ length: count }, (_, i) =>
         currentTitles[i] || `Video ${i + 1}${courseName ? ` - ${courseName}` : ''}`
       );
       return newTitles;
@@ -118,6 +118,14 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
                 {terms?.map(term => <option key={term.id} value={term.id}>{term.name}</option>)}
               </select>
             </div>
+            <div>
+              <label htmlFor="project_type" className="block text-sm font-medium text-gray-700">Project Type</label>
+              <select name="project_type" id="project_type" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                <option value="Taping and Editing">Taping and Editing</option>
+                <option value="Animation">Animation</option>
+                <option value="Translation">Translation</option>
+              </select>
+            </div>
             <div className="md:col-span-2 space-y-6">
               <div>
                 <label htmlFor="faculty_id" className="block text-sm font-medium text-gray-700">1. Select Faculty</label>
@@ -136,8 +144,8 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
               <div>
                 <div className="flex justify-between items-center">
                   <label htmlFor="lecturer_id" className="block text-sm font-medium text-gray-700">3. Select Lecturer</label>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setIsModalOpen(true)}
                     className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                   >
@@ -154,7 +162,7 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
               <label htmlFor="video_count" className="block text-sm font-medium text-gray-700">
                 Number of Videos <span className="text-gray-500 font-normal">(this can be edited later)</span>
               </label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" name="video_count" id="video_count" value={videoCount} onChange={handleVideoCountChange} className="mt-1 block w-24 rounded-md border-gray-300 shadow-sm p-2"/>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" name="video_count" id="video_count" value={videoCount} onChange={handleVideoCountChange} className="mt-1 block w-24 rounded-md border-gray-300 shadow-sm p-2" />
             </div>
             <div className="md:col-span-2 space-y-2">
               {videoTitles.map((title, index) => (
@@ -178,12 +186,12 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
       </form>
 
       {isModalOpen && (
-        <AddLecturerModal 
+        <AddLecturerModal
           prodi={prodi}
-          onClose={() => setIsModalOpen(false)} 
+          onClose={() => setIsModalOpen(false)}
           onLecturerAdded={() => {
-            router.refresh(); 
-          }} 
+            router.refresh();
+          }}
         />
       )}
     </>

@@ -35,19 +35,66 @@ export async function submitFeedback(submissionUuid: string, prevState: FormStat
     .update(submissionData)
     .eq('submission_uuid', submissionUuid)
     // THE FIX IS HERE: We select the project_id directly
-    .select('project_id') 
+    .select('project_id')
     .single();
 
   if (error || !data) {
     console.error('Error submitting feedback:', error);
     return { message: 'Database Error: Could not submit feedback.' };
   }
-  
+
   // We can now access the project_id much more simply
   const projectId = data.project_id;
   if (projectId) {
     revalidatePath(`/projects/${projectId}`);
   }
-  
+
   redirect('/feedback/thank-you');
+}
+
+export async function externalApproveVideo(uuid: string, videoId: number) {
+  const supabase = await createClient();
+
+  // Validate ownership via UUID
+  const { data: submission } = await supabase.from('feedback_submission').select('project_id').eq('submission_uuid', uuid).single();
+  if (!submission) return false;
+
+  const { error } = await supabase
+    .from('videos')
+    .update({ status: 'Done' })
+    .eq('id', videoId)
+    .eq('project_id', submission.project_id); // Ensure video belongs to this project
+
+  if (error) {
+    console.error("Error approving video:", error);
+    return false;
+  }
+  revalidatePath(`/feedback/${uuid}`);
+  revalidatePath(`/projects/${submission.project_id}`);
+  return true;
+}
+
+export async function externalRequestRevision(uuid: string, videoId: number, notes: string) {
+  const supabase = await createClient();
+
+  // Validate ownership via UUID
+  const { data: submission } = await supabase.from('feedback_submission').select('project_id').eq('submission_uuid', uuid).single();
+  if (!submission) return false;
+
+  const { error } = await supabase
+    .from('videos')
+    .update({
+      status: 'Revision Requested',
+      revision_notes: notes
+    })
+    .eq('id', videoId)
+    .eq('project_id', submission.project_id);
+
+  if (error) {
+    console.error("Error requesting revision:", error);
+    return false;
+  }
+  revalidatePath(`/feedback/${uuid}`);
+  revalidatePath(`/projects/${submission.project_id}`);
+  return true;
 }

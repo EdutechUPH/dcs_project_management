@@ -1,51 +1,70 @@
-// src/app/admin/faculties/page.tsx
-import { createClient } from '@/lib/supabase/server'; // Use the server helper
-import FacultyList from './FacultyList';
-import { addFaculty, deleteFaculty, updateFaculty } from './actions';
-
-export const revalidate = 0;
+import { createClient } from '@/lib/supabase/server';
+import { addFaculty, deleteFaculty } from '../actions';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { EditFacultyModal } from './EditFacultyModal';
 
 export default async function FacultiesPage() {
-  const supabase = await createClient(); // Create the client instance
-
-  const { data: faculties, error } = await supabase
-    .from('faculties')
-    .select('*')
-    .order('name', { ascending: true });
-
-  if (error) {
-    return <p>Error fetching faculties: {error.message}</p>;
-  }
+  const supabase = await createClient();
+  const { data: faculties } = await supabase.from('faculties').select('*').order('name');
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Manage Faculties</h1>
-      
-      <form action={addFaculty} className="mb-6 p-4 border rounded-md bg-gray-50">
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700">New Faculty Name</label>
-        <div className="mt-1 flex rounded-md shadow-sm">
-          <input
-            type="text"
-            name="name"
-            id="name"
-            className="flex-1 block w-full rounded-none rounded-l-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-            placeholder="e.g., School of Design"
-            required
-          />
-          {/* Note: This button should be updated to use our reusable SubmitButton */}
-          <button type="submit" className="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200">
-            Save Faculty
-          </button>
-        </div>
-      </form>
+    <div className="p-8 max-w-4xl mx-auto">
+      <div className="mb-8">
+        <Link href="/admin" className="text-sm text-gray-500 hover:text-gray-800">← Back to Admin</Link>
+        <h1 className="text-3xl font-bold mt-2">Manage Faculties</h1>
+      </div>
 
-      <div className="mt-4">
-        <h2 className="text-lg font-semibold">Existing Faculties</h2>
-        <FacultyList 
-          faculties={faculties ?? []} 
-          deleteFaculty={deleteFaculty} 
-          updateFaculty={updateFaculty}
-        />
+      <div className="grid gap-8 md:grid-cols-2">
+        {/* List */}
+        <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
+          <div className="bg-gray-50 px-4 py-3 border-b">
+            <h3 className="font-semibold text-gray-700">Existing Faculties</h3>
+          </div>
+          <ul className="divide-y divide-gray-100">
+            {faculties?.map((f) => (
+              <li key={f.id} className="px-4 py-3 flex justify-between items-center hover:bg-gray-50">
+                <div className="flex flex-col">
+                  <span className="font-medium">{f.name}</span>
+                  <span className="text-xs text-gray-500">{f.short_name ? `Short: ${f.short_name}` : 'No short name'}</span>
+                </div>
+                <div className="flex gap-1">
+                  <EditFacultyModal faculty={f} />
+                  <form action={async () => {
+                    'use server';
+                    await deleteFaculty(f.id);
+                  }}>
+                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </form>
+                </div>
+              </li>
+            ))}
+            {faculties?.length === 0 && <li className="p-4 text-gray-400 text-center italic">No faculties found.</li>}
+          </ul>
+        </div>
+
+        {/* Add Form */}
+        <div className="h-fit bg-white border rounded-lg p-6 shadow-sm sticky top-8">
+          <h3 className="font-semibold text-gray-800 mb-4">Add New Faculty</h3>
+          <form action={addFaculty} className="flex flex-col gap-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700">Faculty Name</label>
+              <Input name="name" placeholder="e.g. Business School" required className="mt-1" />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700">Short Name (for Charts)</label>
+              <Input name="short_name" placeholder="e.g. UPH-BS" className="mt-1" />
+            </div>
+            <Button type="submit">Add</Button>
+          </form>
+          <p className="text-xs text-gray-500 mt-2">
+            Note: Deleting a faculty currently assigned to projects may cause data inconsistencies.
+          </p>
+        </div>
       </div>
     </div>
   );

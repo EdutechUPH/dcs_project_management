@@ -39,6 +39,7 @@ export interface Video {
   has_english_subtitle: boolean;
   has_indonesian_subtitle: boolean;
   profiles: Profile | null;
+  revision_notes?: string | null;
 }
 
 export interface Assignment {
@@ -69,6 +70,7 @@ export interface Project {
   videos: Video[];
   project_assignments: Assignment[];
   feedback_submission: FeedbackSubmission | null;
+  project_type?: string;
 }
 
 
@@ -76,6 +78,7 @@ export interface Project {
 
 export interface AnalyticsData {
   category: string;
+  full_category?: string;
   active_count: number;
   completed_count: number;
 }

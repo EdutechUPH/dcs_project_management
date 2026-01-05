@@ -113,6 +113,25 @@ export async function updateVideo(formData: FormData) {
 }
 
 /**
+ * Updates just the status of a video (for Approval Workflow).
+ */
+export async function updateVideoStatus(formData: FormData) {
+  const supabase = await createClient();
+  const videoId = formData.get('videoId') as string;
+  const projectId = formData.get('projectId') as string;
+  const newStatus = formData.get('newStatus') as string;
+
+  if (!videoId || !projectId || !newStatus) return;
+
+  const { error } = await supabase.from('videos').update({ status: newStatus }).eq('id', videoId);
+  if (error) {
+    console.error('Error updating status:', error);
+    return;
+  }
+  revalidatePath(`/projects/${projectId}`);
+}
+
+/**
  * Assigns a user (from profiles) to a project with a specific role.
  */
 export async function assignTeamMember(projectId: number, prevState: FormState, formData: FormData): Promise<FormState> {
@@ -176,28 +195,52 @@ export async function requestFeedback(projectId: number) {
   const supabase = await createClient();
   const { data: existing, error: selectError } = await supabase
     .from('feedback_submission')
-    .select('submission_uuid')
+    .select('submission_uuid, slug')
     .eq('project_id', projectId)
     .maybeSingle();
-    
+
   if (selectError) {
     console.error("Error checking for existing feedback:", selectError);
     return { error: 'Database error.' };
   }
   if (existing) {
-    return { uuid: existing.submission_uuid };
+    return {
+      uuid: existing.submission_uuid,
+      slug: existing.slug
+    };
   }
+
+  // Generate readable slug: "Course-Name-RandomChars"
+  // Generate readable slug: "course-name-randomchars"
+  const { data: project } = await supabase.from('projects').select('course_name').eq('id', projectId).single();
+
+  const courseName = project?.course_name
+    ?.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric chars with hyphens
+    .replace(/^-+|-+$/g, '')     // Trim leading/trailing hyphens
+    .slice(0, 40) || 'project';
+
+  const randomChars = Math.random().toString(36).substring(2, 7); // lowercase random chars
+  const newSlug = `${courseName}-${randomChars}`;
+
   const { data: newSubmission, error: insertError } = await supabase
     .from('feedback_submission')
-    .insert({ project_id: projectId })
-    .select('submission_uuid')
+    .insert({
+      project_id: projectId,
+      slug: newSlug
+    })
+    .select('submission_uuid, slug')
     .single();
+
   if (insertError || !newSubmission) {
     console.error("Error creating new feedback submission:", insertError);
     return { error: 'Failed to create feedback link.' };
   }
   revalidatePath(`/projects/${projectId}`);
-  return { uuid: newSubmission.submission_uuid };
+  return {
+    uuid: newSubmission.submission_uuid,
+    slug: newSubmission.slug
+  };
 }
 
 /**
@@ -205,7 +248,7 @@ export async function requestFeedback(projectId: number) {
  */
 export async function deleteProject(prevState: FormState, formData: FormData): Promise<FormState> {
   const supabase = await createClient();
-  
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'You must be logged in to delete a project.' };
 
@@ -214,13 +257,13 @@ export async function deleteProject(prevState: FormState, formData: FormData): P
     .select('role')
     .eq('id', user.id)
     .single();
-  
+
   if (profile?.role !== 'Admin') {
     return { error: 'You do not have permission to delete this project.' };
   }
 
   const projectId = formData.get('projectId') as string;
-  if (!projectId) return { error: 'Project ID is missing.'};
+  if (!projectId) return { error: 'Project ID is missing.' };
 
   const { error } = await supabase.from('projects').delete().eq('id', projectId);
 
@@ -228,7 +271,7 @@ export async function deleteProject(prevState: FormState, formData: FormData): P
     console.error('Error deleting project:', error);
     return { error: 'Database error: Could not delete the project.' };
   }
-  
+
   revalidatePath('/');
   redirect('/');
 }

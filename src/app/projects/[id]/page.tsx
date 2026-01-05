@@ -13,7 +13,7 @@ export const revalidate = 0;
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
   const supabase = await createClient();
   const projectId = params.id;
-  
+
   const { data: { user } } = await supabase.auth.getUser();
   const { data: userProfile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).single() : { data: null };
 
@@ -26,7 +26,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
       prodi(name, faculties(name)), 
       videos(*), 
       project_assignments(*, profiles(*)), 
-      feedback_submission(submission_uuid, submitted_at)
+      feedback_submission(submission_uuid, submitted_at, slug)
     `)
     .eq('id', projectId)
     .order('created_at', { foreignTable: 'videos', ascending: true })
@@ -59,10 +59,10 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
     notFound();
   }
 
-  const masterLists = { 
-    terms: terms || [], 
-    faculties: faculties || [], 
-    prodi: prodi || [] 
+  const masterLists = {
+    terms: terms || [],
+    faculties: faculties || [],
+    prodi: prodi || []
   };
   const feedbackSubmission = project.feedback_submission || null;
 
@@ -73,26 +73,26 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
         <h1 className="text-4xl font-bold mt-2">{project.course_name}</h1>
         <p className="text-lg text-gray-500">A project for {project.lecturers?.name}</p>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           <div className="p-6 border rounded-lg bg-white">
-            <EditProjectDetails 
+            <EditProjectDetails
               project={project as ProjectType}
-              masterLists={masterLists} 
-              userRole={userProfile?.role || ''} 
+              masterLists={masterLists}
+              userRole={userProfile?.role || ''}
             />
           </div>
-          <VideoList 
-            videos={project.videos} 
-            projectId={project.id} 
+          <VideoList
+            videos={project.videos}
+            projectId={project.id}
             profiles={profiles || []}
-            assignments={project.project_assignments || []} 
+            assignments={project.project_assignments || []}
           />
         </div>
-        
+
         <div className="lg:col-span-1 space-y-8">
-          <AssignedTeam 
+          <AssignedTeam
             projectId={project.id}
             assignments={project.project_assignments}
             profiles={profiles || []}

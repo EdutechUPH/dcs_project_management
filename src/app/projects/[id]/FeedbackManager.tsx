@@ -9,20 +9,25 @@ type FeedbackManagerProps = {
   feedbackSubmission: {
     submission_uuid: string;
     submitted_at: string | null;
+    slug?: string | null;
   } | null;
 };
 
 export default function FeedbackManager({ projectId, feedbackSubmission }: FeedbackManagerProps) {
   const [uuid, setUuid] = useState(feedbackSubmission?.submission_uuid || null);
+  const [slug, setSlug] = useState(feedbackSubmission?.slug || null);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const [feedbackLink, setFeedbackLink] = useState('');
 
   useEffect(() => {
-    if (uuid) {
+    if (slug) {
+      setFeedbackLink(`${window.location.origin}/feedback/${slug}`);
+    } else if (uuid) {
+      // Fallback for old links
       setFeedbackLink(`${window.location.origin}/feedback/${uuid}`);
     }
-  }, [uuid]);
+  }, [uuid, slug]);
 
   const handleRequestFeedback = () => {
     setError('');
@@ -30,8 +35,9 @@ export default function FeedbackManager({ projectId, feedbackSubmission }: Feedb
       const result = await requestFeedback(projectId);
       if (result.error) {
         setError(result.error);
-      } else if (result.uuid) {
-        setUuid(result.uuid);
+      } else {
+        if (result.uuid) setUuid(result.uuid);
+        if (result.slug) setSlug(result.slug);
       }
     });
   };
@@ -54,13 +60,13 @@ export default function FeedbackManager({ projectId, feedbackSubmission }: Feedb
         {feedbackLink ? (
           <div>
             <p className="text-sm font-medium text-gray-700">Share this secure link with the lecturer:</p>
-            <input 
-              type="text" 
-              readOnly 
+            <input
+              type="text"
+              readOnly
               value={feedbackLink}
               className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm p-2"
             />
-            <button 
+            <button
               onClick={() => navigator.clipboard.writeText(feedbackLink)}
               className="mt-2 text-sm text-blue-600 hover:underline"
             >
@@ -70,7 +76,7 @@ export default function FeedbackManager({ projectId, feedbackSubmission }: Feedb
         ) : (
           <div>
             <p className="text-sm text-gray-500 mb-2">Generate a unique link to request feedback for this project.</p>
-            <button 
+            <button
               onClick={handleRequestFeedback}
               disabled={isPending}
               className="bg-gray-800 text-white rounded-md shadow-sm py-2 px-4 hover:bg-gray-700 disabled:bg-gray-400"

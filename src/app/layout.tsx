@@ -2,7 +2,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/Header";
+// import Header from "@/components/Header"; // Removed old header
+import { Sidebar } from "@/components/Sidebar";
 
 // Add this line to disable caching for the layout
 export const dynamic = 'force-dynamic';
@@ -22,8 +23,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Header />
-        <main>{children}</main>
+        <div className="flex h-screen overflow-hidden bg-white">
+          <Sidebar />
+          <div className="flex-1 flex flex-col overflow-y-auto h-full">
+            <main className="flex-1 bg-white">{children}</main>
+          </div>
+        </div>
       </body>
     </html>
   );

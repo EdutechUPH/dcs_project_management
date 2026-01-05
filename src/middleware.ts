@@ -6,8 +6,8 @@ export async function middleware(request: NextRequest) {
   const { supabase, response } = createClient(request);
   const { data: { session } } = await supabase.auth.getSession();
 
-  const publicRoutes = ['/login', '/auth/callback'];
-  const isOnPublicRoute = publicRoutes.includes(request.nextUrl.pathname);
+  const publicRoutes = ['/login', '/auth/callback', '/feedback'];
+  const isOnPublicRoute = publicRoutes.some(route => request.nextUrl.pathname.startsWith(route));
   const isOnOnboarding = request.nextUrl.pathname.startsWith('/onboarding');
 
   // If user is not logged in and is trying to access a protected route, redirect to login
@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
     if (!profile?.full_name && !isOnOnboarding) {
       return NextResponse.redirect(new URL('/onboarding', request.url));
     }
-    
+
     // Admin route protection
     const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
     if (isAdminRoute && profile?.role !== 'Admin') {

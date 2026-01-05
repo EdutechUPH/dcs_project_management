@@ -1,50 +1,49 @@
-// src/app/admin/users/page.tsx
 import { createClient } from '@/lib/supabase/server';
-import UserList from './UserList';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { type Profile } from '@/lib/types';
+import { updateUserRole, deleteUser } from '../actions';
+import Link from 'next/link';
 
-export const revalidate = 0;
+// Simple Client Component for the Row Actions to avoid complex table setup for now
+import { UserRow } from './UserRow';
 
-export default async function ManageUsersPage() {
+export default async function AdminUsersPage() {
   const supabase = await createClient();
 
-  // 1. Fetch profiles
-  const { data: profiles, error: profilesError } = await supabase
+  // Fetch all profiles
+  const { data: profiles, error } = await supabase
     .from('profiles')
     .select('*')
     .order('full_name');
 
-  // 2. Guard against missing environment variables
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  if (!supabaseUrl || !serviceKey) {
-    console.error('Missing Supabase env vars for admin client');
-    return <p>Error: Server is missing configuration.</p>;
-  }
-
-  // 3. Admin client to list all auth users
-  const supabaseAdmin = createAdminClient(supabaseUrl, serviceKey);
-  const { data: authUsersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
-
-  // Handle errors
-  const error = profilesError || usersError;
   if (error) {
-    console.error("Error loading users:", error);
-    return <p>Error loading users: { "message" in error ? error.message : "An unknown error occurred" }</p>
+    return <div className="p-8">Error loading users: {error.message}</div>;
   }
-  
-  // 4. Combine the two lists, adding the email to each profile
-  const usersById = new Map((authUsersData?.users ?? []).map((u) => [u.id, u]));
-  const profilesWithEmail = (profiles as Profile[])?.map(profile => ({
-    ...profile,
-    email: usersById.get(profile.id)?.email,
-  }));
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Manage User Roles</h1>
-      <UserList profiles={profilesWithEmail ?? []} />
+    <div className="p-8 max-w-6xl mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <Link href="/admin" className="text-sm text-gray-600 hover:underline">← Back to Admin Dashboard</Link>
+          <h1 className="text-3xl font-bold mt-2">Manage Users</h1>
+          <p className="text-gray-500">View and manage user roles and access permissions.</p>
+        </div>
+      </div>
+
+      <div className="bg-white border rounded-lg overflow-hidden shadow-sm">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name / Email</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {profiles?.map((profile) => (
+              <UserRow key={profile.id} profile={profile} />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

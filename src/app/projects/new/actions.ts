@@ -13,7 +13,7 @@ type FormState = {
 
 export async function createProject(prevState: FormState, formData: FormData): Promise<FormState> {
   const supabase = await createClient();
-  
+
   const course_name = formData.get('course_name') as string;
   const term_id = Number(formData.get('term_id'));
   const faculty_id = Number(formData.get('faculty_id'));
@@ -30,10 +30,11 @@ export async function createProject(prevState: FormState, formData: FormData): P
     faculty_id,
     prodi_id,
     lecturer_id,
+    project_type: formData.get('project_type') as string || 'Taping and Editing', // Default
     notes: formData.get('notes') as string,
     due_date: formData.get('due_date') as string,
   };
-  
+
   const { data: newProject, error: projectError } = await supabase
     .from('projects')
     .insert(projectData)
@@ -61,7 +62,7 @@ export async function createProject(prevState: FormState, formData: FormData): P
       return { message: `Database Error: Failed to create videos. Check terminal for details.` };
     }
   }
-  
+
   revalidatePath('/');
   revalidatePath(`/projects/${newProject.id}`);
   redirect('/');

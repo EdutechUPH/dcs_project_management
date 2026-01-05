@@ -35,7 +35,7 @@ export default function AnalyticsFilters({ faculties, prodi, lecturers, terms, e
   const [selectedTerms, setSelectedTerms] = useState<string[]>(searchParams.get('terms')?.split(',') || []);
   const [selectedEditors, setSelectedEditors] = useState<string[]>(searchParams.get('editors')?.split(',') || []);
   const [groupBy, setGroupBy] = useState(searchParams.get('groupBy') || 'faculty');
-  
+
   const handleApplyFilters = () => {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -75,11 +75,12 @@ export default function AnalyticsFilters({ faculties, prodi, lecturers, terms, e
             <option value="lecturer">Group By Lecturer</option>
             <option value="term">Group By Term</option>
             <option value="editor">Group By Editor</option>
+            <option value="type">Group By Work Type</option>
           </select>
         </div>
       </div>
       <div className="flex flex-wrap items-end gap-4">
-         <div>
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Date Range (Project Creation Date)</label>
           <DayPicker mode="range" selected={date} onSelect={setDate} className="bg-white p-2 rounded-md border" />
         </div>

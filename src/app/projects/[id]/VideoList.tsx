@@ -1,7 +1,7 @@
 // src/app/projects/[id]/VideoList.tsx
 'use client';
 
-import { addVideoToProject, deleteVideo, updateVideo } from './actions';
+import { addVideoToProject, deleteVideo, updateVideo, updateVideoStatus } from './actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useRef, useState } from 'react';
 import { MAIN_EDITOR_ROLE } from '@/lib/constants';
@@ -23,6 +23,9 @@ const statusColors: { [key: string]: string } = {
   'Audio Editing': 'bg-pink-100 text-pink-800',
   'Scheduled for Taping': 'bg-indigo-100 text-indigo-800',
   'Requested': 'bg-gray-100 text-gray-800',
+  'WIP': 'bg-blue-50 text-blue-600 border border-blue-200',
+  'Ready for Review': 'bg-yellow-50 text-yellow-600 border border-yellow-200',
+  'Revision Requested': 'bg-orange-50 text-orange-600 border border-orange-200',
 };
 
 
@@ -44,7 +47,7 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
         <h2 className="text-xl font-semibold">Videos in this Project</h2>
       </div>
 
-      <form 
+      <form
         action={async (formData) => {
           await addVideoWithId(formData);
           formRef.current?.reset();
@@ -64,7 +67,7 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                 <form action={updateVideo} onSubmit={() => setEditingId(null)} className="space-y-4">
                   <input type="hidden" name="videoId" value={video.id} />
                   <input type="hidden" name="projectId" value={projectId} />
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium">Title</label>
@@ -78,9 +81,9 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                     </div>
                     <div className="md:col-span-2">
                       <label className="text-sm font-medium">Main Editor</label>
-                      <select 
-                        name="main_editor_id" 
-                        defaultValue={video.main_editor_id || projectMainEditorId || ''} 
+                      <select
+                        name="main_editor_id"
+                        defaultValue={video.main_editor_id || projectMainEditorId || ''}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
                       >
                         <option value="">Unassigned</option>
@@ -89,7 +92,7 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                         ))}
                       </select>
                     </div>
-                     <div>
+                    <div>
                       <label className="text-sm font-medium">Language</label>
                       <select name="language" defaultValue={video.language || 'Indonesian'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                         {languageOptions.map(lang => <option key={lang}>{lang}</option>)}
@@ -99,23 +102,23 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                       <label className="text-sm font-medium">Video Link</label>
                       <input type="text" name="video_link" defaultValue={video.video_link || ''} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
                     </div>
-                     <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium">Duration:</label>
-                        <input type="number" name="duration_minutes" placeholder="Mins" defaultValue={video.duration_minutes || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
-                        <input type="number" name="duration_seconds" placeholder="Secs" defaultValue={video.duration_seconds || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-medium">Duration:</label>
+                      <input type="number" name="duration_minutes" placeholder="Mins" defaultValue={video.duration_minutes || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
+                      <input type="number" name="duration_seconds" placeholder="Secs" defaultValue={video.duration_seconds || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
                     </div>
-                     <div className="flex items-center gap-4 pt-4">
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" name="has_english_subtitle" id={`eng-sub-${video.id}`} defaultChecked={video.has_english_subtitle} className="h-4 w-4 rounded border-gray-300" />
-                          <label htmlFor={`eng-sub-${video.id}`} className="text-sm">English Subtitles</label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" name="has_indonesian_subtitle" id={`ind-sub-${video.id}`} defaultChecked={video.has_indonesian_subtitle} className="h-4 w-4 rounded border-gray-300" />
-                          <label htmlFor={`ind-sub-${video.id}`} className="text-sm">Indonesian Subtitles</label>
-                        </div>
+                    <div className="flex items-center gap-4 pt-4">
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" name="has_english_subtitle" id={`eng-sub-${video.id}`} defaultChecked={video.has_english_subtitle} className="h-4 w-4 rounded border-gray-300" />
+                        <label htmlFor={`eng-sub-${video.id}`} className="text-sm">English Subtitles</label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" name="has_indonesian_subtitle" id={`ind-sub-${video.id}`} defaultChecked={video.has_indonesian_subtitle} className="h-4 w-4 rounded border-gray-300" />
+                        <label htmlFor={`ind-sub-${video.id}`} className="text-sm">Indonesian Subtitles</label>
+                      </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-end gap-2 pt-2 border-t">
                     <button type="button" onClick={() => setEditingId(null)} className="text-sm font-medium text-gray-600">Cancel</button>
                     <SubmitButton className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-400" pendingText="Saving...">Save</SubmitButton>
@@ -131,6 +134,55 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[video.status] || 'bg-gray-100 text-gray-800'}`}>
                       {video.status}
                     </span>
+
+                    {/* Approval Workflow Buttons */}
+                    {video.status === 'WIP' && (
+                      video.video_link ? (
+                        <form action={updateVideoStatus}>
+                          <input type="text" name="videoId" value={video.id} readOnly className="hidden" />
+                          <input type="text" name="projectId" value={projectId} readOnly className="hidden" />
+                          <input type="text" name="newStatus" value="Ready for Review" readOnly className="hidden" />
+                          <SubmitButton className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200" pendingText="...">Request Review</SubmitButton>
+                        </form>
+                      ) : (
+                        <span className="text-xs text-red-500 font-medium px-2 py-1 bg-red-50 rounded border border-red-100" title="Add a video link to request review">
+                          Link required
+                        </span>
+                      )
+                    )}
+
+                    {video.status === 'Ready for Review' && (
+                      <div className="flex gap-2">
+                        <form action={updateVideoStatus}>
+                          <input type="hidden" name="videoId" value={video.id} />
+                          <input type="hidden" name="projectId" value={projectId} />
+                          <input type="hidden" name="newStatus" value="Revision Requested" />
+                          <SubmitButton className="px-3 py-1 text-sm bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200" pendingText="...">Request Revision</SubmitButton>
+                        </form>
+                        <form action={updateVideoStatus}>
+                          <input type="hidden" name="videoId" value={video.id} />
+                          <input type="hidden" name="projectId" value={projectId} />
+                          <input type="hidden" name="newStatus" value="Done" />
+                          <SubmitButton className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-md hover:bg-green-200" pendingText="...">Approve</SubmitButton>
+                        </form>
+                      </div>
+                    )}
+
+                    {video.status === 'Revision Requested' && (
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="text-xs bg-orange-50 text-orange-800 p-2 rounded border border-orange-200 max-w-xs text-right">
+                          <strong>Revision Request:</strong><br />
+                          {video.revision_notes || "Please check the comments."}
+                        </div>
+                        <form action={updateVideoStatus}>
+                          <input type="hidden" name="videoId" value={video.id} />
+                          <input type="hidden" name="projectId" value={projectId} />
+                          <input type="hidden" name="newStatus" value="Ready for Review" />
+                          <SubmitButton className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200" pendingText="...">Mark Ready</SubmitButton>
+                        </form>
+                      </div>
+                    )}
+
                     <button onClick={() => setEditingId(video.id)} className="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50">Edit</button>
                     <form action={deleteVideo} onSubmit={(e) => { if (!confirm('Are you sure?')) e.preventDefault(); }}>
                       <input type="hidden" name="videoId" value={video.id} />

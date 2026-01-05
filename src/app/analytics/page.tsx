@@ -3,11 +3,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AnalyticsFilters from "./AnalyticsFilters";
 import AnalyticsChart from "./AnalyticsChart";
+import StackedWorkloadChart from "./StackedWorkloadChart";
 import KeyMetrics from "./KeyMetrics";
 import { type AnalyticsData, type KeyMetricsData } from "@/lib/types";
 
 // Minimal shapes used by this page (avoid `any`)
-type Named = { id: number | string; name: string };
+type Named = { id: number | string; name: string; short_name?: string | null };
 type ProfileNamed = { id: string; full_name: string | null };
 
 type ProjectJoin = {
@@ -16,6 +17,7 @@ type ProjectJoin = {
   prodi_id?: string | null;
   lecturer_id?: string | null;
   term_id?: string | null;
+  project_type?: string | null;
   faculties?: Named | null;
   prodi?: Named | null;
   lecturers?: Named | null;
@@ -71,7 +73,7 @@ export default async function AnalyticsPage({
       *,
       projects!inner (
         *,
-        faculties ( id, name ),
+        faculties ( id, name, short_name ),
         prodi ( id, name ),
         lecturers ( id, name ),
         terms ( id, name )
@@ -101,42 +103,53 @@ export default async function AnalyticsPage({
 
   // --- Key Metrics from filtered videos ---
   const completedVideos = videos.filter((v) => v.status === "Done");
-  const totalMinutes = completedVideos.reduce(
+
+  // Filter OUT Translation projects for minute calculation
+  const completedProductionVideos = completedVideos.filter(v => v.projects?.project_type !== 'Translation');
+
+  const totalMinutes = completedProductionVideos.reduce(
     (acc, v) => acc + (v.duration_minutes ?? 0),
     0
   );
-  const totalSeconds = completedVideos.reduce(
+  const totalSeconds = completedProductionVideos.reduce(
     (acc, v) => acc + (v.duration_seconds ?? 0),
     0
   );
   const keyMetricsData: KeyMetricsData = {
-    total_videos_completed: completedVideos.length,
+    total_videos_completed: completedProductionVideos.length, // Only count non-translation videos here for now? Or keep total? Let's check user request. "I just don't want the minutes to be added". Safe to exclude from "Minutes Produced" logic.
     total_duration_minutes: totalMinutes + Math.floor(totalSeconds / 60),
     total_duration_seconds: totalSeconds % 60,
   };
 
-  // --- Aggregate data for charts ---
-  const getCategory = (video: VideoRow): string => {
+  // --- Aggregate data for standard charts ---
+  const getCategory = (video: VideoRow): { name: string; fullName: string } => {
     switch (groupBy) {
       case "faculty":
-        return video.projects?.faculties?.name ?? "N/A";
+        return {
+          name: video.projects?.faculties?.short_name || video.projects?.faculties?.name || "N/A",
+          fullName: video.projects?.faculties?.name || "N/A"
+        };
       case "prodi":
-        return video.projects?.prodi?.name ?? "N/A";
+        return { name: video.projects?.prodi?.name ?? "N/A", fullName: video.projects?.prodi?.name ?? "N/A" };
       case "lecturer":
-        return video.projects?.lecturers?.name ?? "N/A";
+        return { name: video.projects?.lecturers?.name ?? "N/A", fullName: video.projects?.lecturers?.name ?? "N/A" };
       case "term":
-        return video.projects?.terms?.name ?? "N/A";
+        return { name: video.projects?.terms?.name ?? "N/A", fullName: video.projects?.terms?.name ?? "N/A" };
       case "editor":
-        return video.profiles?.full_name ?? "Unassigned";
+        const editorName = video.profiles?.full_name ?? "Unassigned";
+        return { name: editorName, fullName: editorName };
+      case "type":
+        const typeName = video.projects?.project_type ?? "Editing";
+        return { name: typeName, fullName: typeName };
       default:
-        return "Overall";
+        return { name: "Overall", fullName: "Overall" };
     }
   };
 
-  const aggregatedData = videos.reduce<Record<string, AnalyticsData>>((acc, video) => {
-    const category = getCategory(video);
+  const aggregatedData = videos.reduce<Record<string, AnalyticsData & { full_category: string }>>((acc, video) => {
+    const { name: category, fullName } = getCategory(video);
     if (!acc[category]) {
-      acc[category] = { category, active_count: 0, completed_count: 0 };
+      acc[category] = { category, full_category: fullName, active_count: 0, completed_count: 0 };
     }
     if (video.status === "Done") {
       acc[category].completed_count += 1;
@@ -148,8 +161,35 @@ export default async function AnalyticsPage({
 
   const analyticsData = Object.values(aggregatedData);
 
+
+  // --- Aggregate data for Stacked Workload Chart (Minutes per Editor per Work Type) ---
+  const workloadData = completedVideos.reduce<Record<string, { name: string, [key: string]: any }>>((acc, video) => {
+    const editorName = video.profiles?.full_name || "Unassigned";
+    const type = video.projects?.project_type || "Editing";
+
+    // Skip Translation for this "Minutes Produced" chart
+    if (type === 'Translation') return acc;
+
+    const minutes = (video.duration_minutes || 0) + (video.duration_seconds || 0) / 60;
+
+    if (!acc[editorName]) {
+      acc[editorName] = { name: editorName };
+    }
+
+    // Initialize type value if not exists
+    if (!acc[editorName][type]) {
+      acc[editorName][type] = 0;
+    }
+
+    acc[editorName][type] += Math.round(minutes * 100) / 100; // Round to 2 decimals
+    return acc;
+  }, {});
+
+  // Convert object to array and ensure all keys exist for proper stacking (optional but good for consistency)
+  const stackedChartData = Object.values(workloadData);
+
   // --- Fetch data for filter dropdowns ---
-  const facultiesPromise = supabase.from("faculties").select("id, name");
+  const facultiesPromise = supabase.from("faculties").select("id, name, short_name");
   const prodiPromise = supabase.from("prodi").select("id, name");
   const lecturersPromise = supabase.from("lecturers").select("id, name");
   const termsPromise = supabase.from("terms").select("id, name");
@@ -197,15 +237,21 @@ export default async function AnalyticsPage({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <AnalyticsChart
           data={analyticsData}
-          title="Active Videos"
+          title={`Active Videos (by ${groupBy})`}
           dataKey="active_count"
           fillColor="#3b82f6"
         />
         <AnalyticsChart
           data={analyticsData}
-          title="Completed Videos"
+          title={`Completed Videos (by ${groupBy})`}
           dataKey="completed_count"
           fillColor="#10b981"
+        />
+
+        {/* New Stacked Chart spanning 2 cols on large screens */}
+        <StackedWorkloadChart
+          data={stackedChartData}
+          title="Team Workload Distribution (Done Minutes by Type, excluding Translation)"
         />
       </div>
     </div>

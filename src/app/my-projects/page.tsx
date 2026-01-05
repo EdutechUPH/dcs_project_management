@@ -1,8 +1,9 @@
 // src/app/my-projects/page.tsx
 import { createClient } from '@/lib/supabase/server';
-import ProjectList from '@/app/ProjectList';
 import { redirect } from 'next/navigation';
 import { type Project, type Video } from '@/lib/types';
+import { DataTable } from '@/app/projects/data-table/data-table';
+import { columns } from '@/app/projects/data-table/columns';
 
 export const revalidate = 0;
 
@@ -28,7 +29,7 @@ export default async function MyProjectsPage() {
     console.error("My Projects fetch error:", error);
     return <p>Error fetching your projects: {error.message}</p>;
   }
-  
+
   const incompleteProjects = (projects as Project[])?.filter(p => p.videos.some((v: Video) => v.status !== 'Done') || p.videos.length === 0) || [];
   const completeProjects = (projects as Project[])?.filter(p => p.videos.length > 0 && p.videos.every((v: Video) => v.status === 'Done')) || [];
 
@@ -38,36 +39,26 @@ export default async function MyProjectsPage() {
         <h1 className="text-3xl font-bold">My Projects</h1>
       </div>
 
-      <h2 className="text-2xl font-semibold mb-4">My Incomplete Projects</h2>
-      <div className="border rounded-lg overflow-x-auto mb-8">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="w-1/3 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project / Course</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Program</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Main Editor/Videographer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-            </tr>
-          </thead>
-          <ProjectList projects={incompleteProjects} />
-        </table>
-      </div>
+      <div className="space-y-8">
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-2xl font-semibold text-gray-800">My Ongoing Projects</h2>
+            <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 text-sm font-medium">
+              {incompleteProjects.length}
+            </span>
+          </div>
+          <DataTable columns={columns} data={incompleteProjects} />
+        </section>
 
-      <h2 className="text-2xl font-semibold mb-4">My Completed Projects</h2>
-      <div className="border rounded-lg overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-             <tr>
-              <th className="w-1/3 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project / Course</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Study Program</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Main Editor/Videographer</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-            </tr>
-          </thead>
-          <ProjectList projects={completeProjects} />
-        </table>
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-2xl font-semibold text-gray-800">Completed Projects</h2>
+            <span className="px-2.5 py-0.5 rounded-full bg-green-100 text-green-800 text-sm font-medium">
+              {completeProjects.length}
+            </span>
+          </div>
+          <DataTable columns={columns} data={completeProjects} />
+        </section>
       </div>
     </div>
   );
