@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import FeedbackDashboard from './FeedbackDashboard';
+import { type Project } from '@/lib/types';
 
 export const revalidate = 0; // Ensure fresh data for approval status
 
@@ -75,7 +76,7 @@ export default async function FeedbackPage({ params }: { params: { slug: string 
 
   return (
     <FeedbackDashboard
-      project={project as any}
+      project={project as unknown as Project}
       submissionUuid={submissionUuid}
     />
   );

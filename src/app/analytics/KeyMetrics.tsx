@@ -32,7 +32,7 @@ export default function KeyMetrics({ data }: KeyMetricsProps) {
         <CardContent>
           <div className="text-2xl font-bold">{data.total_videos_completed}</div>
           <p className="text-xs text-muted-foreground">
-            Projects reached "Done" status
+            Projects reached &quot;Done&quot; status
           </p>
         </CardContent>
       </Card>

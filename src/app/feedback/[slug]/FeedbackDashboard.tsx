@@ -130,7 +130,7 @@ export default function FeedbackDashboard({ project, submissionUuid }: Dashboard
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Request Revision for "{selectedVideo?.title}"</DialogTitle>
+                            <DialogTitle>Request Revision for &quot;{selectedVideo?.title}&quot;</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <p className="text-sm text-gray-500">Please describe what needs to be changed. The team will be notified.</p>

@@ -38,9 +38,8 @@ export function DashboardStats({
                     <Film className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{videosInProduction}</div>
                     <p className="text-xs text-muted-foreground pt-1">
-                        Videos not yet 'Done'
+                        Videos not yet &apos;Done&apos;
                     </p>
                 </CardContent>
             </Card>

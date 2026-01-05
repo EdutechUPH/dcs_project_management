@@ -163,7 +163,7 @@ export default async function AnalyticsPage({
 
 
   // --- Aggregate data for Stacked Workload Chart (Minutes per Editor per Work Type) ---
-  const workloadData = completedVideos.reduce<Record<string, { name: string, [key: string]: any }>>((acc, video) => {
+  const workloadData = completedVideos.reduce<Record<string, { name: string, [key: string]: number | string }>>((acc, video) => {
     const editorName = video.profiles?.full_name || "Unassigned";
     const type = video.projects?.project_type || "Editing";
 
@@ -181,7 +181,8 @@ export default async function AnalyticsPage({
       acc[editorName][type] = 0;
     }
 
-    acc[editorName][type] += Math.round(minutes * 100) / 100; // Round to 2 decimals
+    const currentVal = (acc[editorName][type] as number) || 0;
+    acc[editorName][type] = currentVal + Math.round(minutes * 100) / 100;
     return acc;
   }, {});
 
