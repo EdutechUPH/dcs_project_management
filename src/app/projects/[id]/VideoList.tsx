@@ -7,7 +7,7 @@ import SubmitButton from '@/components/SubmitButton';
 import { useRef, useState } from 'react';
 import { MAIN_EDITOR_ROLE } from '@/lib/constants';
 import { type Video, type Profile, type Assignment } from '@/lib/types';
-import { ArrowUp, ArrowDown } from 'lucide-react'; // Assuming you have lucide-react, if not use simple text
+import { ArrowUp, ArrowDown, Film } from 'lucide-react'; // Assuming you have lucide-react, if not use simple text
 
 type VideoListProps = {
   videos: Video[];
@@ -237,11 +237,17 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
             </div>
           ))
         ) : (
-          <div className="p-4 border rounded-lg bg-white text-center text-gray-500">
-            No videos have been added to this project yet.
+          <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-lg bg-gray-50/50">
+            <div className="bg-gray-100 p-3 rounded-full mb-3">
+              <Film className="h-6 w-6 text-gray-400" />
+            </div>
+            <h3 className="text-sm font-medium text-gray-900">No videos yet</h3>
+            <p className="text-sm text-gray-500 mt-1 max-w-sm">
+              Get started by adding a video title above to track its production status.
+            </p>
           </div>
         )}
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

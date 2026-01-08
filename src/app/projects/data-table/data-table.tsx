@@ -1,5 +1,7 @@
 "use client"
 
+import { FolderOpen } from "lucide-react"
+
 import * as React from "react"
 import {
     ColumnDef,
@@ -100,8 +102,16 @@ export function DataTable<TData, TValue>({
                         ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={columns.length} className="h-24 text-center">
-                                No results.
+                            <TableCell colSpan={columns.length} className="h-64 text-center">
+                                <div className="flex flex-col items-center justify-center h-full text-center p-6">
+                                    <div className="bg-gray-100 p-3 rounded-full mb-3">
+                                        <FolderOpen className="h-6 w-6 text-gray-400" />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-gray-900">No projects found</h3>
+                                    <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">
+                                        No results match your filters. Try adjusting them or create a new project.
+                                    </p>
+                                </div>
                             </TableCell>
                         </TableRow>
                     )}

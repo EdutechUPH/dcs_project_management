@@ -124,24 +124,24 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
       />
 
       <Tabs defaultValue="ongoing" className="w-full">
-        <TabsList className="grid w-full max-w-[400px] grid-cols-2 bg-gray-100 p-1">
+        <TabsList className="grid w-full max-w-[400px] grid-cols-2 bg-gray-100/80 backdrop-blur-sm p-1 rounded-full border border-gray-200 shadow-inner">
           <TabsTrigger
             value="ongoing"
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all hover:bg-gray-200"
+            className="rounded-full data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium"
           >
             Ongoing Projects ({incompleteProjects.length})
           </TabsTrigger>
           <TabsTrigger
             value="completed"
-            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all hover:bg-gray-200"
+            className="rounded-full data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium"
           >
             Completed Projects ({completeProjects.length})
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="ongoing" className="mt-4">
+        <TabsContent value="ongoing" className="mt-6">
           <DataTable columns={columns} data={incompleteProjects} />
         </TabsContent>
-        <TabsContent value="completed" className="mt-4">
+        <TabsContent value="completed" className="mt-6">
           <DataTable columns={columns} data={completeProjects} />
         </TabsContent>
       </Tabs>

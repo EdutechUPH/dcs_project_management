@@ -44,7 +44,7 @@ const sidebarItems = [
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
-export function Sidebar() {
+export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     const pathname = usePathname()
     const router = useRouter()
     const supabase = createClient()
@@ -56,7 +56,11 @@ export function Sidebar() {
     }
 
     return (
-        <div className="flex flex-col h-screen w-64 bg-gray-900 text-white border-r">
+        <div className={cn(
+            "flex-col h-screen w-64 bg-gray-900 text-white border-r flex",
+            mobile ? "w-full border-none" : "hidden md:flex"
+            // If not mobile, hide on small screens (md:hidden logic reversed -> hidden by default, flex on md)
+        )}>
             <div className="p-6">
                 <Link href="/">
                     <h1 className="text-xl font-bold tracking-wider hover:text-gray-300 transition-colors">DCS TRACKER</h1>

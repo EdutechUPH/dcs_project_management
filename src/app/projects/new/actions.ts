@@ -9,10 +9,13 @@ import { type LecturerOption } from '@/lib/types';
 // Define a specific type for our form state
 type FormState = {
   message: string;
+  success?: boolean;
 };
 
 export async function createProject(prevState: FormState, formData: FormData): Promise<FormState> {
   const supabase = await createClient();
+
+  // ... (keeping existing validation logic same, relying on existing file content for context if possible? No, I must provide full replacement or valid chunks. I'll replace the whole function end)
 
   const course_name = formData.get('course_name') as string;
   const term_id = Number(formData.get('term_id'));
@@ -70,7 +73,8 @@ export async function createProject(prevState: FormState, formData: FormData): P
 
   revalidatePath('/');
   revalidatePath(`/projects/${newProject.id}`);
-  redirect('/');
+
+  return { message: 'Project created successfully!', success: true };
 }
 
 export async function getLecturersByProdi(prodiId: number): Promise<LecturerOption[]> {

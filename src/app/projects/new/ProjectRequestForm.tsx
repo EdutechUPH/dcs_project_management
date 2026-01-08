@@ -1,4 +1,3 @@
-// src/app/projects/new/ProjectRequestForm.tsx
 'use client';
 
 import { useState, useEffect, useRef, useActionState } from 'react';
@@ -9,19 +8,44 @@ import { useRouter } from 'next/navigation';
 import AddLecturerModal from './AddLecturerModal';
 import { PlusCircle } from 'lucide-react';
 import { type Option, type ProdiOption, type LecturerOption } from '@/lib/types';
+import { toast } from "sonner";
 
 type DataProps = {
   terms: Option[];
   faculties: Option[];
   prodi: ProdiOption[];
-  lecturers: LecturerOption[]; // ✅ Add this
+  lecturers: LecturerOption[];
 };
 
-const initialState = { message: '' };
+type FormState = {
+  message: string;
+  success?: boolean;
+};
+
+const initialState: FormState = { message: '' };
 
 export default function ProjectRequestForm({ terms, faculties, prodi, lecturers }: DataProps) {
   const [state, formAction] = useActionState(createProject, initialState);
   const router = useRouter();
+
+  // ... (existing state)
+
+  useEffect(() => {
+    if (state?.success) {
+      toast.success(state.message);
+      // Optional: Wait a moment before redirecting to let the user see the toast
+      const timeoutId = setTimeout(() => {
+        router.push('/');
+        router.refresh();
+      }, 1000);
+      return () => clearTimeout(timeoutId);
+    } else if (state?.message && !state.success && state.message !== '') {
+      // Show error toast if message exists but not success
+      toast.error(state.message);
+    }
+  }, [state, router]);
+
+  // ... (rest of effect)
 
   const [selectedFaculty, setSelectedFaculty] = useState('');
   const [filteredProdi, setFilteredProdi] = useState<ProdiOption[]>([]);

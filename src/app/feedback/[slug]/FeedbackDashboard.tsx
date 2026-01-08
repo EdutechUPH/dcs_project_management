@@ -1,5 +1,6 @@
 'use client';
 
+import { toast } from "sonner";
 import { useState } from 'react';
 import { type Project, type Video } from '@/lib/types';
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,9 @@ export default function FeedbackDashboard({ project, submissionUuid }: Dashboard
         const updated = await externalApproveVideo(submissionUuid, videoId);
         if (updated) {
             setVideos(videos.map(v => v.id === videoId ? { ...v, status: 'Done' } : v));
+            toast.success("Video approved successfully!");
+        } else {
+            toast.error("Failed to approve video.");
         }
         setIsSubmitting(false);
     };
@@ -47,6 +51,9 @@ export default function FeedbackDashboard({ project, submissionUuid }: Dashboard
             setIsDialogOpen(false);
             setRevisionNote('');
             setSelectedVideo(null);
+            toast.success("Revision requested successfully!");
+        } else {
+            toast.error("Failed to submit revision request.");
         }
         setIsSubmitting(false);
     };
