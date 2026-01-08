@@ -3,15 +3,18 @@
 import { useState, useTransition, useEffect } from 'react';
 import { requestFeedback } from './actions';
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { type Video } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LinkIcon, CheckCircle, RefreshCw, Star, MessageSquare } from 'lucide-react';
 
 type FeedbackManagerProps = {
   projectId: number;
-  feedbackSubmission: any; // Using any to be flexible with the join data, ideally detailed type
+  feedbackSubmission: any;
+  videos: Video[];
 };
 
-export default function FeedbackManager({ projectId, feedbackSubmission }: FeedbackManagerProps) {
+export default function FeedbackManager({ projectId, feedbackSubmission, videos }: FeedbackManagerProps) {
   const [uuid, setUuid] = useState(feedbackSubmission?.submission_uuid || null);
   const [slug, setSlug] = useState(feedbackSubmission?.slug || null);
   const [error, setError] = useState('');
@@ -28,13 +31,30 @@ export default function FeedbackManager({ projectId, feedbackSubmission }: Feedb
 
   const handleRequestFeedback = () => {
     setError('');
+
+    // --- Validation: Ensure all videos have links and duration ---
+    const incompleteVideos = videos.filter(v =>
+      !v.video_link ||
+      ((v.duration_minutes || 0) === 0 && (v.duration_seconds || 0) === 0)
+    );
+
+    if (incompleteVideos.length > 0) {
+      const titles = incompleteVideos.map(v => v.title).join(", ");
+      const msg = `Cannot request feedback. The following videos are missing a link or duration: ${titles}`;
+      toast.error(msg);
+      setError(msg); // Optional: also show inline
+      return;
+    }
+
     startTransition(async () => {
       const result = await requestFeedback(projectId);
       if (result.error) {
         setError(result.error);
+        toast.error(result.error);
       } else {
         if (result.uuid) setUuid(result.uuid);
         if (result.slug) setSlug(result.slug);
+        toast.success("Feedback link generated!");
       }
     });
   };

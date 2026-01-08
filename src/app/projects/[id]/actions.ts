@@ -353,3 +353,58 @@ export async function deleteProject(prevState: FormState, formData: FormData): P
   revalidatePath('/');
   redirect('/');
 }
+
+/**
+ * Toggles the project status between 'Active' and 'Done'.
+ * Enforces rule: All videos must be 'Done' to mark project as 'Done'.
+ */
+export async function toggleProjectStatus(projectId: number, newStatus: 'Active' | 'Done'): Promise<FormState> {
+  const supabase = await createClient();
+
+  // Validate only valid statuses
+  if (newStatus !== 'Active' && newStatus !== 'Done') {
+    return { error: 'Invalid status.' };
+  }
+
+  // --- VALIDATION RULE: Prevent "Done" unless all videos approved ---
+  if (newStatus === 'Done') {
+    const { data: videos, error: videoError } = await supabase
+      .from('videos')
+      .select('status, title')
+      .eq('project_id', projectId);
+
+    if (videoError) {
+      console.error('Error checking video status:', videoError);
+      return { error: 'Database error checking videos.' };
+    }
+
+    if (!videos || videos.length === 0) {
+      // Optional: Prevent Done if no videos? The user implies "all videos approved", 0 videos is technically all approved? 
+      // Let's assume strict compliance: empty project shouldn't probably be "Done" in this context but let's allow it or warn.
+      // For safety, let's allow 0 videos to be Done (maybe cancelled project), but if user wants content...
+      // Let's stick to: "If there ARE videos, they must be Done".
+    } else {
+      const incompleteVideos = videos.filter(v => v.status !== 'Done');
+      if (incompleteVideos.length > 0) {
+        return {
+          error: `Cannot mark as Done. ${incompleteVideos.length} video(s) are not approved yet (e.g. "${incompleteVideos[0].title}").`
+        };
+      }
+    }
+  }
+
+  const { error } = await supabase
+    .from('projects')
+    .update({ status: newStatus })
+    .eq('id', projectId);
+
+  if (error) {
+    console.error('Error updating project status:', error);
+    return { error: 'Failed to update project status.' };
+  }
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath('/');
+
+  return { message: `Project marked as ${newStatus}!` };
+}

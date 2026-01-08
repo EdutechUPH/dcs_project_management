@@ -72,6 +72,7 @@ export interface Project {
   project_assignments: Assignment[];
   feedback_submission: FeedbackSubmission | null;
   project_type?: string;
+  status?: string;
 }
 
 

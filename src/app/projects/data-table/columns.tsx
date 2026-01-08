@@ -36,6 +36,21 @@ export const columns: ColumnDef<Project>[] = [
         },
     },
     {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => {
+            const status = row.original.status || 'Active';
+            return (
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status === 'Done'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                    {status}
+                </span>
+            )
+        }
+    },
+    {
         id: "study_program",
         accessorFn: (row) => row.prodi?.name,
         header: "Study Program",

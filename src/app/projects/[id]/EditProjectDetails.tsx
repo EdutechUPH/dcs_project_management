@@ -1,12 +1,16 @@
 // src/app/projects/[id]/EditProjectDetails.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { updateProjectDetails, deleteProject } from './actions';
+import { useState, useEffect, useTransition } from 'react';
+import { updateProjectDetails, deleteProject, toggleProjectStatus } from './actions';
 import { getLecturersByProdi } from '@/app/projects/new/actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useActionState } from 'react';
 import { type Project as ProjectType, type LecturerOption } from '@/lib/types';
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+
+// ... existing types ...
 
 type MasterLists = {
   terms: { id: number; name: string }[];
@@ -34,6 +38,7 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
   const [selectedProdi, setSelectedProdi] = useState(project.prodi_id.toString());
   const [filteredLecturers, setFilteredLecturers] = useState<LecturerOption[]>([]);
   const [isLoadingLecturers, setIsLoadingLecturers] = useState(false);
+  const [isPendingStatus, startStatusTransition] = useTransition();
 
   useEffect(() => {
     if (selectedFaculty) {
@@ -58,6 +63,18 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
   const updateDetailsWithId = updateProjectDetails.bind(null, project.id);
   const [deleteState, deleteAction] = useActionState(deleteProject, { error: null });
 
+  const handleToggleStatus = () => {
+    const newStatus = project.status === 'Done' ? 'Active' : 'Done';
+    startStatusTransition(async () => {
+      const result = await toggleProjectStatus(project.id, newStatus);
+      if (result.error) {
+        toast.error(result.error);
+      } else if (result.message) {
+        toast.success(result.message);
+      }
+    });
+  };
+
   if (isEditing) {
     // --- EDITING VIEW ---
     return (
@@ -65,8 +82,24 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
         <form action={updateDetailsWithId} onSubmit={() => setIsEditing(false)}>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Edit Details</h2>
+            <div className="flex items-center gap-2">
+              {/* Status Toggle Button */}
+              <button
+                type="button"
+                onClick={handleToggleStatus}
+                disabled={isPendingStatus}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${project.status === 'Done'
+                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+              >
+                {isPendingStatus ? 'Updating...' : (project.status === 'Done' ? 'Status: Done' : 'Mark as Done')}
+              </button>
+            </div>
           </div>
+          {/* ... existing form fields ... */}
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            {/* ... form content ... */}
             <div className="md:col-span-2">
               <label htmlFor="course_name" className="text-sm font-medium text-gray-500">Course Name</label>
               <input type="text" name="course_name" id="course_name" defaultValue={project.course_name} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
@@ -119,8 +152,8 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
                   <h3 className="font-semibold text-red-700">Danger Zone</h3>
                   <p className="text-sm text-red-600">Deleting a project is permanent and cannot be undone.</p>
                 </div>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   onClick={(e) => {
                     if (!confirm('Are you sure you want to permanently delete this entire project and all its videos?')) {
                       e.preventDefault();
@@ -143,7 +176,21 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Overall Details</h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-xl font-semibold">Overall Details</h2>
+          {/* Status Toggle Button */}
+          <button
+            type="button"
+            onClick={handleToggleStatus}
+            disabled={isPendingStatus}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${project.status === 'Done'
+                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+          >
+            {isPendingStatus ? 'Updating...' : (project.status === 'Done' ? 'Status: Done' : 'Mark as Done')}
+          </button>
+        </div>
         <button onClick={() => setIsEditing(true)} className="text-sm font-medium text-blue-600 hover:underline">Edit Details</button>
       </div>
       <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
