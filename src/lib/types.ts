@@ -40,6 +40,7 @@ export interface Video {
   has_indonesian_subtitle: boolean;
   profiles: Profile | null;
   revision_notes?: string | null;
+  position: number;
 }
 
 export interface Assignment {

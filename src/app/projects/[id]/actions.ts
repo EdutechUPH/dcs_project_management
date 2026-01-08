@@ -35,6 +35,8 @@ export async function updateProjectDetails(projectId: number, formData: FormData
   revalidatePath('/');
 }
 
+
+
 /**
  * Adds a new video to an existing project.
  */
@@ -51,11 +53,23 @@ export async function addVideoToProject(projectId: number, formData: FormData) {
     .limit(1)
     .single();
 
+  // Get current max position to append to the end
+  const { data: maxPosData } = await supabase
+    .from('videos')
+    .select('position')
+    .eq('project_id', projectId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .single();
+
+  const nextPosition = (maxPosData?.position ?? 0) + 1;
+
   const newVideo = {
     project_id: projectId,
     title: title,
     status: 'Requested',
     main_editor_id: mainEditorAssignment?.profile_id || null,
+    position: nextPosition,
   };
 
   const { error } = await supabase.from('videos').insert(newVideo);
@@ -63,6 +77,70 @@ export async function addVideoToProject(projectId: number, formData: FormData) {
     console.error('Error adding video:', error);
     return;
   }
+  revalidatePath(`/projects/${projectId}`);
+}
+
+/**
+ * Moves a video up or down in the list.
+ */
+export async function moveVideo(formData: FormData) {
+  const supabase = await createClient();
+  const videoId = Number(formData.get('videoId'));
+  const projectId = Number(formData.get('projectId'));
+  const direction = formData.get('direction') as 'up' | 'down';
+
+  if (!videoId || !projectId || !direction) return;
+
+  // 1. Get the current video's position
+  const { data: currentVideo } = await supabase
+    .from('videos')
+    .select('id, position')
+    .eq('id', videoId)
+    .single();
+
+  if (!currentVideo) return;
+
+  const currentPos = currentVideo.position;
+
+  // 2. Find the adjacent video to swap with
+  let adjacentQuery = supabase
+    .from('videos')
+    .select('id, position')
+    .eq('project_id', projectId);
+
+  if (direction === 'up') {
+    // Find item with position LESS than current, closest to it (DESC)
+    adjacentQuery = adjacentQuery
+      .lt('position', currentPos)
+      .order('position', { ascending: false })
+      .limit(1);
+  } else {
+    // Find item with position GREATER than current, closest to it (ASC)
+    adjacentQuery = adjacentQuery
+      .gt('position', currentPos)
+      .order('position', { ascending: true })
+      .limit(1);
+  }
+
+  const { data: adjacentVideo } = await adjacentQuery.maybeSingle();
+
+  if (adjacentVideo) {
+    // 3. Swap positions
+    const { error: error1 } = await supabase
+      .from('videos')
+      .update({ position: adjacentVideo.position })
+      .eq('id', currentVideo.id);
+
+    const { error: error2 } = await supabase
+      .from('videos')
+      .update({ position: currentVideo.position })
+      .eq('id', adjacentVideo.id);
+
+    if (error1 || error2) {
+      console.error("Error swapping videos:", error1, error2);
+    }
+  }
+
   revalidatePath(`/projects/${projectId}`);
 }
 

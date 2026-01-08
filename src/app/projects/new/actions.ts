@@ -51,7 +51,12 @@ export async function createProject(prevState: FormState, formData: FormData): P
   for (let i = 0; i < videoCount; i++) {
     const title = formData.get(`video_title_${i}`) as string;
     if (title) {
-      videosToInsert.push({ project_id: newProject.id, title: title, status: 'Requested' });
+      videosToInsert.push({
+        project_id: newProject.id,
+        title: title,
+        status: 'Requested',
+        position: i // Set initial position based on array index
+      });
     }
   }
 

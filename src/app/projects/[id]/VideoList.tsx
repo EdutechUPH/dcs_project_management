@@ -1,11 +1,13 @@
 // src/app/projects/[id]/VideoList.tsx
 'use client';
 
-import { addVideoToProject, deleteVideo, updateVideo, updateVideoStatus } from './actions';
+
+import { addVideoToProject, deleteVideo, updateVideo, updateVideoStatus, moveVideo } from './actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useRef, useState } from 'react';
 import { MAIN_EDITOR_ROLE } from '@/lib/constants';
 import { type Video, type Profile, type Assignment } from '@/lib/types';
+import { ArrowUp, ArrowDown } from 'lucide-react'; // Assuming you have lucide-react, if not use simple text
 
 type VideoListProps = {
   videos: Video[];
@@ -38,8 +40,17 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
   const formRef = useRef<HTMLFormElement>(null);
 
   const projectMainEditor = assignments.find(a => a.role === MAIN_EDITOR_ROLE);
-  // THE FIX IS HERE: Access the id from the nested 'profiles' object
   const projectMainEditorId = projectMainEditor?.profiles?.id || null;
+
+  // Sort videos by POSITION first, then ID (creation order) as fallback
+  const sortedVideos = [...videos].sort((a, b) => {
+    // If both have position (which they should after migration), use it
+    if (a.position !== null && a.position !== undefined && b.position !== null && b.position !== undefined) {
+      return a.position - b.position;
+    }
+    // Fallback to ID
+    return a.id - b.id;
+  });
 
   return (
     <div className="mt-8">
@@ -60,138 +71,169 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
       </form>
 
       <div className="space-y-4">
-        {videos.length > 0 ? (
-          videos.map((video) => (
-            <div key={video.id} className="p-4 border rounded-lg bg-white">
-              {editingId === video.id ? (
-                <form action={updateVideo} onSubmit={() => setEditingId(null)} className="space-y-4">
+        {sortedVideos.length > 0 ? (
+          sortedVideos.map((video, index) => (
+            <div key={video.id} className="p-4 border rounded-lg bg-white flex gap-4">
+
+              {/* Order Controls */}
+              <div className="flex flex-col gap-1 justify-center border-r pr-4">
+                <form action={moveVideo}>
                   <input type="hidden" name="videoId" value={video.id} />
                   <input type="hidden" name="projectId" value={projectId} />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium">Title</label>
-                      <input type="text" name="title" defaultValue={video.title} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" required />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Status</label>
-                      <select name="status" defaultValue={video.status} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                        {videoStatuses.map(status => <option key={status}>{status}</option>)}
-                      </select>
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="text-sm font-medium">Main Editor</label>
-                      <select
-                        name="main_editor_id"
-                        defaultValue={video.main_editor_id || projectMainEditorId || ''}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
-                      >
-                        <option value="">Unassigned</option>
-                        {profiles.map(profile => (
-                          <option key={profile.id} value={profile.id}>{profile.full_name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Language</label>
-                      <select name="language" defaultValue={video.language || 'Indonesian'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                        {languageOptions.map(lang => <option key={lang}>{lang}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Video Link</label>
-                      <input type="text" name="video_link" defaultValue={video.video_link || ''} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium">Duration:</label>
-                      <input type="number" name="duration_minutes" placeholder="Mins" defaultValue={video.duration_minutes || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
-                      <input type="number" name="duration_seconds" placeholder="Secs" defaultValue={video.duration_seconds || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
-                    </div>
-                    <div className="flex items-center gap-4 pt-4">
-                      <div className="flex items-center gap-2">
-                        <input type="checkbox" name="has_english_subtitle" id={`eng-sub-${video.id}`} defaultChecked={video.has_english_subtitle} className="h-4 w-4 rounded border-gray-300" />
-                        <label htmlFor={`eng-sub-${video.id}`} className="text-sm">English Subtitles</label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input type="checkbox" name="has_indonesian_subtitle" id={`ind-sub-${video.id}`} defaultChecked={video.has_indonesian_subtitle} className="h-4 w-4 rounded border-gray-300" />
-                        <label htmlFor={`ind-sub-${video.id}`} className="text-sm">Indonesian Subtitles</label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-2 border-t">
-                    <button type="button" onClick={() => setEditingId(null)} className="text-sm font-medium text-gray-600">Cancel</button>
-                    <SubmitButton className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-400" pendingText="Saving...">Save</SubmitButton>
-                  </div>
+                  <input type="hidden" name="direction" value="up" />
+                  <SubmitButton
+                    className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30"
+                    pendingText="↑"
+                    disabled={index === 0} // Disable 'Up' for first item
+                  >
+                    <ArrowUp className="w-5 h-5" />
+                  </SubmitButton>
                 </form>
-              ) : (
-                <div className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-gray-900">{video.title}</p>
-                    <p className="text-sm text-gray-600">Duration: {video.duration_minutes || 0}m {video.duration_seconds || 0}s</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[video.status] || 'bg-gray-100 text-gray-800'}`}>
-                      {video.status}
-                    </span>
+                <form action={moveVideo}>
+                  <input type="hidden" name="videoId" value={video.id} />
+                  <input type="hidden" name="projectId" value={projectId} />
+                  <input type="hidden" name="direction" value="down" />
+                  <SubmitButton
+                    className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30"
+                    pendingText="↓"
+                    disabled={index === sortedVideos.length - 1} // Disable 'Down' for last item
+                  >
+                    <ArrowDown className="w-5 h-5" />
+                  </SubmitButton>
+                </form>
+              </div>
 
-                    {/* Approval Workflow Buttons */}
-                    {video.status === 'WIP' && (
-                      video.video_link ? (
-                        <form action={updateVideoStatus}>
-                          <input type="text" name="videoId" value={video.id} readOnly className="hidden" />
-                          <input type="text" name="projectId" value={projectId} readOnly className="hidden" />
-                          <input type="text" name="newStatus" value="Ready for Review" readOnly className="hidden" />
-                          <SubmitButton className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200" pendingText="...">Request Review</SubmitButton>
-                        </form>
-                      ) : (
-                        <span className="text-xs text-red-500 font-medium px-2 py-1 bg-red-50 rounded border border-red-100" title="Add a video link to request review">
-                          Link required
-                        </span>
-                      )
-                    )}
+              <div className="flex-grow">
+                {editingId === video.id ? (
+                  <form action={updateVideo} onSubmit={() => setEditingId(null)} className="space-y-4">
+                    <input type="hidden" name="videoId" value={video.id} />
+                    <input type="hidden" name="projectId" value={projectId} />
 
-                    {video.status === 'Ready for Review' && (
-                      <div className="flex gap-2">
-                        <form action={updateVideoStatus}>
-                          <input type="hidden" name="videoId" value={video.id} />
-                          <input type="hidden" name="projectId" value={projectId} />
-                          <input type="hidden" name="newStatus" value="Revision Requested" />
-                          <SubmitButton className="px-3 py-1 text-sm bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200" pendingText="...">Request Revision</SubmitButton>
-                        </form>
-                        <form action={updateVideoStatus}>
-                          <input type="hidden" name="videoId" value={video.id} />
-                          <input type="hidden" name="projectId" value={projectId} />
-                          <input type="hidden" name="newStatus" value="Done" />
-                          <SubmitButton className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-md hover:bg-green-200" pendingText="...">Approve</SubmitButton>
-                        </form>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Title</label>
+                        <input type="text" name="title" defaultValue={video.title} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" required />
                       </div>
-                    )}
-
-                    {video.status === 'Revision Requested' && (
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="text-xs bg-orange-50 text-orange-800 p-2 rounded border border-orange-200 max-w-xs text-right">
-                          <strong>Revision Request:</strong><br />
-                          {video.revision_notes || "Please check the comments."}
+                      <div>
+                        <label className="text-sm font-medium">Status</label>
+                        <select name="status" defaultValue={video.status} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                          {videoStatuses.map(status => <option key={status}>{status}</option>)}
+                        </select>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-sm font-medium">Main Editor</label>
+                        <select
+                          name="main_editor_id"
+                          defaultValue={video.main_editor_id || projectMainEditorId || ''}
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+                        >
+                          <option value="">Unassigned</option>
+                          {profiles.map(profile => (
+                            <option key={profile.id} value={profile.id}>{profile.full_name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Language</label>
+                        <select name="language" defaultValue={video.language || 'Indonesian'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                          {languageOptions.map(lang => <option key={lang}>{lang}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Video Link</label>
+                        <input type="text" name="video_link" defaultValue={video.video_link || ''} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium">Duration:</label>
+                        <input type="number" name="duration_minutes" placeholder="Mins" defaultValue={video.duration_minutes || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
+                        <input type="number" name="duration_seconds" placeholder="Secs" defaultValue={video.duration_seconds || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
+                      </div>
+                      <div className="flex items-center gap-4 pt-4">
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" name="has_english_subtitle" id={`eng - sub - ${video.id} `} defaultChecked={video.has_english_subtitle} className="h-4 w-4 rounded border-gray-300" />
+                          <label htmlFor={`eng - sub - ${video.id} `} className="text-sm">English Subtitles</label>
                         </div>
-                        <form action={updateVideoStatus}>
-                          <input type="hidden" name="videoId" value={video.id} />
-                          <input type="hidden" name="projectId" value={projectId} />
-                          <input type="hidden" name="newStatus" value="Ready for Review" />
-                          <SubmitButton className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200" pendingText="...">Mark Ready</SubmitButton>
-                        </form>
+                        <div className="flex items-center gap-2">
+                          <input type="checkbox" name="has_indonesian_subtitle" id={`ind - sub - ${video.id} `} defaultChecked={video.has_indonesian_subtitle} className="h-4 w-4 rounded border-gray-300" />
+                          <label htmlFor={`ind - sub - ${video.id} `} className="text-sm">Indonesian Subtitles</label>
+                        </div>
                       </div>
-                    )}
+                    </div>
 
-                    <button onClick={() => setEditingId(video.id)} className="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50">Edit</button>
-                    <form action={deleteVideo} onSubmit={(e) => { if (!confirm('Are you sure?')) e.preventDefault(); }}>
-                      <input type="hidden" name="videoId" value={video.id} />
-                      <input type="hidden" name="projectId" value={projectId} />
-                      <SubmitButton className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:bg-gray-100" pendingText="Deleting...">Delete</SubmitButton>
-                    </form>
+                    <div className="flex justify-end gap-2 pt-2 border-t">
+                      <button type="button" onClick={() => setEditingId(null)} className="text-sm font-medium text-gray-600">Cancel</button>
+                      <SubmitButton className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-400" pendingText="Saving...">Save</SubmitButton>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900">{video.title}</p>
+                      <p className="text-sm text-gray-600">Duration: {video.duration_minutes || 0}m {video.duration_seconds || 0}s</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className={`px - 2 inline - flex text - xs leading - 5 font - semibold rounded - full ${statusColors[video.status] || 'bg-gray-100 text-gray-800'} `}>
+                        {video.status}
+                      </span>
+
+                      {/* Approval Workflow Buttons */}
+                      {video.status === 'WIP' && (
+                        video.video_link ? (
+                          <form action={updateVideoStatus}>
+                            <input type="text" name="videoId" value={video.id} readOnly className="hidden" />
+                            <input type="text" name="projectId" value={projectId} readOnly className="hidden" />
+                            <input type="text" name="newStatus" value="Ready for Review" readOnly className="hidden" />
+                            <SubmitButton className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200" pendingText="...">Request Review</SubmitButton>
+                          </form>
+                        ) : (
+                          <span className="text-xs text-red-500 font-medium px-2 py-1 bg-red-50 rounded border border-red-100" title="Add a video link to request review">
+                            Link required
+                          </span>
+                        )
+                      )}
+
+                      {video.status === 'Ready for Review' && (
+                        <div className="flex gap-2">
+                          <form action={updateVideoStatus}>
+                            <input type="hidden" name="videoId" value={video.id} />
+                            <input type="hidden" name="projectId" value={projectId} />
+                            <input type="hidden" name="newStatus" value="Revision Requested" />
+                            <SubmitButton className="px-3 py-1 text-sm bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200" pendingText="...">Request Revision</SubmitButton>
+                          </form>
+                          <form action={updateVideoStatus}>
+                            <input type="hidden" name="videoId" value={video.id} />
+                            <input type="hidden" name="projectId" value={projectId} />
+                            <input type="hidden" name="newStatus" value="Done" />
+                            <SubmitButton className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-md hover:bg-green-200" pendingText="...">Approve</SubmitButton>
+                          </form>
+                        </div>
+                      )}
+
+                      {video.status === 'Revision Requested' && (
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-xs bg-orange-50 text-orange-800 p-2 rounded border border-orange-200 max-w-xs text-right">
+                            <strong>Revision Request:</strong><br />
+                            {video.revision_notes || "Please check the comments."}
+                          </div>
+                          <form action={updateVideoStatus}>
+                            <input type="hidden" name="videoId" value={video.id} />
+                            <input type="hidden" name="projectId" value={projectId} />
+                            <input type="hidden" name="newStatus" value="Ready for Review" />
+                            <SubmitButton className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200" pendingText="...">Mark Ready</SubmitButton>
+                          </form>
+                        </div>
+                      )}
+
+                      <button onClick={() => setEditingId(video.id)} className="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50">Edit</button>
+                      <form action={deleteVideo} onSubmit={(e) => { if (!confirm('Are you sure?')) e.preventDefault(); }}>
+                        <input type="hidden" name="videoId" value={video.id} />
+                        <input type="hidden" name="projectId" value={projectId} />
+                        <SubmitButton className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:bg-gray-100" pendingText="Deleting...">Delete</SubmitButton>
+                      </form>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))
         ) : (

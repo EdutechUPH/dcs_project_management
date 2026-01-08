@@ -1,25 +1,26 @@
 // src/components/SubmitButton.tsx
 'use client';
 
+
 import { useFormStatus } from 'react-dom';
 
-type SubmitButtonProps = {
+interface SubmitButtonProps {
   children: React.ReactNode;
+  className?: string;
   pendingText?: string;
-  className?: string; // Allow custom styles
-};
+  disabled?: boolean;
+}
 
-export default function SubmitButton({ children, pendingText, className }: SubmitButtonProps) {
+export default function SubmitButton({ children, className, pendingText, disabled }: SubmitButtonProps) {
   const { pending } = useFormStatus();
 
   return (
     <button
       type="submit"
-      disabled={pending}
-      // Use the custom className, or a default if none is provided
-      className={className || "bg-gray-800 text-white rounded-md shadow-sm py-2 px-4 hover:bg-gray-700 disabled:bg-gray-400"}
+      disabled={pending || disabled}
+      className={className}
     >
-      {pending ? (pendingText || 'Saving...') : children}
+      {pending ? pendingText || 'Submitting...' : children}
     </button>
   );
 }
