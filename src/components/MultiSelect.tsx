@@ -3,11 +3,23 @@
 
 import * as React from 'react';
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from 'cmdk';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Badge } from "@/components/ui/badge";
 
 type Option = {
   value: string;
@@ -39,49 +51,43 @@ export function MultiSelect({ options, selected, onChange, className, placeholde
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className={cn("w-full justify-between h-auto min-h-[40px]", className)}
         >
-          <span className="truncate">
-            {selected.length > 0
-              ? selected.map(val => options.find(opt => opt.value === val)?.label).join(', ')
-              : placeholder}
-          </span>
+          {selected.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {selected.map((val) => (
+                <Badge key={val} variant="secondary" className="mr-1 mb-1">
+                  {options.find((opt) => opt.value === val)?.label}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <span className="text-muted-foreground">{placeholder}</span>
+          )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        className={cn(
-          "w-[200px] p-0 bg-white border border-gray-200 rounded-md shadow-lg z-50",
-          className
-        )}
-      >
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Search..." />
+          <CommandInput placeholder="Search options..." />
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => {
-                const isSelected = selected.includes(option.value);
-                return (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    onSelect={() => handleSelect(option.value)}
+            <CommandGroup className="max-h-[200px] overflow-auto">
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.label}
+                  onSelect={() => handleSelect(option.value)}
+                >
+                  <Check
                     className={cn(
-                      isSelected ? "bg-gray-100" : "", // Using a simple gray for highlighting
-                      "cursor-pointer"
+                      "mr-2 h-4 w-4",
+                      selected.includes(option.value) ? "opacity-100" : "opacity-0"
                     )}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        isSelected ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {option.label}
-                  </CommandItem>
-                );
-              })}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
             </CommandGroup>
           </CommandList>
         </Command>

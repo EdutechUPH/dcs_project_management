@@ -5,6 +5,17 @@ import { addLecturer } from '@/app/admin/lecturers/actions';
 import SubmitButton from '@/components/SubmitButton';
 import { MultiSelect } from '@/components/MultiSelect';
 import { useRef, useState, useTransition } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 type AddLecturerModalProps = {
   prodi: { id: number, name: string }[];
@@ -42,42 +53,53 @@ export default function AddLecturerModal({ prodi, onClose, onLecturerAdded }: Ad
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center">
-      <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Add New Lecturer</h2>
-        <form ref={formRef} action={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">Full Name</label>
-            <input type="text" name="name" id="name" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Add New Lecturer</DialogTitle>
+          <DialogDescription>
+            Enter the lecturer's details and assign them to one or more study programs.
+          </DialogDescription>
+        </DialogHeader>
+        <form ref={formRef} action={handleSubmit} className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input id="name" name="name" required placeholder="e.g. Dr. Jane Doe" />
           </div>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email (Optional)</label>
-            <input type="email" name="email" id="email" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
+          <div className="space-y-2">
+            <Label htmlFor="email">Email (Optional)</Label>
+            <Input id="email" name="email" type="email" placeholder="jane@university.edu" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Assign to Study Program(s)</label>
-            <MultiSelect 
+          <div className="space-y-2">
+            <Label>Assign to Study Program(s)</Label>
+            <MultiSelect
               options={prodiOptions}
               selected={selectedProdi}
               onChange={setSelectedProdi}
               placeholder="Select programs..."
-              className="mt-1"
+              className="w-full"
             />
+            {selectedProdi.length === 0 && (
+              <p className="text-[0.8rem] text-muted-foreground">
+                At least one program is recommended.
+              </p>
+            )}
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <div className="flex justify-end gap-4 pt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50">
+          {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
+
+          <DialogFooter className="pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <SubmitButton 
-              className="px-4 py-2 text-sm font-medium text-white bg-gray-800 border border-transparent rounded-md shadow-sm hover:bg-gray-700 disabled:bg-gray-400"
+            </Button>
+            <SubmitButton
+              className="bg-black text-white hover:bg-gray-800"
               pendingText="Saving..."
             >
               Save Lecturer
             </SubmitButton>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
