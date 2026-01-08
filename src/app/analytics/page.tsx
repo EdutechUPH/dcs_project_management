@@ -119,6 +119,7 @@ export default async function AnalyticsPage({
     total_videos_completed: completedProductionVideos.length, // Only count non-translation videos here for now? Or keep total? Let's check user request. "I just don't want the minutes to be added". Safe to exclude from "Minutes Produced" logic.
     total_duration_minutes: totalMinutes + Math.floor(totalSeconds / 60),
     total_duration_seconds: totalSeconds % 60,
+    avg_satisfaction_score: null, // TODO: Calculate this from feedback_submissions
   };
 
   // --- Aggregate data for standard charts ---
