@@ -4,45 +4,51 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-type ActionState = {
-  error?: string | null;
-};
+// --- Direct Actions for Client Components (Dropdowns/Buttons) ---
 
-export async function updateUserRole(prevState: ActionState, formData: FormData): Promise<ActionState> {
+export async function updateUserRole(profileId: string, newRole: string) {
   const supabase = await createClient();
 
-  // First, check if the person making the request is an Admin
+  // Admin Check
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: 'You must be logged in.' };
+  if (!user) return { error: 'Not logged in' };
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-  if (profile?.role !== 'Admin') {
-    return { error: 'You do not have permission to change user roles.' };
-  }
+  const { data: adminProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  if (adminProfile?.role !== 'Admin') return { error: 'Unauthorized' };
 
-  // If they are an admin, proceed with the update
-  const profileId = formData.get('profileId') as string;
-  const newRole = formData.get('role') as string;
-
-  if (!profileId || !newRole) {
-    return { error: 'Missing profile ID or role.' };
-  }
-
-  // Prevent an admin from accidentally removing their own admin status
   if (profileId === user.id && newRole !== 'Admin') {
-    return { error: "You cannot remove your own Admin status." };
+    return { error: "Cannot remove your own Admin status." };
   }
 
-  const { error } = await supabase
-    .from('profiles')
-    .update({ role: newRole })
-    .eq('id', profileId);
+  const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', profileId);
 
-  if (error) {
-    console.error("Error updating role:", error);
-    return { error: 'Database error: Could not update role.' };
-  }
-
+  if (error) return { error: error.message };
   revalidatePath('/admin/users');
-  return { error: null }; // Return success state
+  return { success: true };
+}
+
+export async function deleteUser(profileId: string) {
+  const supabase = await createClient();
+  // Admin Check
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not logged in' };
+
+  const { data: adminProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  if (adminProfile?.role !== 'Admin') return { error: 'Unauthorized' };
+
+  if (profileId === user.id) return { error: "Cannot delete yourself." };
+
+  const { error } = await supabase.from('profiles').delete().eq('id', profileId);
+
+  if (error) return { error: error.message };
+  revalidatePath('/admin/users');
+  return { success: true };
+}
+
+export async function approveUser(profileId: string, role: string) {
+  return updateUserRole(profileId, role);
+}
+
+export async function rejectUser(profileId: string) {
+  return deleteUser(profileId);
 }

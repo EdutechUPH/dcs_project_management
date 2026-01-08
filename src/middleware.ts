@@ -26,15 +26,46 @@ export async function middleware(request: NextRequest) {
       .eq('id', session.user.id)
       .single();
 
-    // If profile is incomplete and they are not on the onboarding page, redirect them.
+    const role = profile?.role;
+    const isPendingPage = request.nextUrl.pathname === '/pending-approval';
+
+    // 1. PENDING APPROVAL CHECK
+    // If user has no role (or is explicitly "Pending" if we had that status), block access.
+    // Allow them to be on onboarding (to set name) or pending-approval page.
+    if (!role && profile?.full_name && !isOnOnboarding && !isPendingPage) {
+      return NextResponse.redirect(new URL('/pending-approval', request.url));
+    }
+
+    // If approved user tries to go to pending page, send them home
+    if (role && isPendingPage) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    // 2. ONBOARDING CHECK
+    // If profile is incomplete (no name), force onboarding.
     if (!profile?.full_name && !isOnOnboarding) {
       return NextResponse.redirect(new URL('/onboarding', request.url));
     }
 
-    // Admin route protection
+    // 3. ADMIN ROUTE PROTECTION
     const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
-    if (isAdminRoute && profile?.role !== 'Admin') {
-      return NextResponse.redirect(new URL('/', request.url));
+    const isManageUsers = request.nextUrl.pathname.startsWith('/admin/users');
+
+    if (isAdminRoute) {
+      // "Manage Users" is strictly ADMIN only
+      if (isManageUsers && role !== 'Admin') {
+        // Redirect non-admins back to main admin dashboard (or home if they can't be there)
+        return NextResponse.redirect(new URL('/admin', request.url));
+      }
+
+      // Other /admin routes are visible to all approved staff (ID, DCS, Admin)
+      // because we want them to use the dashboard, even if "Manage Users" is hidden UI-side.
+      // However, if we wanted to block them from "Terms" etc we could do it here.
+      // For now, consistent with plan: General Admin view is open.
+      // BUT wait, "Faculties/Terms" are "Manage Content". Plan said: Admin/ID/DCS/Approved?
+      // Let's stick to: Everyone can SEE /admin (dashboard), but specific sub-routes might need protection?
+      // Plan says: "Manage Content (Faculties/Terms) -> Admin / ID / DCS"
+      // So actually, ALL approved users can access /admin routes EXCEPT /admin/users.
     }
   }
 
