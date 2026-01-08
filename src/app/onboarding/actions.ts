@@ -25,19 +25,17 @@ export async function completeProfile(
   }
 
   const fullName = (formData.get('full_name') as string | null) ?? '';
-  const role = (formData.get('role') as string | null) ?? '';
 
-  if (!fullName || !role) {
+  if (!fullName) {
     return { message: 'Please fill out all fields.' };
   }
 
-  // If your column is `user_role` (enum), update that:
+  // Update profile with name only. Role remains null (default) -> Pending Approval.
   const { error: updateErr } = await supabase
     .from('profiles')
     .update({
       full_name: fullName,
-      // change to `user_role` if that's your column name
-      role: role, // ✅ adjust if your schema uses `role` instead
+      // role is explicitly NOT updated here, keeping it null
     })
     .eq('id', user.id);
 
