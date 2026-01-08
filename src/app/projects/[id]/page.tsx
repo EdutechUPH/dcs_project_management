@@ -10,9 +10,15 @@ import { type Project as ProjectType } from '@/lib/types';
 
 export const revalidate = 0;
 
-export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
+export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
-  const projectId = params.id;
+  const { id } = await params;
+  const projectId = id;
+
+  if (!projectId || projectId === 'undefined' || isNaN(Number(projectId))) {
+    console.error("Invalid Project ID:", projectId);
+    notFound();
+  }
 
   const { data: { user } } = await supabase.auth.getUser();
   const { data: userProfile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).single() : { data: null };

@@ -104,6 +104,11 @@ export const columns: ColumnDef<Project>[] = [
         cell: ({ row }) => {
             const project = row.original
 
+            if (!project.id) {
+                console.error("Project ID missing in actions column:", project);
+                return <span className="text-xs text-red-500">Error</span>;
+            }
+
             return (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
