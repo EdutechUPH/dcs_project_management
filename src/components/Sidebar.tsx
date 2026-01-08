@@ -68,18 +68,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
         router.refresh()
     }
 
-    const [role, setRole] = require('react').useState<string | null>(null);
 
-    require('react').useEffect(() => {
-        const fetchRole = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-                setRole(data?.role || null);
-            }
-        };
-        fetchRole();
-    }, [supabase]);
 
     return (
         <div className={cn(
