@@ -9,10 +9,19 @@ import {
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
 import { Sidebar } from "./Sidebar"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 export function MobileSidebar() {
     const [open, setOpen] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    if (!isMounted) {
+        return null;
+    }
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
