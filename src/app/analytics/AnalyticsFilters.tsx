@@ -87,6 +87,29 @@ export default function AnalyticsFilters({ faculties, prodi, lecturers, terms, e
         <button onClick={handleApplyFilters} className="bg-gray-800 text-white rounded-md shadow-sm h-10 px-4 hover:bg-gray-700 disabled:opacity-50" disabled={isPending}>
           {isPending ? 'Applying...' : 'Apply Filters'}
         </button>
+        <button
+          onClick={() => {
+            const params = new URLSearchParams(searchParams.toString());
+            // Ensure state matches what's used if we want to export *current selection* regardless of apply? 
+            // Better to use current URL params (searchParams) to ensure what you see is what you export.
+            // But wait, the user changes dropdowns then clicks export. They expect those dropdowns to apply.
+            // So we should rebuild params from state like handleApplyFilters does.
+
+            const exportParams = new URLSearchParams();
+            if (date?.from) exportParams.set('from', format(date.from, 'yyyy-MM-dd'));
+            if (date?.to) exportParams.set('to', format(date.to, 'yyyy-MM-dd'));
+            if (selectedFaculties.length > 0) exportParams.set('faculties', selectedFaculties.join(','));
+            if (selectedProdi.length > 0) exportParams.set('prodi', selectedProdi.join(','));
+            if (selectedLecturers.length > 0) exportParams.set('lecturers', selectedLecturers.join(','));
+            if (selectedTerms.length > 0) exportParams.set('terms', selectedTerms.join(','));
+            if (selectedEditors.length > 0) exportParams.set('editors', selectedEditors.join(','));
+
+            window.open(`/api/analytics/export?${exportParams.toString()}`, '_blank');
+          }}
+          className="bg-green-600 text-white rounded-md shadow-sm h-10 px-4 hover:bg-green-700 disabled:opacity-50"
+        >
+          Export CSV
+        </button>
       </div>
     </div>
   );

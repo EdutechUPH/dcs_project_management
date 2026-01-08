@@ -84,7 +84,7 @@ export async function externalRequestRevision(uuid: string, videoId: number, not
   const { error } = await supabase
     .from('videos')
     .update({
-      status: 'Revision Requested',
+      status: 'Video Editing', // Changed to 'Video Editing' so it appears in editor's dashboard
       revision_notes: notes
     })
     .eq('id', videoId)

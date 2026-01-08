@@ -62,7 +62,8 @@ export default async function FeedbackPage({ params }: { params: { slug: string 
       videos(*)
     `)
     .eq('id', projectId) // Use resolved project ID
-    .order('created_at', { foreignTable: 'videos', ascending: true })
+    .order('position', { foreignTable: 'videos', ascending: true })
+    .order('id', { foreignTable: 'videos', ascending: true })
     .single();
 
   if (projectError || !project) {
