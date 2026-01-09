@@ -14,8 +14,8 @@ export default function LoginPage() {
   useEffect(() => {
     // This function checks if a user is already logged in and redirects them.
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
         router.push('/');
       }
     };
