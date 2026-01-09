@@ -45,7 +45,7 @@ export function MultiSelect({ options, selected, onChange, className, placeholde
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
