@@ -9,6 +9,7 @@ import { MAIN_EDITOR_ROLE } from '@/lib/constants';
 import { type Video, type Profile, type Assignment } from '@/lib/types';
 import { ArrowUp, ArrowDown, Film, AlertCircle, CheckCircle, History as HistoryIcon } from 'lucide-react';
 import VideoEditForm from './VideoEditForm';
+import VideoHistoryModal from './VideoHistoryModal';
 
 type VideoListProps = {
   videos: Video[];
@@ -224,6 +225,15 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
           </div>
         )}
       </div >
+
+      {historyVideo && (
+        <VideoHistoryModal
+          videoId={historyVideo.id}
+          videoTitle={historyVideo.title}
+          isOpen={!!historyVideo}
+          onClose={() => setHistoryVideo(null)}
+        />
+      )}
     </div >
   );
 }
