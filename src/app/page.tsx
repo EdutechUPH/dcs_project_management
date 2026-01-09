@@ -24,7 +24,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   let query = supabase
     .from('projects')
-    .select('*, due_date, lecturers(name), prodi(name), videos(*), project_assignments(*, profiles(full_name)), feedback_submission(submitted_at)', { count: 'exact' });
+    .select('*, created_at, due_date, lecturers(name), prodi(name), videos(*), project_assignments(*, profiles(full_name)), feedback_submission(submitted_at)', { count: 'exact' });
 
   // 1. Text Search
   if (resolvedSearchParams.query) {

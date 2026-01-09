@@ -58,6 +58,7 @@ export interface FeedbackSubmission {
 
 export interface Project {
   id: number;
+  created_at: string; // Added requested date
   course_name: string;
   due_date: string;
   notes: string | null;
