@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useTransition } from 'react';
 import { updateProjectDetails, deleteProject, toggleProjectStatus } from './actions';
-import { getLecturersByProdi } from '@/app/projects/new/actions';
+import { getLecturersByFaculty } from '@/app/projects/new/actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useActionState } from 'react';
 import { type Project as ProjectType, type LecturerOption } from '@/lib/types';
