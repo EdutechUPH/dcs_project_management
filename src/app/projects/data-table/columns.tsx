@@ -16,7 +16,12 @@ import {
 
 const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
-    return new Date(`${dateString}T00:00:00`).toLocaleDateString('en-GB', {
+    // If it's a full ISO string (has T or :), parse directly. Otherwise assume YYYY-MM-DD and append time for local midnight.
+    const date = (dateString.includes('T') || dateString.includes(':'))
+        ? new Date(dateString)
+        : new Date(`${dateString}T00:00:00`);
+
+    return date.toLocaleDateString('en-GB', {
         day: '2-digit', month: 'short', year: 'numeric'
     });
 };
