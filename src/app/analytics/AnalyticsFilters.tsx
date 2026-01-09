@@ -6,7 +6,7 @@ import { useCallback, useState, useTransition } from 'react';
 import { DateRange, DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import { format } from 'date-fns';
-import { MultiSelect } from '@/components/MultiSelect';
+import { CheckboxFilter } from '@/components/CheckboxFilter';
 
 type Option = { value: string; label: string; };
 
@@ -57,11 +57,11 @@ export default function AnalyticsFilters({ faculties, prodi, lecturers, terms, e
   return (
     <div className="mb-6 p-4 border rounded-lg bg-gray-50 space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MultiSelect options={faculties} selected={selectedFaculties} onChange={setSelectedFaculties} placeholder="Filter Faculties..." />
-        <MultiSelect options={prodi} selected={selectedProdi} onChange={setSelectedProdi} placeholder="Filter Study Programs..." />
-        <MultiSelect options={lecturers} selected={selectedLecturers} onChange={setSelectedLecturers} placeholder="Filter Lecturers..." />
-        <MultiSelect options={terms} selected={selectedTerms} onChange={setSelectedTerms} placeholder="Filter Terms..." />
-        <MultiSelect options={editors} selected={selectedEditors} onChange={setSelectedEditors} placeholder="Filter Main Editors..." />
+        <CheckboxFilter title="Faculties" options={faculties} selected={selectedFaculties} onChange={setSelectedFaculties} />
+        <CheckboxFilter title="Study Programs" options={prodi} selected={selectedProdi} onChange={setSelectedProdi} />
+        <CheckboxFilter title="Lecturers" options={lecturers} selected={selectedLecturers} onChange={setSelectedLecturers} />
+        <CheckboxFilter title="Terms" options={terms} selected={selectedTerms} onChange={setSelectedTerms} />
+        <CheckboxFilter title="Main Editors" options={editors} selected={selectedEditors} onChange={setSelectedEditors} />
         <div>
           <select
             id="groupBy"
