@@ -163,11 +163,11 @@ export async function deleteVideo(formData: FormData) {
 /**
  * Updates all details for an individual video.
  */
-export async function updateVideo(formData: FormData) {
+export async function updateVideo(prevState: FormState | any, formData: FormData): Promise<FormState> {
   const supabase = await createClient();
   const videoId = formData.get('videoId') as string;
   const projectId = formData.get('projectId') as string;
-  if (!videoId || !projectId) return;
+  if (!videoId || !projectId) return { error: 'Missing ID' };
 
   const mainEditorId = formData.get('main_editor_id') as string;
 
@@ -181,13 +181,16 @@ export async function updateVideo(formData: FormData) {
     has_indonesian_subtitle: formData.get('has_indonesian_subtitle') === 'on',
     video_link: formData.get('video_link') as string,
     main_editor_id: mainEditorId || null,
+    // Clear revision notes if marked as Done
+    ...(formData.get('status') === 'Done' ? { revision_notes: null } : {})
   };
   const { error } = await supabase.from('videos').update(videoData).eq('id', videoId);
   if (error) {
     console.error('Error updating video:', error);
-    return;
+    return { error: 'Failed to update video.' };
   }
   revalidatePath(`/projects/${projectId}`);
+  return { message: 'Video updated successfully' };
 }
 
 /**
@@ -201,7 +204,12 @@ export async function updateVideoStatus(formData: FormData) {
 
   if (!videoId || !projectId || !newStatus) return;
 
-  const { error } = await supabase.from('videos').update({ status: newStatus }).eq('id', videoId);
+  const updateData: any = { status: newStatus };
+  if (newStatus === 'Done') {
+    updateData.revision_notes = null;
+  }
+
+  const { error } = await supabase.from('videos').update(updateData).eq('id', videoId);
   if (error) {
     console.error('Error updating status:', error);
     return;
@@ -407,4 +415,19 @@ export async function toggleProjectStatus(projectId: number, newStatus: 'Active'
   revalidatePath('/');
 
   return { message: `Project marked as ${newStatus}!` };
+}
+
+export async function getVideoFeedbackHistory(videoId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('video_feedback_log')
+    .select('*')
+    .eq('video_id', videoId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching feedback history:', error);
+    return [];
+  }
+  return data;
 }

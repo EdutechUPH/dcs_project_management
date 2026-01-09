@@ -56,6 +56,27 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
   const [courseName, setCourseName] = useState('');
   const [videoTitles, setVideoTitles] = useState<string[]>(['Video 1']);
   const prevCourseNameRef = useRef('');
+  /* 
+     Restoring logic to sync video titles with video count. 
+     This updates the videoTitles array when the videoCount input changes.
+  */
+  useEffect(() => {
+    const count = typeof videoCount === 'number' ? videoCount : 0;
+    setVideoTitles(prevTitles => {
+      const newTitles = [...prevTitles];
+      if (count > prevTitles.length) {
+        // Add new titles
+        for (let i = prevTitles.length; i < count; i++) {
+          newTitles.push(`${courseName || 'Video'} - ${i + 1}`);
+        }
+      } else if (count < prevTitles.length) {
+        // Remove extra titles
+        newTitles.length = count;
+      }
+      return newTitles;
+    });
+  }, [videoCount, courseName]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleVideoCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {

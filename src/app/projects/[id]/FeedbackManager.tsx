@@ -98,30 +98,33 @@ export default function FeedbackManager({ projectId, feedbackSubmission, videos 
           <CardContent className="space-y-4">
             {(feedbackSubmission.rating_quality !== undefined) ? (
               <div className="space-y-3 text-sm">
-                {/* Only showing a subset of ratings for brevity, can expand */}
-                <div className="flex justify-between items-center">
-                  <span>Quality</span>
-                  {renderStars(feedbackSubmission.rating_quality)}
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Communication</span>
-                  {renderStars(feedbackSubmission.rating_communication)}
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Timeliness</span>
-                  {renderStars(feedbackSubmission.rating_timeliness)}
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { l: 'Pre-Production', v: feedbackSubmission.rating_pre_production },
+                    { l: 'Communication', v: feedbackSubmission.rating_communication },
+                    { l: 'Quality', v: feedbackSubmission.rating_quality },
+                    { l: 'Timeliness', v: feedbackSubmission.rating_timeliness },
+                    { l: 'Final Product', v: feedbackSubmission.rating_final_product },
+                    { l: 'Recommendation', v: feedbackSubmission.rating_recommendation },
+                  ].map(r => (
+                    <div key={r.l} className="flex justify-between items-center bg-white/50 p-1.5 rounded">
+                      <span className="text-gray-700">{r.l}</span>
+                      {renderStars(r.v || 0)}
+                    </div>
+                  ))}
                 </div>
 
                 {feedbackSubmission.overall_experience_comments && (
                   <div className="mt-4 pt-3 border-t border-green-200">
-                    <p className="font-semibold mb-1 flex items-center gap-2"><MessageSquare size={14} /> Comments</p>
-                    <p className="text-gray-700 italic">"{feedbackSubmission.overall_experience_comments}"</p>
+                    <p className="font-semibold mb-1 flex items-center gap-2 text-green-800"><MessageSquare size={14} /> Comments</p>
+                    <p className="text-gray-700 italic whitespace-pre-wrap text-sm leading-relaxed">"{feedbackSubmission.overall_experience_comments}"</p>
                   </div>
                 )}
 
                 {feedbackSubmission.needs_improvement && (
-                  <div className="mt-2 bg-red-50 text-red-800 p-2 rounded text-xs border border-red-100">
-                    <strong>Needs Improvement:</strong> {feedbackSubmission.improvement_aspects}
+                  <div className="mt-2 bg-red-50 text-red-800 p-3 rounded text-xs border border-red-100">
+                    <strong className="block mb-1">Needs Improvement:</strong>
+                    <p className="whitespace-pre-wrap">{feedbackSubmission.improvement_aspects}</p>
                   </div>
                 )}
               </div>

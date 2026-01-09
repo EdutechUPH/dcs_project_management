@@ -12,6 +12,7 @@ type Named = { id: number | string; name: string; short_name?: string | null };
 type ProfileNamed = { id: string; full_name: string | null };
 
 type ProjectJoin = {
+  id: number;
   created_at?: string | null;
   faculty_id?: string | null;
   prodi_id?: string | null;
@@ -22,6 +23,7 @@ type ProjectJoin = {
   prodi?: Named | null;
   lecturers?: Named | null;
   terms?: Named | null;
+  feedback_submission?: { rating_final_product?: number | null } | null;
 };
 
 type VideoRow = {
@@ -76,7 +78,8 @@ export default async function AnalyticsPage({
         faculties ( id, name, short_name ),
         prodi ( id, name ),
         lecturers ( id, name ),
-        terms ( id, name )
+        terms ( id, name ),
+        feedback_submission ( rating_final_product )
       ),
       profiles ( id, full_name )
     `
@@ -115,11 +118,24 @@ export default async function AnalyticsPage({
     (acc, v) => acc + (v.duration_seconds ?? 0),
     0
   );
+  // --- Satisfaction Score Calculation (Unique Projects) ---
+  const uniqueProjectsWithFeedback = new Map();
+  completedVideos.forEach(v => {
+    // @ts-ignore - Supabase type inference might be tricky with deep joins, but we know it's there
+    const rating = v.projects?.feedback_submission?.rating_final_product;
+    if (v.projects?.id && rating) {
+      uniqueProjectsWithFeedback.set(v.projects.id, rating);
+    }
+  });
+
+  const totalScore = Array.from(uniqueProjectsWithFeedback.values()).reduce((sum: number, score: any) => sum + (Number(score) || 0), 0);
+  const avgScore = uniqueProjectsWithFeedback.size > 0 ? totalScore / uniqueProjectsWithFeedback.size : null;
+
   const keyMetricsData: KeyMetricsData = {
     total_videos_completed: completedProductionVideos.length, // Only count non-translation videos here for now? Or keep total? Let's check user request. "I just don't want the minutes to be added". Safe to exclude from "Minutes Produced" logic.
     total_duration_minutes: totalMinutes + Math.floor(totalSeconds / 60),
     total_duration_seconds: totalSeconds % 60,
-    avg_satisfaction_score: null, // TODO: Calculate this from feedback_submissions
+    avg_satisfaction_score: avgScore,
   };
 
   // --- Aggregate data for standard charts ---

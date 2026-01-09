@@ -128,3 +128,11 @@ export interface AnalyticsRpcParams {
   term_ids: string[] | null;
   editor_ids: string[] | null;
 }
+
+export interface VideoFeedbackLog {
+  id: number;
+  video_id: number;
+  feedback_text: string;
+  created_at: string;
+  status_context: string | null;
+}

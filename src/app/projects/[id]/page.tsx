@@ -32,7 +32,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       prodi(name, faculties(name)), 
       videos(*), 
       project_assignments(*, profiles(*)), 
-      feedback_submission(submission_uuid, submitted_at, slug)
+      feedback_submission(*)
     `)
     .eq('id', projectId)
     .order('created_at', { foreignTable: 'videos', ascending: true })
@@ -105,6 +105,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             workloadData={workloadData || []}
           />
           <FeedbackManager projectId={project.id} feedbackSubmission={feedbackSubmission} videos={project.videos} />
+
+
+          {/* Feedback consolidated in FeedbackManager */}
         </div>
       </div>
     </div>

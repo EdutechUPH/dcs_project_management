@@ -61,7 +61,7 @@ export async function externalApproveVideo(uuid: string, videoId: number) {
 
   const { error } = await supabase
     .from('videos')
-    .update({ status: 'Done' })
+    .update({ status: 'Done', revision_notes: null })
     .eq('id', videoId)
     .eq('project_id', submission.project_id); // Ensure video belongs to this project
 
@@ -80,6 +80,13 @@ export async function externalRequestRevision(uuid: string, videoId: number, not
   // Validate ownership via UUID
   const { data: submission } = await supabase.from('feedback_submission').select('project_id').eq('submission_uuid', uuid).single();
   if (!submission) return false;
+
+  // Create log entry
+  await supabase.from('video_feedback_log').insert({
+    video_id: videoId,
+    feedback_text: notes,
+    status_context: 'Revision Requested'
+  });
 
   const { error } = await supabase
     .from('videos')

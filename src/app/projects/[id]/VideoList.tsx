@@ -2,12 +2,13 @@
 'use client';
 
 
-import { addVideoToProject, deleteVideo, updateVideo, updateVideoStatus, moveVideo } from './actions';
+import { addVideoToProject, deleteVideo, updateVideoStatus, moveVideo } from './actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useRef, useState } from 'react';
 import { MAIN_EDITOR_ROLE } from '@/lib/constants';
 import { type Video, type Profile, type Assignment } from '@/lib/types';
-import { ArrowUp, ArrowDown, Film } from 'lucide-react'; // Assuming you have lucide-react, if not use simple text
+import { ArrowUp, ArrowDown, Film, AlertCircle, CheckCircle, History as HistoryIcon } from 'lucide-react';
+import VideoEditForm from './VideoEditForm';
 
 type VideoListProps = {
   videos: Video[];
@@ -36,6 +37,7 @@ const languageOptions = ['Indonesian', 'English', 'Others'];
 
 export default function VideoList({ videos, projectId, profiles, assignments }: VideoListProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [historyVideo, setHistoryVideo] = useState<{ id: number, title: string } | null>(null);
   const addVideoWithId = addVideoToProject.bind(null, projectId);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -105,71 +107,45 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
 
               <div className="flex-grow">
                 {editingId === video.id ? (
-                  <form action={updateVideo} onSubmit={() => setEditingId(null)} className="space-y-4">
-                    <input type="hidden" name="videoId" value={video.id} />
-                    <input type="hidden" name="projectId" value={projectId} />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium">Title</label>
-                        <input type="text" name="title" defaultValue={video.title} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" required />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Status</label>
-                        <select name="status" defaultValue={video.status} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                          {videoStatuses.map(status => <option key={status}>{status}</option>)}
-                        </select>
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="text-sm font-medium">Main Editor</label>
-                        <select
-                          name="main_editor_id"
-                          defaultValue={video.main_editor_id || projectMainEditorId || ''}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
-                        >
-                          <option value="">Unassigned</option>
-                          {profiles.map(profile => (
-                            <option key={profile.id} value={profile.id}>{profile.full_name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Language</label>
-                        <select name="language" defaultValue={video.language || 'Indonesian'} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-                          {languageOptions.map(lang => <option key={lang}>{lang}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Video Link</label>
-                        <input type="text" name="video_link" defaultValue={video.video_link || ''} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium">Duration:</label>
-                        <input type="number" name="duration_minutes" placeholder="Mins" defaultValue={video.duration_minutes || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
-                        <input type="number" name="duration_seconds" placeholder="Secs" defaultValue={video.duration_seconds || ''} className="block w-20 rounded-md border-gray-300 shadow-sm p-2" />
-                      </div>
-                      <div className="flex items-center gap-4 pt-4">
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" name="has_english_subtitle" id={`eng - sub - ${video.id} `} defaultChecked={video.has_english_subtitle} className="h-4 w-4 rounded border-gray-300" />
-                          <label htmlFor={`eng - sub - ${video.id} `} className="text-sm">English Subtitles</label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" name="has_indonesian_subtitle" id={`ind - sub - ${video.id} `} defaultChecked={video.has_indonesian_subtitle} className="h-4 w-4 rounded border-gray-300" />
-                          <label htmlFor={`ind - sub - ${video.id} `} className="text-sm">Indonesian Subtitles</label>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-2 border-t">
-                      <button type="button" onClick={() => setEditingId(null)} className="text-sm font-medium text-gray-600">Cancel</button>
-                      <SubmitButton className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-400" pendingText="Saving...">Save</SubmitButton>
-                    </div>
-                  </form>
+                  <VideoEditForm
+                    video={video}
+                    projectId={projectId}
+                    profiles={profiles}
+                    projectMainEditorId={projectMainEditorId}
+                    onCancel={() => setEditingId(null)}
+                  />
                 ) : (
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="font-medium text-gray-900">{video.title}</p>
-                      <p className="text-sm text-gray-600">Duration: {video.duration_minutes || 0}m {video.duration_seconds || 0}s</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-gray-600">Duration: {video.duration_minutes || 0}m {video.duration_seconds || 0}s</p>
+                        <span className="text-gray-300">|</span>
+                        <button
+                          onClick={() => setHistoryVideo({ id: video.id, title: video.title })}
+                          className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
+                          title="View Revision History"
+                        >
+                          <HistoryIcon size={12} /> History
+                        </button>
+                      </div>
+
+                      {/* Feedback Display */}
+                      {video.revision_notes && video.status !== 'Done' && (
+                        <div className="mt-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded flex items-start gap-2 max-w-xl">
+                          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="font-semibold">Lecturer Feedback:</span> {video.revision_notes}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Approval Badge */}
+                      {video.status === 'Done' && (
+                        <div className="mt-1 text-xs text-green-700 font-medium flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" /> Lecturer Approved
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-4">
                       <span className={`px - 2 inline - flex text - xs leading - 5 font - semibold rounded - full ${statusColors[video.status] || 'bg-gray-100 text-gray-800'} `}>
