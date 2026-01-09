@@ -198,6 +198,7 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
         <button onClick={() => setIsEditing(true)} className="text-sm font-medium text-blue-600 hover:underline">Edit Details</button>
       </div>
       <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+        <DetailItem label="Request Date" value={new Date(project.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} />
         <DetailItem label="Due Date" value={project.due_date ? new Date(`${project.due_date}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'} />
         <DetailItem label="Term" value={project.terms?.name} />
         <DetailItem label="Faculty" value={project.prodi?.faculties?.name} />

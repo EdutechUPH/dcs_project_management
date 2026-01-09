@@ -15,14 +15,28 @@ export default async function MyProjectsPage() {
     redirect('/login');
   }
 
+  // 1. Get IDs of projects assigned to current user
+  const { data: assignments, error: assignmentError } = await supabase
+    .from('project_assignments')
+    .select('project_id')
+    .eq('profile_id', user.id);
+
+  if (assignmentError) {
+    console.error("My Projects assignment fetch error:", assignmentError);
+    return <p>Error fetching your assignments: {assignmentError.message}</p>;
+  }
+
+  const projectIds = assignments.map(a => a.project_id);
+
+  // 2. Fetch full project details for those IDs
   const { data: projects, error } = await supabase
     .from('projects')
     .select(`
-      *, due_date, lecturers(name), prodi(name), videos(*), 
-      project_assignments!inner(*, profiles(full_name)), 
+      *, created_at, due_date, lecturers(name), prodi(name), videos(*), 
+      project_assignments(*, profiles(full_name)), 
       feedback_submission(submitted_at)
     `)
-    .eq('project_assignments.profile_id', user.id)
+    .in('id', projectIds)
     .order('due_date', { ascending: true });
 
   if (error) {
