@@ -7,11 +7,11 @@ import { redirect } from 'next/navigation';
 
 export async function updateLecturerAssignments(lecturerId: number, formData: FormData) {
   const supabase = await createClient();
-  const prodiIds = formData.getAll('prodi_id') as string[];
+  const facultyIds = formData.getAll('faculty_id') as string[];
 
-  // 1. Delete all existing assignments for this lecturer
+  // 1. Delete all existing faculty assignments for this lecturer
   const { error: deleteError } = await supabase
-    .from('lecturer_prodi_join')
+    .from('lecturer_faculty_join')
     .delete()
     .eq('lecturer_id', lecturerId);
 
@@ -21,14 +21,14 @@ export async function updateLecturerAssignments(lecturerId: number, formData: Fo
   }
 
   // 2. Insert the new assignments if any are selected
-  if (prodiIds.length > 0) {
-    const newAssignments = prodiIds.map(prodiId => ({
+  if (facultyIds.length > 0) {
+    const newAssignments = facultyIds.map(facultyId => ({
       lecturer_id: lecturerId,
-      prodi_id: parseInt(prodiId),
+      faculty_id: parseInt(facultyId),
     }));
 
     const { error: insertError } = await supabase
-      .from('lecturer_prodi_join')
+      .from('lecturer_faculty_join')
       .insert(newAssignments);
 
     if (insertError) {

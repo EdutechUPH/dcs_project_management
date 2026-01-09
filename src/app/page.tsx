@@ -11,11 +11,13 @@ import { Pagination } from '@/components/Pagination';
 
 export const revalidate = 0;
 
-export default async function HomePage({ searchParams }: { searchParams: { [key: string]: string | undefined } }) {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
   const supabase = await createClient();
 
+  const resolvedSearchParams = await searchParams;
+
   // Pagination Logic
-  const currentPage = Number(searchParams.page) || 1;
+  const currentPage = Number(resolvedSearchParams.page) || 1;
   const itemsPerPage = 10;
   const from = (currentPage - 1) * itemsPerPage;
   const to = from + itemsPerPage - 1;
@@ -25,19 +27,19 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
     .select('*, due_date, lecturers(name), prodi(name), videos(*), project_assignments(*, profiles(full_name)), feedback_submission(submitted_at)', { count: 'exact' });
 
   // 1. Text Search
-  if (searchParams.query) {
-    query = query.ilike('course_name', `%${searchParams.query}%`);
+  if (resolvedSearchParams.query) {
+    query = query.ilike('course_name', `%${resolvedSearchParams.query}%`);
   }
 
   // 2. Dropdown Filters
-  if (searchParams.faculty) {
-    query = query.eq('faculty_id', searchParams.faculty);
+  if (resolvedSearchParams.faculty) {
+    query = query.eq('faculty_id', resolvedSearchParams.faculty);
   }
-  if (searchParams.term) {
-    query = query.eq('term_id', searchParams.term);
+  if (resolvedSearchParams.term) {
+    query = query.eq('term_id', resolvedSearchParams.term);
   }
-  if (searchParams.teamMember) {
-    query = query.eq('project_assignments.profile_id', searchParams.teamMember);
+  if (resolvedSearchParams.teamMember) {
+    query = query.eq('project_assignments.profile_id', resolvedSearchParams.teamMember);
   }
 
   // Apply Range for Pagination
@@ -85,10 +87,10 @@ export default async function HomePage({ searchParams }: { searchParams: { [key:
   // Client-side status filtering
   // Note: With server-side pagination, this filter applies ONLY to the current page's results.
   const statusFilteredProjects = (projects as Project[])?.filter(project => {
-    if (searchParams.status === 'complete') {
+    if (resolvedSearchParams.status === 'complete') {
       return project.videos.length > 0 && project.videos.every((v: Video) => v.status === 'Done');
     }
-    if (searchParams.status === 'incomplete') {
+    if (resolvedSearchParams.status === 'incomplete') {
       return project.videos.some((v: Video) => v.status !== 'Done') || project.videos.length === 0;
     }
     return true;

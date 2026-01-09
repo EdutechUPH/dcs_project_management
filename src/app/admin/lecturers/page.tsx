@@ -10,20 +10,20 @@ export const revalidate = 0;
 export default async function LecturersPage() {
   const supabase = await createClient();
 
-  const { data: lecturers, error } = await supabase.from('lecturers').select('*, lecturer_prodi_join(prodi(name))').order('name', { ascending: true });
+  const { data: lecturers, error } = await supabase.from('lecturers').select('*, lecturer_faculty_join(faculties(name))').order('name', { ascending: true });
   if (error) return <p>Error: {error.message}</p>;
 
   return (
     <div>
       <h1 className="text-2xl font-bold mb-4">Manage Lecturers</h1>
-      
+
       <AddLecturerForm />
 
       <div className="mt-4">
         <h2 className="text-lg font-semibold">Existing Lecturers</h2>
         {/* Pass the imported actions as props */}
-        <LecturerList 
-          lecturers={lecturers ?? []} 
+        <LecturerList
+          lecturers={lecturers ?? []}
           deleteLecturer={deleteLecturer}
           updateLecturer={updateLecturer}
         />

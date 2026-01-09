@@ -18,25 +18,25 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 type AddLecturerModalProps = {
-  prodi: { id: number, name: string }[];
+  faculties: { id: number, name: string }[];
   onClose: () => void;
   onLecturerAdded: () => void;
 };
 
-export default function AddLecturerModal({ prodi, onClose, onLecturerAdded }: AddLecturerModalProps) {
+export default function AddLecturerModal({ faculties, onClose, onLecturerAdded }: AddLecturerModalProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // State for the multi-select dropdown
-  const [selectedProdi, setSelectedProdi] = useState<string[]>([]);
+  const [selectedFaculties, setSelectedFaculties] = useState<string[]>([]);
 
-  const prodiOptions = prodi.map(p => ({ value: p.id.toString(), label: p.name }));
+  const facultyOptions = faculties.map(f => ({ value: f.id.toString(), label: f.name }));
 
   const handleSubmit = async (formData: FormData) => {
-    // Append the selected program IDs to the form data before submitting
-    selectedProdi.forEach(prodiId => {
-      formData.append('prodi_ids', prodiId);
+    // Append the selected faculty IDs to the form data before submitting
+    selectedFaculties.forEach(id => {
+      formData.append('faculty_ids', id);
     });
 
     startTransition(async () => {
@@ -58,7 +58,7 @@ export default function AddLecturerModal({ prodi, onClose, onLecturerAdded }: Ad
         <DialogHeader>
           <DialogTitle>Add New Lecturer</DialogTitle>
           <DialogDescription>
-            Enter the lecturer's details and assign them to one or more study programs.
+            Enter the lecturer's details and assign them to one or more faculties.
           </DialogDescription>
         </DialogHeader>
         <form ref={formRef} action={handleSubmit} className="space-y-4 py-2">
@@ -71,17 +71,17 @@ export default function AddLecturerModal({ prodi, onClose, onLecturerAdded }: Ad
             <Input id="email" name="email" type="email" placeholder="jane@university.edu" />
           </div>
           <div className="space-y-2">
-            <Label>Assign to Study Program(s)</Label>
+            <Label>Assign to Faculty(s)</Label>
             <MultiSelect
-              options={prodiOptions}
-              selected={selectedProdi}
-              onChange={setSelectedProdi}
-              placeholder="Select programs..."
+              options={facultyOptions}
+              selected={selectedFaculties}
+              onChange={setSelectedFaculties}
+              placeholder="Select faculties..."
               className="w-full"
             />
-            {selectedProdi.length === 0 && (
+            {selectedFaculties.length === 0 && (
               <p className="text-[0.8rem] text-muted-foreground">
-                At least one program is recommended.
+                At least one faculty is recommended.
               </p>
             )}
           </div>

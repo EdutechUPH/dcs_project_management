@@ -6,12 +6,12 @@ import SubmitButton from '@/components/SubmitButton';
 import Link from 'next/link';
 
 // UPDATED TYPE to include the nested program data
-type Lecturer = { 
-  id: number; 
-  name: string; 
+type Lecturer = {
+  id: number;
+  name: string;
   email: string | null;
-  lecturer_prodi_join: {
-    prodi: {
+  lecturer_faculty_join: {
+    faculties: {
       name: string;
     } | null
   }[];
@@ -44,18 +44,18 @@ export default function LecturerList({ lecturers, deleteLecturer, updateLecturer
               <div>
                 <p className="font-semibold">{lecturer.name}</p>
                 <p className="text-sm text-gray-500">{lecturer.email}</p>
-                {/* NEW: Display assigned programs as badges */}
+                {/* NEW: Display assigned faculties as badges */}
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {lecturer.lecturer_prodi_join.map((join, index) => join.prodi && (
-                    <span key={index} className="px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded-full">
-                      {join.prodi.name}
+                  {lecturer.lecturer_faculty_join.map((join, index) => join.faculties && (
+                    <span key={index} className="px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full">
+                      {join.faculties.name}
                     </span>
                   ))}
                 </div>
               </div>
               <div className="flex items-center space-x-2">
                 <Link href={`/admin/lecturers/${lecturer.id}/assign`} className="px-3 py-1 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
-                  Manage Programs
+                  Manage Faculties
                 </Link>
                 <button onClick={() => setEditingId(lecturer.id)} className="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50">Edit</button>
                 <form action={deleteLecturer} onSubmit={(e) => { if (!confirm('Are you sure?')) e.preventDefault(); }}>

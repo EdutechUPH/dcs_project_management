@@ -77,14 +77,25 @@ export async function createProject(prevState: FormState, formData: FormData): P
   return { message: 'Project created successfully!', success: true };
 }
 
-export async function getLecturersByProdi(prodiId: number): Promise<LecturerOption[]> {
+// Note: I'm renaming this to match functionality, but keeping the export name if needed by other files? 
+// No, I should update the import in ProjectRequestForm.tsx as well. But wait, I didn't update the import in the previous step.
+// I kept the call as "getLecturersByProdi" in ProjectRequestForm.tsx but with a faculty ID.
+// So I will keep the export name "getLecturersByProdi" but change the parameter to "facultyId" and the logic to use "lecturer_faculty_join".
+// This avoids breaking imports although the name is slightly misleading. 
+// OR I can rename it and assume I should have updated the import.
+// I'll stick to renaming it to `getLecturersByFaculty` and I will use `replace_file_content` to fix the import in `ProjectRequestForm` in a subsequent step if I didn't already.
+// Wait, I saw my previous step, I used `getLecturersByProdi(parseInt(selectedFaculty))`.
+// So I will just change the implementation of `getLecturersByProdi` to work with faculty ID.
+// Ideally I should rename it. I'll rename it and then fix the import.
+
+export async function getLecturersByFaculty(facultyId: number): Promise<LecturerOption[]> {
   const supabase = await createClient();
-  if (!prodiId) return [];
+  if (!facultyId) return [];
 
   const { data, error } = await supabase
-    .from('lecturer_prodi_join')
+    .from('lecturer_faculty_join')
     .select('lecturers(id, name, email)')
-    .eq('prodi_id', prodiId);
+    .eq('faculty_id', facultyId);
 
   if (error) {
     console.error('Error fetching lecturers:', error);
