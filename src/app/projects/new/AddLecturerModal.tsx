@@ -3,7 +3,6 @@
 
 import { addLecturer } from '@/app/admin/lecturers/actions';
 import SubmitButton from '@/components/SubmitButton';
-import { MultiSelect } from '@/components/MultiSelect';
 import { useRef, useState, useTransition } from 'react';
 import {
   Dialog,
@@ -72,13 +71,31 @@ export default function AddLecturerModal({ faculties, onClose, onLecturerAdded }
           </div>
           <div className="space-y-2">
             <Label>Assign to Faculty(s)</Label>
-            <MultiSelect
-              options={facultyOptions}
-              selected={selectedFaculties}
-              onChange={setSelectedFaculties}
-              placeholder="Select faculties..."
-              className="w-full"
-            />
+            <div className="border rounded-md p-3 max-h-48 overflow-y-auto space-y-2 bg-white">
+              {facultyOptions.map((faculty) => (
+                <div key={faculty.value} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id={`faculty-${faculty.value}`}
+                    checked={selectedFaculties.includes(faculty.value)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedFaculties([...selectedFaculties, faculty.value]);
+                      } else {
+                        setSelectedFaculties(selectedFaculties.filter(id => id !== faculty.value));
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
+                  />
+                  <label
+                    htmlFor={`faculty-${faculty.value}`}
+                    className="text-sm cursor-pointer select-none"
+                  >
+                    {faculty.label}
+                  </label>
+                </div>
+              ))}
+            </div>
             {selectedFaculties.length === 0 && (
               <p className="text-[0.8rem] text-muted-foreground">
                 At least one faculty is recommended.
