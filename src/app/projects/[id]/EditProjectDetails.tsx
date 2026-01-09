@@ -48,9 +48,13 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
 
   useEffect(() => {
     async function fetchLecturers() {
-      if (selectedProdi) {
+      // In Edit mode, we likely still select by Faculty now. 
+      // The logic in lines 50+ uses selectedProdi to fetch. 
+      // But we changed the backend to fetch by Faculty ID.
+      // So we must use selectedFaculty here.
+      if (selectedFaculty) {
         setIsLoadingLecturers(true);
-        const lecturersData = await getLecturersByProdi(parseInt(selectedProdi));
+        const lecturersData = await getLecturersByFaculty(parseInt(selectedFaculty));
         setFilteredLecturers(lecturersData);
         setIsLoadingLecturers(false);
       } else {
@@ -58,7 +62,7 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
       }
     }
     fetchLecturers();
-  }, [selectedProdi]);
+  }, [selectedFaculty]); // Changed dependency to selectedFaculty
 
   const updateDetailsWithId = updateProjectDetails.bind(null, project.id);
   const [deleteState, deleteAction] = useActionState(deleteProject, { error: null });
@@ -184,8 +188,8 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
             onClick={handleToggleStatus}
             disabled={isPendingStatus}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${project.status === 'Done'
-                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
           >
             {isPendingStatus ? 'Updating...' : (project.status === 'Done' ? 'Status: Done' : 'Mark as Done')}
