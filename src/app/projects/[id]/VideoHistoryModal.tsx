@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Loader2, History as HistoryIcon, X, MessageSquareQuote } from 'lucide-react';
+import { Loader2, History as HistoryIcon, X, MessageSquareQuote, CheckCircle } from 'lucide-react';
 import { getVideoFeedbackHistory } from './actions';
 import { type VideoFeedbackLog } from '@/lib/types';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -59,25 +59,32 @@ export default function VideoHistoryModal({ videoId, isOpen, onClose, videoTitle
                                 No revision history found.
                             </div>
                         ) : (
-                            history.map((log) => (
-                                <div key={log.id} className="relative pl-6 pb-2 border-l-2 border-gray-200 last:border-0 last:pb-0">
-                                    <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-2 border-blue-500 mt-1"></div>
-                                    <div className="text-xs text-gray-500 mb-1">
-                                        {format(new Date(log.created_at), 'PPP p')}
-                                    </div>
-                                    <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-700 relative group">
-                                        <MessageSquareQuote className="absolute top-2 right-2 w-4 h-4 text-gray-300 group-hover:text-gray-400 transition-colors" />
-                                        {log.feedback_text}
-                                    </div>
-                                    {log.status_context && (
-                                        <div className="mt-1">
-                                            <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-semibold text-gray-500 shadow-sm">
-                                                {log.status_context}
-                                            </span>
+                            history.map((log) => {
+                                const isApproved = log.status_context === 'Approved';
+                                return (
+                                    <div key={log.id} className="relative pl-6 pb-2 border-l-2 border-gray-200 last:border-0 last:pb-0">
+                                        <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 mt-1 ${isApproved ? 'bg-green-100 border-green-500' : 'bg-white border-blue-500'}`}></div>
+                                        <div className="text-xs text-gray-500 mb-1">
+                                            {format(new Date(log.created_at), 'PPP p')}
                                         </div>
-                                    )}
-                                </div>
-                            ))
+                                        <div className={`p-3 rounded-md text-sm relative group ${isApproved ? 'bg-green-50 text-green-800' : 'bg-gray-50 text-gray-700'}`}>
+                                            {isApproved ? (
+                                                <CheckCircle className="absolute top-2 right-2 w-4 h-4 text-green-600" />
+                                            ) : (
+                                                <MessageSquareQuote className="absolute top-2 right-2 w-4 h-4 text-gray-300 group-hover:text-gray-400 transition-colors" />
+                                            )}
+                                            {log.feedback_text}
+                                        </div>
+                                        {log.status_context && !isApproved && (
+                                            <div className="mt-1">
+                                                <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-2 py-0.5 text-xs font-semibold text-gray-500 shadow-sm">
+                                                    {log.status_context}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })
                         )}
                     </div>
                 </Dialog.Content>

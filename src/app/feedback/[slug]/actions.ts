@@ -59,6 +59,13 @@ export async function externalApproveVideo(uuid: string, videoId: number) {
   const { data: submission } = await supabase.from('feedback_submission').select('project_id').eq('submission_uuid', uuid).single();
   if (!submission) return false;
 
+  // Create log entry for approval
+  await supabase.from('video_feedback_log').insert({
+    video_id: videoId,
+    feedback_text: 'Video approved by lecturer.',
+    status_context: 'Approved'
+  });
+
   const { error } = await supabase
     .from('videos')
     .update({ status: 'Done', revision_notes: null })
