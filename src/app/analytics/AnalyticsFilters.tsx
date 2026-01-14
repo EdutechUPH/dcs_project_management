@@ -125,11 +125,11 @@ export default function AnalyticsFilters({ faculties, prodi, lecturers, terms, e
                 {date?.from ? (
                   date.to ? (
                     <>
-                      {format(date.from, "LLO dd, y")} -{" "}
-                      {format(date.to, "LLO dd, y")}
+                      {format(date.from, "d MMM y")} -{" "}
+                      {format(date.to, "d MMM y")}
                     </>
                   ) : (
-                    format(date.from, "LLO dd, y")
+                    format(date.from, "d MMM y")
                   )
                 ) : (
                   <span>Pick a date range</span>
