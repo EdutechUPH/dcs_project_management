@@ -6,6 +6,7 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { getURL } from '@/lib/utils';
 
 export default function LoginPage() {
   const supabase = createClient();
@@ -41,7 +42,7 @@ export default function LoginPage() {
           supabaseClient={supabase}
           appearance={{ theme: ThemeSupa }}
           providers={[]}
-          redirectTo={`${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`}
+          redirectTo={`${getURL()}auth/callback`}
         />
       </div>
     </div>
