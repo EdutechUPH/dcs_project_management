@@ -1,4 +1,3 @@
-// src/app/projects/[id]/EditProjectDetails.tsx
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -8,9 +7,6 @@ import SubmitButton from '@/components/SubmitButton';
 import { useActionState } from 'react';
 import { type Project as ProjectType, type LecturerOption } from '@/lib/types';
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-
-// ... existing types ...
 
 type MasterLists = {
   terms: { id: number; name: string }[];
@@ -38,6 +34,8 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
   const [selectedProdi, setSelectedProdi] = useState(project.prodi_id.toString());
   const [filteredLecturers, setFilteredLecturers] = useState<LecturerOption[]>([]);
   const [isLoadingLecturers, setIsLoadingLecturers] = useState(false);
+  // Separate dirty state for the edit form
+  const [isDirty, setIsDirty] = useState(false);
   const [isPendingStatus, startStatusTransition] = useTransition();
 
   useEffect(() => {
@@ -48,10 +46,6 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
 
   useEffect(() => {
     async function fetchLecturers() {
-      // In Edit mode, we likely still select by Faculty now. 
-      // The logic in lines 50+ uses selectedProdi to fetch. 
-      // But we changed the backend to fetch by Faculty ID.
-      // So we must use selectedFaculty here.
       if (selectedFaculty) {
         setIsLoadingLecturers(true);
         const lecturersData = await getLecturersByFaculty(parseInt(selectedFaculty));
@@ -62,7 +56,7 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
       }
     }
     fetchLecturers();
-  }, [selectedFaculty]); // Changed dependency to selectedFaculty
+  }, [selectedFaculty]);
 
   const updateDetailsWithId = updateProjectDetails.bind(null, project.id);
   const [deleteState, deleteAction] = useActionState(deleteProject, { error: null });
@@ -79,15 +73,50 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
     });
   };
 
+  const handleValuesChange = () => {
+    setIsDirty(true);
+  };
+
+  const handleCancel = () => {
+    if (isDirty) {
+      if (confirm("You have unsaved changes. Are you sure you want to discard them?")) {
+        setIsEditing(false);
+        setIsDirty(false);
+        // Reset local state if needed, though unmounting behaves like reset for uncontrolled inputs
+        // For controlled inputs, we might want to reset them to props, but simpler to just close.
+        setSelectedFaculty(project.faculty_id.toString());
+        setSelectedProdi(project.prodi_id.toString());
+      }
+    } else {
+      setIsEditing(false);
+    }
+  };
+
   if (isEditing) {
     // --- EDITING VIEW ---
     return (
       <div>
-        <form action={updateDetailsWithId} onSubmit={() => setIsEditing(false)}>
+        {/* Pass onSubmit to reset editing/dirty state after successful server action? 
+            Actually server action revalidates path, so form usually remounts or updates specific parts.
+            For simple "Save Changes" that closes the form, we might want to handle it.
+            But `useActionState` isn't used here for update (it was a direct action).
+            Let's wrap update in a form action that we trust works, or upgrade to useActionState to detect success.
+            The current implementation just submits and revalidates. 
+            Ideally, we want to close the form on success.
+        */}
+        <form
+          action={async (formData) => {
+            await updateDetailsWithId(formData);
+            setIsEditing(false);
+            setIsDirty(false);
+            toast.success("Project details saved");
+          }}
+        >
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Edit Details</h2>
+            {isDirty && <span className="text-xs text-amber-600 font-medium mr-auto ml-4">Unsaved changes</span>}
             <div className="flex items-center gap-2">
-              {/* Status Toggle Button */}
+              {/* Status Toggle Button in Edit Mode */}
               <button
                 type="button"
                 onClick={handleToggleStatus}
@@ -101,50 +130,63 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
               </button>
             </div>
           </div>
-          {/* ... existing form fields ... */}
+
           <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-            {/* ... form content ... */}
             <div className="md:col-span-2">
               <label htmlFor="course_name" className="text-sm font-medium text-gray-500">Course Name</label>
-              <input type="text" name="course_name" id="course_name" defaultValue={project.course_name} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
+              <input type="text" name="course_name" id="course_name" defaultValue={project.course_name} onChange={handleValuesChange} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
             </div>
             <div>
               <label htmlFor="due_date" className="text-sm font-medium text-gray-500">Due Date</label>
-              <input type="date" name="due_date" id="due_date" defaultValue={project.due_date?.split('T')[0]} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
+              <input type="date" name="due_date" id="due_date" defaultValue={project.due_date?.split('T')[0]} onChange={handleValuesChange} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
             </div>
             <div>
               <label htmlFor="term_id" className="text-sm font-medium text-gray-500">Term</label>
-              <select name="term_id" id="term_id" defaultValue={project.term_id} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+              <select name="term_id" id="term_id" defaultValue={project.term_id} onChange={handleValuesChange} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                 {masterLists.terms.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </div>
             <div>
               <label htmlFor="faculty_id" className="text-sm font-medium text-gray-500">Faculty</label>
-              <select name="faculty_id" id="faculty_id" value={selectedFaculty} onChange={(e) => setSelectedFaculty(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+              <select
+                name="faculty_id"
+                id="faculty_id"
+                value={selectedFaculty}
+                onChange={(e) => { setSelectedFaculty(e.target.value); handleValuesChange(); }}
+                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+              >
                 {masterLists.faculties.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </div>
             <div>
               <label htmlFor="prodi_id" className="text-sm font-medium text-gray-500">Study Program</label>
-              <select name="prodi_id" id="prodi_id" value={selectedProdi} onChange={(e) => setSelectedProdi(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+              <select
+                name="prodi_id"
+                id="prodi_id"
+                value={selectedProdi}
+                onChange={(e) => { setSelectedProdi(e.target.value); handleValuesChange(); }}
+                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+              >
                 <option value="">Select a Program</option>
                 {filteredProdi.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </div>
             <div>
               <label htmlFor="lecturer_id" className="text-sm font-medium text-gray-500">Lecturer</label>
-              <select name="lecturer_id" id="lecturer_id" defaultValue={project.lecturer_id} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+              <select name="lecturer_id" id="lecturer_id" defaultValue={project.lecturer_id} onChange={handleValuesChange} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                 {isLoadingLecturers ? <option>Loading...</option> : filteredLecturers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </div>
             <div className="md:col-span-2">
               <label htmlFor="notes" className="text-sm font-medium text-gray-500">Notes</label>
-              <textarea name="notes" id="notes" defaultValue={project.notes || ''} rows={4} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"></textarea>
+              <textarea name="notes" id="notes" defaultValue={project.notes || ''} onChange={handleValuesChange} rows={4} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"></textarea>
             </div>
           </dl>
           <div className="flex justify-end gap-2 mt-4">
-            <button type="button" onClick={() => setIsEditing(false)} className="text-sm font-medium text-gray-600 px-3 py-1 border rounded-md">Cancel</button>
-            <SubmitButton className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-400" pendingText="Saving...">Save Changes</SubmitButton>
+            <button type="button" onClick={handleCancel} className="text-sm font-medium text-gray-600 px-3 py-1 border rounded-md hover:bg-gray-50">Cancel</button>
+            <SubmitButton className="px-3 py-1 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-blue-400" pendingText="Saving..." disabled={!isDirty}>Save Changes</SubmitButton>
           </div>
         </form>
         {userRole === 'Admin' && (
