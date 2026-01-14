@@ -42,6 +42,7 @@ export interface Video {
   revision_notes?: string | null;
   notes?: string | null; // Internal notes
   position: number;
+  video_size_mb?: number | null;
 }
 
 export interface Assignment {
@@ -73,8 +74,8 @@ export interface Project {
   videos: Video[];
   project_assignments: Assignment[];
   feedback_submission: FeedbackSubmission | null;
-  project_type?: string;
   status?: string;
+  project_folder_url?: string | null;
 }
 
 

@@ -4,9 +4,12 @@ import { useState, useEffect, useTransition } from 'react';
 import { updateProjectDetails, deleteProject, toggleProjectStatus } from './actions';
 import { getLecturersByFaculty } from '@/app/projects/new/actions';
 import SubmitButton from '@/components/SubmitButton';
+import ConfirmationModal from '@/components/ConfirmationModal';
 import { useActionState } from 'react';
 import { type Project as ProjectType, type LecturerOption } from '@/lib/types';
 import { toast } from "sonner";
+import Link from 'next/link';
+import { ExternalLink } from 'lucide-react';
 
 type MasterLists = {
   terms: { id: number; name: string }[];
@@ -20,10 +23,18 @@ type EditProjectDetailsProps = {
   userRole: string;
 };
 
-const DetailItem = ({ label, value }: { label: string; value: string | null | undefined }) => (
+const DetailItem = ({ label, value, isLink = false }: { label: string; value: string | null | undefined; isLink?: boolean }) => (
   <div>
     <dt className="text-sm font-medium text-gray-500">{label}</dt>
-    <dd className="mt-1 text-lg text-gray-900">{value || 'N/A'}</dd>
+    <dd className="mt-1 text-lg text-gray-900 break-all">
+      {isLink && value ? (
+        <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+          {value} <ExternalLink size={14} />
+        </a>
+      ) : (
+        value || 'N/A'
+      )}
+    </dd>
   </div>
 );
 
@@ -37,6 +48,7 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
   // Separate dirty state for the edit form
   const [isDirty, setIsDirty] = useState(false);
   const [isPendingStatus, startStatusTransition] = useTransition();
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     if (selectedFaculty) {
@@ -79,17 +91,17 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
 
   const handleCancel = () => {
     if (isDirty) {
-      if (confirm("You have unsaved changes. Are you sure you want to discard them?")) {
-        setIsEditing(false);
-        setIsDirty(false);
-        // Reset local state if needed, though unmounting behaves like reset for uncontrolled inputs
-        // For controlled inputs, we might want to reset them to props, but simpler to just close.
-        setSelectedFaculty(project.faculty_id.toString());
-        setSelectedProdi(project.prodi_id.toString());
-      }
+      setShowConfirm(true);
     } else {
       setIsEditing(false);
     }
+  };
+
+  const resetForm = () => {
+    setIsEditing(false);
+    setIsDirty(false);
+    setSelectedFaculty(project.faculty_id.toString());
+    setSelectedProdi(project.prodi_id.toString());
   };
 
   if (isEditing) {
@@ -145,6 +157,18 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
               <select name="term_id" id="term_id" defaultValue={project.term_id} onChange={handleValuesChange} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                 {masterLists.terms.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
+            </div>
+            <div className="md:col-span-2">
+              <label htmlFor="project_folder_url" className="text-sm font-medium text-gray-500">Project Folder Link</label>
+              <input
+                type="text"
+                name="project_folder_url"
+                id="project_folder_url"
+                defaultValue={project.project_folder_url || ''}
+                onChange={handleValuesChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+                placeholder="https://..."
+              />
             </div>
             <div>
               <label htmlFor="faculty_id" className="text-sm font-medium text-gray-500">Faculty</label>
@@ -247,9 +271,21 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
         <DetailItem label="Study Program" value={project.prodi?.name} />
         <DetailItem label="Lecturer" value={project.lecturers?.name} />
         <div className="md:col-span-2">
+          <DetailItem label="Project Folder Link" value={project.project_folder_url} isLink={true} />
+        </div>
+        <div className="md:col-span-2">
           <DetailItem label="Notes" value={project.notes} />
         </div>
       </dl>
+      <ConfirmationModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={resetForm}
+        title="Unsaved Changes"
+        description="You have unsaved changes. Discard?"
+        variant="warning"
+        confirmText="Discard"
+      />
     </div>
   );
 }

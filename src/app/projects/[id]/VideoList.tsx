@@ -41,6 +41,7 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
     description: string;
     onConfirm: () => void;
     variant?: 'danger' | 'warning';
+    confirmText?: string;
   }>({
     isOpen: false,
     title: '',
@@ -151,6 +152,8 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                       <div className="flex items-center gap-2">
                         <p className="text-sm text-gray-600">Duration: {video.duration_minutes || 0}m {video.duration_seconds || 0}s</p>
                         <span className="text-gray-300">|</span>
+                        <p className="text-sm text-gray-600">Size: {video.video_size_mb ? `${video.video_size_mb} MB` : 'N/A'}</p>
+                        <span className="text-gray-300">|</span>
                         <button
                           onClick={() => setHistoryVideo({ id: video.id, title: video.title })}
                           className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
@@ -172,6 +175,12 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                       {video.status === 'Done' && (
                         <div className="mt-1 text-xs text-green-700 font-medium flex items-center gap-1">
                           <CheckCircle className="w-3 h-3" /> Lecturer Approved
+                        </div>
+                      )}
+
+                      {video.notes && (
+                        <div className="mt-1 text-xs text-gray-500 max-w-xl truncate" title={video.notes}>
+                          <span className="font-semibold text-gray-700">Notes:</span> {video.notes}
                         </div>
                       )}
                     </div>

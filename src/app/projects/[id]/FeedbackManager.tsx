@@ -139,42 +139,69 @@ export default function FeedbackManager({ projectId, feedbackSubmission, videos 
     );
   }
 
+  const hasRevisionRequest = videos.some(v =>
+    v.status === 'Revision Requested' ||
+    (!!v.revision_notes && v.status !== 'Done' && v.status !== 'Ready for Review')
+  );
+
   return (
-    <div className="mt-8 lg:mt-0">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Lecturer Feedback</h2>
-        {uuid && <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Pending</span>}
-      </div>
-      <div className="p-6 border rounded-lg bg-white">
-        {feedbackLink ? (
-          <div>
-            <p className="text-sm font-medium text-gray-700">Share this secure link with the lecturer:</p>
-            <input
-              type="text"
-              readOnly
-              value={feedbackLink}
-              className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm p-2 text-sm"
-            />
-            <button
-              onClick={copyToClipboard}
-              className="mt-2 w-full py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors"
-            >
-              Copy Link
-            </button>
+    <div className="mt-8 lg:mt-0 space-y-6">
+      {hasRevisionRequest && (
+        <>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Project Status</h2>
+            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Review Received</span>
           </div>
-        ) : (
-          <div>
-            <p className="text-sm text-gray-500 mb-2">Generate a unique link to request feedback for this project.</p>
-            <Button
-              onClick={handleRequestFeedback}
-              disabled={isPending}
-              className="w-full bg-gray-800 text-white rounded-md shadow-sm py-2 px-4 hover:bg-gray-700 disabled:bg-gray-400"
-            >
-              {isPending ? 'Generating...' : 'Generate Feedback Link'}
-            </Button>
-            {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
-          </div>
-        )}
+          <Card className="border-orange-200 bg-orange-50/30">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="text-orange-600 animate-pulse" />
+                <CardTitle className="text-lg text-orange-700">Awaiting Video Revision</CardTitle>
+              </div>
+              <CardDescription className="text-orange-800/80">
+                The lecturer has requested revisions on some videos.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </>
+      )}
+
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Lecturer Feedback</h2>
+          {uuid && <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Pending</span>}
+        </div>
+        <div className="p-6 border rounded-lg bg-white">
+          {feedbackLink ? (
+            <div>
+              <p className="text-sm font-medium text-gray-700">Share this secure link with the lecturer:</p>
+              <input
+                type="text"
+                readOnly
+                value={feedbackLink}
+                className="mt-1 block w-full rounded-md border-gray-300 bg-gray-50 shadow-sm p-2 text-sm"
+              />
+              <button
+                onClick={copyToClipboard}
+                className="mt-2 w-full py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors"
+              >
+                Copy Link
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm text-gray-500 mb-2">Generate a unique link to request feedback for this project.</p>
+              <Button
+                onClick={handleRequestFeedback}
+                disabled={isPending}
+                className="w-full bg-gray-800 text-white rounded-md shadow-sm py-2 px-4 hover:bg-gray-700 disabled:bg-gray-400"
+              >
+                {isPending ? 'Generating...' : 'Generate Feedback Link'}
+              </Button>
+              {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

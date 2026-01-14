@@ -205,6 +205,10 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
               ))}
             </div>
             <div className="md:col-span-2">
+              <label htmlFor="project_folder_url" className="block text-sm font-medium text-gray-700">Project Folder Link</label>
+              <input type="text" name="project_folder_url" id="project_folder_url" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="e.g. OneDrive or Google Drive link" />
+            </div>
+            <div className="md:col-span-2">
               <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Notes</label>
               <textarea name="notes" id="notes" rows={3} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"></textarea>
             </div>

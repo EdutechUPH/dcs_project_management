@@ -50,13 +50,15 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
     const router = useRouter()
     const supabase = createClient()
     const [role, setRole] = useState<string | null>(null);
+    const [userName, setUserName] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchRole = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+                const { data } = await supabase.from('profiles').select('role, full_name').eq('id', user.id).single();
                 setRole(data?.role || null);
+                setUserName(data?.full_name || null);
             }
         };
         fetchRole();
@@ -68,8 +70,6 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
         router.refresh()
     }
 
-
-
     return (
         <div className={cn(
             "flex-col h-screen w-64 bg-gray-900 text-white border-r flex",
@@ -79,8 +79,17 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
                 <Link href="/">
                     <h1 className="text-xl font-bold tracking-wider hover:text-gray-300 transition-colors">DCS TRACKER</h1>
                 </Link>
-                <p className="text-xs text-gray-400 mt-1">Project Management v2.0</p>
-                {role && <span className="text-[10px] uppercase text-gray-500 bg-gray-800 px-2 py-0.5 rounded mt-2 inline-block">{role}</span>}
+                {userName ? (
+                    <div className="mt-1">
+                        <p className="text-sm font-semibold text-white">{userName}</p>
+                        <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-wide">{role}</p>
+                    </div>
+                ) : (
+                    <>
+                        <p className="text-xs text-gray-400 mt-1">Project Management v2.0</p>
+                        {role && <span className="text-[10px] uppercase text-gray-500 bg-gray-800 px-2 py-0.5 rounded mt-2 inline-block">{role}</span>}
+                    </>
+                )}
             </div>
 
             <nav className="flex-1 px-4 space-y-2 mt-4">

@@ -36,6 +36,7 @@ export async function createProject(prevState: FormState, formData: FormData): P
     project_type: formData.get('project_type') as string || 'Taping and Editing', // Default
     notes: formData.get('notes') as string,
     due_date: formData.get('due_date') as string,
+    project_folder_url: formData.get('project_folder_url') as string,
   };
 
   const { data: newProject, error: projectError } = await supabase

@@ -170,6 +170,20 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
                         />
                     </div>
 
+                    {/* Video Size */}
+                    <div>
+                        <label className="text-sm font-medium">Video Size (MB)</label>
+                        <input
+                            type="number"
+                            name="video_size_mb"
+                            step="0.01"
+                            placeholder="e.g. 50.5"
+                            defaultValue={video.video_size_mb || ''}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+                            onChange={handleFieldChange}
+                        />
+                    </div>
+
                     {/* Subtitles */}
                     <div className="flex items-center gap-4 pt-4">
                         <div className="flex items-center gap-2">
@@ -196,15 +210,15 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
                         </div>
                     </div>
 
-                    {/* Internal Notes */}
+                    {/* Video Notes */}
                     <div className="md:col-span-2">
-                        <label className="text-sm font-medium">Internal Notes</label>
+                        <label className="text-sm font-medium">Video Notes</label>
                         <textarea
                             name="notes"
                             defaultValue={video.notes || ''}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 text-sm"
                             rows={3}
-                            placeholder="Add internal notes about this video..."
+                            placeholder="Add video notes..."
                             onChange={handleFieldChange}
                         />
                     </div>

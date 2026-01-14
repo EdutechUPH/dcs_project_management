@@ -25,6 +25,7 @@ export async function updateProjectDetails(projectId: number, formData: FormData
     lecturer_id: Number(formData.get('lecturer_id')),
     notes: formData.get('notes') as string,
     due_date: formData.get('due_date') as string,
+    project_folder_url: formData.get('project_folder_url') as string,
   };
   const { error } = await supabase.from('projects').update(projectData).eq('id', projectId);
   if (error) {
@@ -176,6 +177,7 @@ export async function updateVideo(prevState: FormState | any, formData: FormData
     status: formData.get('status') as string,
     duration_minutes: Number(formData.get('duration_minutes')) || 0,
     duration_seconds: Number(formData.get('duration_seconds')) || 0,
+    video_size_mb: formData.get('video_size_mb') ? Number(formData.get('video_size_mb')) : null,
     language: formData.get('language') as string,
     has_english_subtitle: formData.get('has_english_subtitle') === 'on',
     has_indonesian_subtitle: formData.get('has_indonesian_subtitle') === 'on',
