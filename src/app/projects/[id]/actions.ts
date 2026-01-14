@@ -181,6 +181,7 @@ export async function updateVideo(prevState: FormState | any, formData: FormData
     has_indonesian_subtitle: formData.get('has_indonesian_subtitle') === 'on',
     video_link: formData.get('video_link') as string,
     main_editor_id: mainEditorId || null,
+    notes: formData.get('notes') as string,
     // Clear revision notes if marked as Done
     ...(formData.get('status') === 'Done' ? { revision_notes: null } : {})
   };

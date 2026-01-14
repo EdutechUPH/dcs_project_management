@@ -201,6 +201,19 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
                         <label htmlFor={`ind-sub-${video.id}`} className="text-sm">Indonesian Subtitles</label>
                     </div>
                 </div>
+
+                {/* Internal Notes */}
+                <div className="md:col-span-2">
+                    <label className="text-sm font-medium">Internal Notes</label>
+                    <textarea
+                        name="notes"
+                        defaultValue={video.notes || ''}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 text-sm"
+                        rows={3}
+                        placeholder="Add internal notes about this video..."
+                        onChange={handleChange}
+                    />
+                </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2 border-t mt-2">
