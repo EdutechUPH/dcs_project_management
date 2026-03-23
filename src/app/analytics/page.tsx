@@ -36,6 +36,7 @@ type ProjectJoin = {
   lecturer_id?: string | null;
   term_id?: string | null;
   project_type?: string | null;
+  status?: string | null;
   faculties?: Named | null;
   prodi?: Named | null;
   lecturers?: Named | null;
@@ -192,6 +193,13 @@ export default async function AnalyticsPage(props: {
 
   // --- Editor Leaderboard Data ---
   const leaderboardMap: Record<string, { editorId: string; editorName: string; completedVideos: number; activeVideos: number; minutesProduced: number }> = {};
+  
+  const isVideoActive = (v: VideoRow) => {
+    if (v.status === 'Done') return false;
+    const pStatus = v.projects?.status;
+    if (pStatus === 'Pending' || pStatus === 'Cancelled') return false;
+    return true; /* Feedback implicitly tracked via status manually currently depending on context */
+  };
 
   teamVideos.forEach(v => {
     const editorId = v.main_editor_id ?? "unassigned";
@@ -209,7 +217,7 @@ export default async function AnalyticsPage(props: {
         const minutes = (v.duration_minutes || 0) + (v.duration_seconds || 0) / 60;
         leaderboardMap[editorId].minutesProduced += minutes;
       }
-    } else {
+    } else if (isVideoActive(v)) {
       leaderboardMap[editorId].activeVideos += 1;
     }
   });
@@ -291,7 +299,13 @@ export default async function AnalyticsPage(props: {
     const { name: category, fullName } = getCategory(video);
     if (groupBy === 'editor' && category === 'Unassigned') return acc;
     if (!acc[category]) acc[category] = { category, full_category: fullName, active_count: 0, completed_count: 0 };
-    video.status === "Done" ? acc[category].completed_count++ : acc[category].active_count++;
+    
+    if (video.status === "Done") {
+      acc[category].completed_count++;
+    } else if (isVideoActive(video)) {
+      acc[category].active_count++;
+    }
+    
     return acc;
   }, {});
 

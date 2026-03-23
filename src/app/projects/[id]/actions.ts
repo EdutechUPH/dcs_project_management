@@ -369,11 +369,11 @@ export async function deleteProject(prevState: FormState, formData: FormData): P
  * Toggles the project status between 'Active' and 'Done'.
  * Enforces rule: All videos must be 'Done' to mark project as 'Done'.
  */
-export async function toggleProjectStatus(projectId: number, newStatus: 'Active' | 'Done'): Promise<FormState> {
+export async function toggleProjectStatus(projectId: number, newStatus: 'Active' | 'Done' | 'Pending' | 'Cancelled'): Promise<FormState> {
   const supabase = await createClient();
 
   // Validate only valid statuses
-  if (newStatus !== 'Active' && newStatus !== 'Done') {
+  if (!['Active', 'Done', 'Pending', 'Cancelled'].includes(newStatus)) {
     return { error: 'Invalid status.' };
   }
 

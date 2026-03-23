@@ -32,17 +32,26 @@ export default function FeedbackManager({ projectId, feedbackSubmission, videos 
   const handleRequestFeedback = () => {
     setError('');
 
-    // --- Validation: Ensure all videos have links and duration ---
-    const incompleteVideos = videos.filter(v =>
+    const reviewableVideos = videos.filter(v => ['Review', 'Done'].includes(v.status));
+
+    if (reviewableVideos.length === 0) {
+      const msg = `Cannot request review. No videos are completed/ready for review.`;
+      toast.error(msg);
+      setError(msg);
+      return;
+    }
+
+    // --- Validation: Ensure completed videos have links and duration ---
+    const incompleteVideos = reviewableVideos.filter(v =>
       !v.video_link ||
       ((v.duration_minutes || 0) === 0 && (v.duration_seconds || 0) === 0)
     );
 
     if (incompleteVideos.length > 0) {
       const titles = incompleteVideos.map(v => v.title).join(", ");
-      const msg = `Cannot request feedback. The following videos are missing a link or duration: ${titles}`;
+      const msg = `Cannot request review. The following completed videos are missing a link or duration: ${titles}`;
       toast.error(msg);
-      setError(msg); // Optional: also show inline
+      setError(msg);
       return;
     }
 

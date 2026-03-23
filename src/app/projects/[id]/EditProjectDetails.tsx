@@ -73,8 +73,8 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
   const updateDetailsWithId = updateProjectDetails.bind(null, project.id);
   const [deleteState, deleteAction] = useActionState(deleteProject, { error: null });
 
-  const handleToggleStatus = () => {
-    const newStatus = project.status === 'Done' ? 'Active' : 'Done';
+  const handleStatusChange = (newStatus: 'Active' | 'Done' | 'Pending' | 'Cancelled') => {
+    if (newStatus === project.status) return;
     startStatusTransition(async () => {
       const result = await toggleProjectStatus(project.id, newStatus);
       if (result.error) {
@@ -128,18 +128,23 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
             <h2 className="text-xl font-semibold">Edit Details</h2>
             {isDirty && <span className="text-xs text-amber-600 font-medium mr-auto ml-4">Unsaved changes</span>}
             <div className="flex items-center gap-2">
-              {/* Status Toggle Button in Edit Mode */}
-              <button
-                type="button"
-                onClick={handleToggleStatus}
+              {/* Status Select in Edit Mode */}
+              <select
+                value={project.status || 'Active'}
+                onChange={(e) => handleStatusChange(e.target.value as any)}
                 disabled={isPendingStatus}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${project.status === 'Done'
-                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors border outline-none
+                  ${project.status === 'Done' ? 'bg-green-50 text-green-700 border-green-200 focus:border-green-400'
+                  : project.status === 'Pending' ? 'bg-orange-50 text-orange-700 border-orange-200 focus:border-orange-400'
+                  : project.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200 focus:border-red-400'
+                  : 'bg-white text-gray-700 border-gray-300 focus:border-blue-400'
+                }`}
               >
-                {isPendingStatus ? 'Updating...' : (project.status === 'Done' ? 'Status: Done' : 'Mark as Done')}
-              </button>
+                <option value="Active">Active</option>
+                <option value="Pending">Pending</option>
+                <option value="Done">Done</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
             </div>
           </div>
 
@@ -248,18 +253,23 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-semibold">Overall Details</h2>
-          {/* Status Toggle Button */}
-          <button
-            type="button"
-            onClick={handleToggleStatus}
+          {/* Status Select */}
+          <select
+            value={project.status || 'Active'}
+            onChange={(e) => handleStatusChange(e.target.value as any)}
             disabled={isPendingStatus}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${project.status === 'Done'
-              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors border outline-none
+              ${project.status === 'Done' ? 'bg-green-50 text-green-700 border-green-200 focus:border-green-400'
+              : project.status === 'Pending' ? 'bg-orange-50 text-orange-700 border-orange-200 focus:border-orange-400'
+              : project.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200 focus:border-red-400'
+              : 'bg-white text-gray-700 border-gray-300 focus:border-blue-400'
+            }`}
           >
-            {isPendingStatus ? 'Updating...' : (project.status === 'Done' ? 'Status: Done' : 'Mark as Done')}
-          </button>
+            <option value="Active">Active</option>
+            <option value="Pending">Pending</option>
+            <option value="Done">Done</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
         </div>
         <button onClick={() => setIsEditing(true)} className="text-sm font-medium text-blue-600 hover:underline">Edit Details</button>
       </div>

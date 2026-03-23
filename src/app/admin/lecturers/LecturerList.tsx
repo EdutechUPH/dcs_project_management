@@ -15,6 +15,9 @@ type Lecturer = {
       name: string;
     } | null
   }[];
+  projects?: {
+    course_name: string;
+  }[];
 };
 
 type LecturerListProps = {
@@ -58,7 +61,15 @@ export default function LecturerList({ lecturers, deleteLecturer, updateLecturer
                   Manage Faculties
                 </Link>
                 <button onClick={() => setEditingId(lecturer.id)} className="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50">Edit</button>
-                <form action={deleteLecturer} onSubmit={(e) => { if (!confirm('Are you sure?')) e.preventDefault(); }}>
+                <form action={deleteLecturer} onSubmit={(e) => { 
+                  if (lecturer.projects && lecturer.projects.length > 0) {
+                    const projectNames = lecturer.projects.map(p => p.course_name).join(', ');
+                    alert(`Cannot delete ${lecturer.name}. They are involved in the following project(s):\n\n${projectNames}\n\nPlease delete or reassign these projects first.`);
+                    e.preventDefault();
+                    return;
+                  }
+                  if (!confirm(`Are you sure you want to delete ${lecturer.name}?`)) e.preventDefault(); 
+                }}>
                   <input type="hidden" name="id" value={lecturer.id} />
                   <SubmitButton className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:bg-gray-100" pendingText="Deleting...">Delete</SubmitButton>
                 </form>

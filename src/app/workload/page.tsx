@@ -50,10 +50,11 @@ export default async function WorkloadPage() {
         assigned_at: assignment.created_at,
         projects: assignment.projects,
       }))
-      .filter(item =>
-        (item.projects.videos?.length ?? 0) === 0 ||
-        item.projects.videos?.some((v: Video) => v.status !== 'Done')
-      );
+      .filter(item => {
+        const pStatus = item.projects.status || 'Active';
+        const isNotDone = (item.projects.videos?.length ?? 0) === 0 || item.projects.videos?.some((v: Video) => v.status !== 'Done');
+        return !['Done', 'Pending', 'Cancelled'].includes(pStatus) && isNotDone;
+      });
 
     return {
       ...profile,

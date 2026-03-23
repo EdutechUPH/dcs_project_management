@@ -51,25 +51,36 @@ export default function WorkloadList({ workloadData }: { workloadData: WorkloadP
     return differenceInDays;
   };
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {workloadData.map(profile => {
-        const totalVideos = profile.ongoing_projects.reduce((acc, item) => acc + item.projects.videos.length, 0);
-        return (
-          <Card key={profile.id} className="h-full flex flex-col shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4">
-              <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">{getInitials(profile.full_name)}</AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col">
-                <CardTitle className="text-base font-semibold">{profile.full_name}</CardTitle>
-                <div className="text-xs text-muted-foreground">{profile.role}</div>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-grow space-y-4">
-              <div className="text-sm font-medium text-gray-700 bg-gray-50 p-2 rounded-md text-center">
-                {profile.ongoing_projects.length} Ongoing Project(s) • {totalVideos} Video(s)
-              </div>
+  const dcsProfiles = workloadData.filter(p => p.role === 'Digital Content Specialist');
+  const idProfiles = workloadData.filter(p => p.role === 'Instructional Designer');
+  const otherProfiles = workloadData.filter(p => p.role !== 'Digital Content Specialist' && p.role !== 'Instructional Designer');
+
+  const renderProfiles = (profiles: WorkloadProfile[], color: 'blue' | 'purple' | 'yellow') => {
+    const theme = {
+      blue: { bg: 'bg-blue-50/30', border: 'border-blue-100', headerBg: 'bg-blue-50/80', text: 'text-blue-900', avatar: 'bg-blue-200 text-blue-700' },
+      purple: { bg: 'bg-purple-50/30', border: 'border-purple-100', headerBg: 'bg-purple-50/80', text: 'text-purple-900', avatar: 'bg-purple-200 text-purple-700' },
+      yellow: { bg: 'bg-yellow-50/30', border: 'border-yellow-100', headerBg: 'bg-yellow-50/80', text: 'text-yellow-900', avatar: 'bg-yellow-200 text-yellow-700' }
+    }[color];
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+        {profiles.map(profile => {
+          const totalVideos = profile.ongoing_projects.reduce((acc, item) => acc + item.projects.videos.length, 0);
+          return (
+            <Card key={profile.id} className={`h-full flex flex-col shadow-sm hover:shadow-md transition-shadow ${theme.border} overflow-hidden`}>
+              <CardHeader className={`flex flex-row items-center gap-4 space-y-0 pb-4 ${theme.headerBg} border-b ${theme.border}`}>
+                <Avatar className="h-10 w-10 ring-2 ring-white/50">
+                  <AvatarFallback className={`${theme.avatar} font-semibold`}>{getInitials(profile.full_name)}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <CardTitle className={`text-base font-semibold ${theme.text}`}>{profile.full_name}</CardTitle>
+                  <div className={`text-xs ${theme.text} opacity-80`}>{profile.role}</div>
+                </div>
+              </CardHeader>
+              <CardContent className={`flex-grow space-y-4 pt-4 ${theme.bg}`}>
+                <div className={`text-sm font-medium bg-white/60 p-2 rounded-md text-center shadow-sm border border-white/40 ${theme.text}`}>
+                  {profile.ongoing_projects.length} Ongoing Project(s) • {totalVideos} Video(s)
+                </div>
 
               <div className="space-y-2">
                 {profile.ongoing_projects.map((assignment) => {
@@ -143,6 +154,39 @@ export default function WorkloadList({ workloadData }: { workloadData: WorkloadP
           </Card>
         );
       })}
+    </div>
+  );
+};
+
+  return (
+    <div className="space-y-12">
+      {dcsProfiles.length > 0 && (
+        <section>
+          <div className="flex items-center gap-3 border-b border-blue-200 pb-2">
+            <h2 className="text-2xl font-bold text-blue-900">Digital Content Specialists</h2>
+            <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 shadow-sm">{dcsProfiles.length}</Badge>
+          </div>
+          {renderProfiles(dcsProfiles, 'blue')}
+        </section>
+      )}
+      {idProfiles.length > 0 && (
+        <section>
+          <div className="flex items-center gap-3 border-b border-purple-200 pb-2">
+            <h2 className="text-2xl font-bold text-purple-900">Instructional Designers</h2>
+            <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200 shadow-sm">{idProfiles.length}</Badge>
+          </div>
+          {renderProfiles(idProfiles, 'purple')}
+        </section>
+      )}
+      {otherProfiles.length > 0 && (
+        <section>
+          <div className="flex items-center gap-3 border-b border-yellow-200 pb-2">
+            <h2 className="text-2xl font-bold text-yellow-900">Other Roles (Admins)</h2>
+            <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 shadow-sm">{otherProfiles.length}</Badge>
+          </div>
+          {renderProfiles(otherProfiles, 'yellow')}
+        </section>
+      )}
     </div>
   );
 }

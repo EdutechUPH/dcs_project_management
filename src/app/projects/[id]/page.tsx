@@ -42,7 +42,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const termsPromise = supabase.from('terms').select('*');
   const facultiesPromise = supabase.from('faculties').select('*');
   const prodiPromise = supabase.from('prodi').select('*');
-  const workloadPromise = supabase.rpc('get_team_workload');
+  
+  // Custom workload query bypassing outdated RPC
+  const workloadPromise = supabase.from('profiles').select(`
+    full_name,
+    project_assignments (
+      projects ( status, videos ( status ) )
+    )
+  `);
 
   const [
     { data: project, error },
@@ -50,7 +57,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     { data: terms },
     { data: faculties },
     { data: prodi },
-    { data: workloadData }
+    { data: rawWorkloadData }
   ] = await Promise.all([
     projectPromise,
     profilesPromise,
@@ -59,6 +66,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     prodiPromise,
     workloadPromise
   ]);
+
+  const workloadData = (rawWorkloadData || []).map((p: any) => {
+    let activeVideos = 0;
+    p.project_assignments?.forEach((a: any) => {
+      const proj = a.projects;
+      if (proj && !['Done', 'Pending', 'Cancelled'].includes(proj.status || 'Active')) {
+        activeVideos += proj.videos?.filter((v: any) => v.status !== 'Done').length || 0;
+      }
+    });
+    return { member_name: p.full_name, active_videos: activeVideos };
+  });
 
   if (error || !project) {
     console.error("Error fetching project details:", error);

@@ -129,44 +129,44 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
     <>
       <form action={formAction} className="space-y-6">
         {/* ... (form content) */}
-        <div className="p-6 border rounded-lg bg-white">
-          <h2 className="text-xl font-semibold mb-4">Project Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6">
+        <div className="p-6 md:p-8 border border-gray-200 rounded-xl bg-gray-50/80 shadow-sm">
+          <h2 className="text-2xl font-semibold mb-6 text-gray-800">Project Details</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
             {/* ... (inputs) */}
             <div className="md:col-span-2">
               <label htmlFor="course_name" className="block text-sm font-medium text-gray-700">Course Name</label>
-              <input type="text" name="course_name" id="course_name" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value={courseName} onChange={(e) => setCourseName(e.target.value)} />
+              <input type="text" name="course_name" id="course_name" required className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" value={courseName} onChange={(e) => setCourseName(e.target.value)} />
             </div>
             <div>
               <label htmlFor="due_date" className="block text-sm font-medium text-gray-700">Due Date</label>
-              <input type="date" name="due_date" id="due_date" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" />
+              <input type="date" name="due_date" id="due_date" required className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" />
             </div>
             <div>
               <label htmlFor="term_id" className="block text-sm font-medium text-gray-700">Term</label>
-              <select name="term_id" id="term_id" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+              <select name="term_id" id="term_id" required className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
                 <option value="">Select Term</option>
                 {terms?.map(term => <option key={term.id} value={term.id}>{term.name}</option>)}
               </select>
             </div>
             <div>
               <label htmlFor="project_type" className="block text-sm font-medium text-gray-700">Project Type</label>
-              <select name="project_type" id="project_type" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+              <select name="project_type" id="project_type" required className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
                 <option value="Taping and Editing">Taping and Editing</option>
                 <option value="Animation">Animation</option>
                 <option value="Translation">Translation</option>
               </select>
             </div>
-            <div className="md:col-span-2 space-y-6">
+            <div className="md:col-span-2 space-y-6 p-5 border border-gray-200 bg-white rounded-lg shadow-sm">
               <div>
                 <label htmlFor="faculty_id" className="block text-sm font-medium text-gray-700">1. Select Faculty</label>
-                <select name="faculty_id" id="faculty_id" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" value={selectedFaculty} onChange={(e) => setSelectedFaculty(e.target.value)}>
+                <select name="faculty_id" id="faculty_id" required className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" value={selectedFaculty} onChange={(e) => setSelectedFaculty(e.target.value)}>
                   <option value="">Select Faculty</option>
                   {faculties?.map(faculty => <option key={faculty.id} value={faculty.id}>{faculty.name}</option>)}
                 </select>
               </div>
               <div>
                 <label htmlFor="prodi_id" className="block text-sm font-medium text-gray-700">2. Select Study Program</label>
-                <select name="prodi_id" id="prodi_id" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 disabled:bg-gray-100" disabled={!selectedFaculty} value={selectedProdi} onChange={(e) => setSelectedProdi(e.target.value)}>
+                <select name="prodi_id" id="prodi_id" required className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 shadow-sm p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-60" disabled={!selectedFaculty} value={selectedProdi} onChange={(e) => setSelectedProdi(e.target.value)}>
                   <option value="">{!selectedFaculty ? "Select a Faculty first" : "Select Study Program"}</option>
                   {filteredProdi.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
@@ -177,40 +177,41 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(true)}
-                    className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                    className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 font-medium bg-blue-50 px-2 py-1 rounded"
                   >
                     <PlusCircle size={14} /> Add New
                   </button>
                 </div>
                 {/* Changed disabled condition: wait for faculty instead of prodi */}
-                <select name="lecturer_id" id="lecturer_id" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 disabled:bg-gray-100" disabled={!selectedFaculty || isLoadingLecturers}>
+                <select name="lecturer_id" id="lecturer_id" required className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-50 shadow-sm p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors disabled:opacity-60" disabled={!selectedFaculty || isLoadingLecturers}>
                   <option value="">{isLoadingLecturers ? "Loading..." : !selectedFaculty ? "Select Faculty first" : "Select Lecturer"}</option>
                   {filteredLecturers.map(lecturer => <option key={lecturer.id} value={lecturer.id}>{lecturer.name}</option>)}
                 </select>
               </div>
             </div>
             {/* ... rest of inputs */}
-            <div className="md:col-span-2">
+            <div className="md:col-span-2 bg-white p-5 border border-gray-200 rounded-lg shadow-sm">
               <label htmlFor="video_count" className="block text-sm font-medium text-gray-700">
-                Number of Videos <span className="text-gray-500 font-normal">(this can be edited later)</span>
+                Number of Videos <span className="text-gray-500 font-normal ml-1">(this can be edited later)</span>
               </label>
-              <input type="text" inputMode="numeric" pattern="[0-9]*" name="video_count" id="video_count" value={videoCount} onChange={handleVideoCountChange} className="mt-1 block w-24 rounded-md border-gray-300 shadow-sm p-2" />
-            </div>
-            <div className="md:col-span-2 space-y-2">
-              {videoTitles.map((title, index) => (
-                <div key={index}>
-                  <label htmlFor={`video_title_${index}`} className="block text-sm font-medium text-gray-500">Video Title {index + 1}</label>
-                  <input type="text" name={`video_title_${index}`} id={`video_title_${index}`} value={title} onChange={(e) => handleTitleChange(index, e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" required />
-                </div>
-              ))}
+              <input type="text" inputMode="numeric" pattern="[0-9]*" name="video_count" id="video_count" value={videoCount} onChange={handleVideoCountChange} className="mt-2 block w-24 rounded-md border border-gray-300 shadow-sm p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" />
+              
+              <div className="mt-4 space-y-3">
+                {videoTitles.map((title, index) => (
+                  <div key={index} className="flex items-center gap-3">
+                    <label htmlFor={`video_title_${index}`} className="block text-sm font-medium text-gray-500 w-24 shrink-0">Video {index + 1}</label>
+                    <input type="text" name={`video_title_${index}`} id={`video_title_${index}`} value={title} onChange={(e) => handleTitleChange(index, e.target.value)} className="block w-full rounded-md border border-gray-300 shadow-sm p-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" required />
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="md:col-span-2">
               <label htmlFor="project_folder_url" className="block text-sm font-medium text-gray-700">Project Folder Link</label>
-              <input type="text" name="project_folder_url" id="project_folder_url" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2" placeholder="e.g. OneDrive or Google Drive link" />
+              <input type="text" name="project_folder_url" id="project_folder_url" className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="e.g. OneDrive or Google Drive link" />
             </div>
             <div className="md:col-span-2">
               <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Notes</label>
-              <textarea name="notes" id="notes" rows={3} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"></textarea>
+              <textarea name="notes" id="notes" rows={3} className="mt-1 block w-full rounded-md border border-gray-300 bg-white shadow-sm p-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"></textarea>
             </div>
           </div>
         </div>
@@ -225,8 +226,14 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
         <AddLecturerModal
           faculties={faculties}
           onClose={() => setIsModalOpen(false)}
-          onLecturerAdded={() => {
-            router.refresh();
+          onLecturerAdded={async () => {
+             // Directly update the lecturer list for the selected faculty
+             if (selectedFaculty) {
+               setIsLoadingLecturers(true);
+               const lecturersData = await getLecturersByFaculty(parseInt(selectedFaculty));
+               setFilteredLecturers(lecturersData as LecturerOption[]);
+               setIsLoadingLecturers(false);
+             }
           }}
         />
       )}

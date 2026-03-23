@@ -20,6 +20,19 @@ export async function addLecturer(prevState: State | any, formData: FormData) {
     return { error: 'Name is required', data: null };
   }
 
+  // Check for duplicate email
+  if (email && email.trim() !== '') {
+    const { data: existingLecturer } = await supabase
+      .from('lecturers')
+      .select('id')
+      .ilike('email', email.trim())
+      .maybeSingle();
+
+    if (existingLecturer) {
+      return { error: 'A lecturer with this email already exists', data: null };
+    }
+  }
+
   // 1. Create Lecturer
   const { data: lecturer, error: createError } = await supabase
     .from('lecturers')

@@ -58,9 +58,7 @@ export default function FeedbackDashboard({ project, submissionUuid }: Dashboard
         setIsSubmitting(false);
     };
 
-    if (allApproved) {
-        return <FeedbackSurveyForm project={project} submissionUuid={submissionUuid} />;
-    }
+    const visibleVideos = videos.filter(v => ['Review', 'Done', 'Video Editing'].includes(v.status));
 
     return (
         <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -94,7 +92,7 @@ export default function FeedbackDashboard({ project, submissionUuid }: Dashboard
                 </div>
 
                 <div className="space-y-4">
-                    {videos.map(video => (
+                    {visibleVideos.map(video => (
                         <Card key={video.id} className="overflow-hidden border border-gray-200 shadow-sm">
                             <CardContent className="p-0">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between p-6 gap-6">
@@ -174,7 +172,6 @@ export default function FeedbackDashboard({ project, submissionUuid }: Dashboard
                     ))}
                 </div>
 
-                {/* Move Dialog OUTSIDE the map to avoid state/rendering issues */}
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogContent>
                         <DialogHeader>
@@ -197,6 +194,12 @@ export default function FeedbackDashboard({ project, submissionUuid }: Dashboard
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                {allApproved && (
+                    <div className="mt-12 pt-8 border-t border-gray-200">
+                        <FeedbackSurveyForm project={project} submissionUuid={submissionUuid} />
+                    </div>
+                )}
             </div>
         </div>
     );

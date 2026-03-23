@@ -44,8 +44,18 @@ export default async function MyProjectsPage() {
     return <p>Error fetching your projects: {error.message}</p>;
   }
 
-  const incompleteProjects = (projects as Project[])?.filter(p => p.videos.some((v: Video) => v.status !== 'Done') || p.videos.length === 0) || [];
-  const completeProjects = (projects as Project[])?.filter(p => p.videos.length > 0 && p.videos.every((v: Video) => v.status === 'Done')) || [];
+  const isCompleted = (p: any) => {
+    const fb = Array.isArray(p.feedback_submission) ? p.feedback_submission[0] : p.feedback_submission;
+    return p.status === 'Done' || !!(fb && fb.submitted_at);
+  };
+
+  const isActiveStatus = (p: any) => {
+    if (isCompleted(p)) return false;
+    return !['Pending', 'Cancelled'].includes(p.status || 'Active');
+  };
+
+  const incompleteProjects = (projects as Project[])?.filter(isActiveStatus) || [];
+  const completeProjects = (projects as Project[])?.filter(isCompleted) || [];
 
   return (
     <div className="p-8">

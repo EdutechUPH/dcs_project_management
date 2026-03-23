@@ -24,29 +24,37 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // Status Filter Logic (Default to 'ongoing')
   const statusFilter = resolvedSearchParams.status || 'ongoing'; // 'ongoing' | 'completed' | 'all' (optional)
 
-  // --- EFFICIENT STATS FETCHING (RPC or Separate Count Queries) ---
-  // Instead of fetching ALL data, we'll fetch just what we need for the stats cards.
-  // Note: For a true production scale, use an RPC function like `get_dashboard_stats()`.
-  // Here we will use a "lightweight" select that fetches specific columns for ALL rows to calculate stats client-side (still heavy for 10k+ rows but better than `select *`).
-  // Ideally: supabase.rpc('get_project_stats')
   const { data: allStatsData } = await supabase
     .from('projects')
-    .select('id, due_date, videos(status)');
+    .select('id, due_date, status, videos(status), feedback_submission(submitted_at)');
 
-  const globalIncomplete = (allStatsData as Project[])?.filter(p =>
-    p.videos.some((v: Video) => v.status !== 'Done') || p.videos.length === 0
-  ) || [];
+  // Function to determine if a project is considered completed
+  const isCompleted = (p: any) => {
+    // Depending on relation type, feedback_submission might be an object or an array
+    const fb = Array.isArray(p.feedback_submission) ? p.feedback_submission[0] : p.feedback_submission;
+    const hasFeedback = fb && fb.submitted_at;
+    return p.status === 'Done' || hasFeedback;
+  };
 
-  const globalComplete = (allStatsData as Project[])?.filter(p =>
-    p.videos.length > 0 && p.videos.every((v: Video) => v.status === 'Done')
-  ) || [];
+  // Function to determine if a project is considered active
+  const isActiveStatus = (p: any) => {
+    if (isCompleted(p)) return false;
+    return !['Pending', 'Cancelled'].includes(p.status || 'Active');
+  };
+
+  const allProjects = (allStatsData || []) as any[];
+
+  const globalIncomplete = allProjects.filter(p => isActiveStatus(p));
+  const globalComplete = allProjects.filter(p => isCompleted(p));
+  const globalPending = allProjects.filter(p => !isCompleted(p) && p.status === 'Pending');
+  const globalCancelled = allProjects.filter(p => !isCompleted(p) && p.status === 'Cancelled');
 
   const globalOverdue = globalIncomplete.filter(p =>
     p.due_date && new Date(p.due_date) < new Date()
   ).length;
 
   const globalWipVideos = globalIncomplete.reduce((acc, p) =>
-    acc + p.videos.filter((v: Video) => v.status !== 'Done').length, 0
+    acc + (p.videos || []).filter((v: Video) => v.status !== 'Done').length, 0
   );
 
 
@@ -82,6 +90,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   let validProjectIds: number[] = [];
   if (statusFilter === 'completed') {
     validProjectIds = globalComplete.map(p => p.id);
+  } else if (statusFilter === 'pending') {
+    validProjectIds = globalPending.map(p => p.id);
+  } else if (statusFilter === 'cancelled') {
+    validProjectIds = globalCancelled.map(p => p.id);
   } else {
     // ongoing
     validProjectIds = globalIncomplete.map(p => p.id);
@@ -138,21 +150,37 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       />
 
       <Tabs defaultValue={statusFilter} className="w-full">
-        <TabsList className="grid w-full max-w-[400px] grid-cols-2 bg-gray-100/80 backdrop-blur-sm p-1 rounded-full border border-gray-200 shadow-inner">
-          <Link href="?status=ongoing" scroll={false} className="w-full">
+        <TabsList className="grid w-full max-w-[800px] grid-cols-4 bg-gray-100/80 backdrop-blur-sm p-1 rounded-full border border-gray-200 shadow-inner hide-scrollbar">
+          <Link href="?status=ongoing" scroll={false} className="w-full min-w-[150px]">
             <TabsTrigger
               value="ongoing"
               className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium"
             >
-              Ongoing Projects ({globalIncomplete.length})
+              Ongoing ({globalIncomplete.length})
             </TabsTrigger>
           </Link>
-          <Link href="?status=completed" scroll={false} className="w-full">
+          <Link href="?status=completed" scroll={false} className="w-full min-w-[150px]">
             <TabsTrigger
               value="completed"
               className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium"
             >
-              Completed Projects ({globalComplete.length})
+              Completed ({globalComplete.length})
+            </TabsTrigger>
+          </Link>
+          <Link href="?status=pending" scroll={false} className="w-full min-w-[150px]">
+             <TabsTrigger
+              value="pending"
+              className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium"
+            >
+              Pending ({globalPending.length})
+            </TabsTrigger>
+          </Link>
+          <Link href="?status=cancelled" scroll={false} className="w-full min-w-[150px]">
+             <TabsTrigger
+              value="cancelled"
+              className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-red-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium"
+            >
+              Cancelled ({globalCancelled.length})
             </TabsTrigger>
           </Link>
         </TabsList>

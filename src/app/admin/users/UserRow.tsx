@@ -32,10 +32,19 @@ export function UserRow({ profile }: { profile: Profile }) {
     }
   };
 
-  const roleColors = {
-    'Admin': 'bg-purple-100 text-purple-800',
-    'Instructional Designer': 'bg-blue-100 text-blue-800',
-    'Digital Content Specialist': 'bg-green-100 text-green-800',
+  const roleColors: Record<string, string> = {
+    'Admin': 'bg-yellow-100 text-yellow-800',
+    'Instructional Designer': 'bg-purple-100 text-purple-800',
+    'Digital Content Specialist': 'bg-blue-100 text-blue-800',
+  };
+
+  const getAvatarColor = (role: string | null | undefined) => {
+    switch(role) {
+      case 'Admin': return 'bg-yellow-200 text-yellow-700';
+      case 'Instructional Designer': return 'bg-purple-200 text-purple-700';
+      case 'Digital Content Specialist': return 'bg-blue-200 text-blue-700';
+      default: return 'bg-gray-200 text-gray-500';
+    }
   };
 
   return (
@@ -43,7 +52,7 @@ export function UserRow({ profile }: { profile: Profile }) {
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="flex items-center">
           <div className="h-10 w-10 flex-shrink-0">
-            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
+            <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold ${getAvatarColor(profile.role)}`}>
               {profile.full_name?.charAt(0) || '?'}
             </div>
           </div>
