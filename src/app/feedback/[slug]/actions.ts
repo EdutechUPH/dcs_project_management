@@ -1,7 +1,7 @@
 // src/app/feedback/[uuid]/actions.ts
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -10,7 +10,10 @@ type FormState = {
 };
 
 export async function submitFeedback(submissionUuid: string, prevState: FormState, formData: FormData): Promise<FormState> {
-  const supabase = await createClient();
+  // Use the service role client here because lecturers are unauthenticated users.
+  // The anon client is blocked by RLS; service role bypasses it safely since
+  // we validate the submissionUuid to scope the update to the correct row.
+  const supabase = createServiceClient();
 
   const submissionData = {
     rating_pre_production: Number(formData.get('rating_pre_production')),
@@ -53,7 +56,7 @@ export async function submitFeedback(submissionUuid: string, prevState: FormStat
 }
 
 export async function externalApproveVideo(uuid: string, videoId: number) {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Validate ownership via UUID
   const { data: submission } = await supabase.from('feedback_submission').select('project_id').eq('submission_uuid', uuid).single();
@@ -82,7 +85,7 @@ export async function externalApproveVideo(uuid: string, videoId: number) {
 }
 
 export async function externalRequestRevision(uuid: string, videoId: number, notes: string) {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Validate ownership via UUID
   const { data: submission } = await supabase.from('feedback_submission').select('project_id').eq('submission_uuid', uuid).single();

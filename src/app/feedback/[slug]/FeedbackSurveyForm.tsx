@@ -58,7 +58,7 @@ export default function FeedbackSurveyForm({ project, submissionUuid }: { projec
                         <RatingInput question="I would recommend this video production service to my colleagues." name="rating_recommendation" />
 
                         <div>
-                            <label className="block text-md font-medium text-gray-800">Is there any aspect of our service that needs improvement?</label>
+                            <label className="block text-md font-medium text-gray-800">Is there any aspect of our service that needs improvement? <span className="text-xs font-normal text-gray-400">(Optional)</span></label>
                             <div className="mt-2 flex space-x-4">
                                 <label className="flex items-center">
                                     <input type="radio" name="needs_improvement" value="Yes" className="h-4 w-4 accent-blue-600" />
@@ -72,12 +72,12 @@ export default function FeedbackSurveyForm({ project, submissionUuid }: { projec
                         </div>
 
                         <div>
-                            <label htmlFor="improvement_aspects" className="block text-md font-medium text-gray-800">If yes, what aspects need improvement?</label>
+                            <label htmlFor="improvement_aspects" className="block text-md font-medium text-gray-800">If yes, what aspects need improvement? <span className="text-xs font-normal text-gray-400">(Optional)</span></label>
                             <textarea name="improvement_aspects" id="improvement_aspects" rows={3} className="mt-2 block w-full rounded-md border-gray-300 shadow-sm p-2"></textarea>
                         </div>
 
                         <div>
-                            <label htmlFor="overall_experience_comments" className="block text-md font-medium text-gray-800">Do you have any other comments about your overall experience?</label>
+                            <label htmlFor="overall_experience_comments" className="block text-md font-medium text-gray-800">Do you have any other comments about your overall experience? <span className="text-xs font-normal text-gray-400">(Optional)</span></label>
                             <textarea name="overall_experience_comments" id="overall_experience_comments" rows={3} className="mt-2 block w-full rounded-md border-gray-300 shadow-sm p-2"></textarea>
                         </div>
 

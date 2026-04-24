@@ -46,7 +46,7 @@ The core PostgreSQL database (Supabase) maps precisely to types found in `src/li
 
 ### Supabase Enums
 - **`team_member_role`**: Instructional Designer, Digital Content Specialist
-- **`project_status`** *(Used for Videos)*: Requested, Scheduled for Taping, Audio Editing, Video Editing, Review, Done
+- **`project_status`** *(Used for Projects & Videos)*: Requested, Scheduled for Taping, Audio Editing, Video Editing, Review, Done, Pending, Cancelled
 - **`project_assignment_role`**: Main Editor / Videographer, Assistant Editor, Assistant Videographer, Sound Engineer, Instructional Designer
 - **`user_role`**: Admin, Instructional Designer, Digital Content Specialist
 
@@ -136,3 +136,34 @@ When modifying or extending this application:
 2. **Strict Typing:** Ensure `src/lib/types.ts` is updated if the DB schema changes.
 3. **Keep Components Clean:** Maintain the separation of UI primitives (`src/components/ui`) and feature components. Use `cn()` from `src/lib/utils.ts` for dynamic class names.
 4. **Preserve Current Functionality:** This is a production-active app. Validate existing SQL queries and UI before modifying or deleting.
+
+## 8. Established Business Logic & UI Conventions
+The following functional rules and styling standardizations have been strictly implemented and must be respected:
+
+- **Completed Projects Definition:** A project is inherently considered "Completed" if its `status` is explicitly set to `'Done'`, OR if a `feedback_submission` record exists for it.
+- **Active Video Workload:** Videos only contribute to a team member's active workload calculations (on the dash, analytics, or assignment UI) if the parent project is **NOT** `'Pending'` and **NOT** `'Cancelled'`, and the video itself is **NOT** `'Done'`.
+- **Role Color Scheme:** UI elements categorizing users (like avatar thumbnails, assignment dropdowns, workload cards, and admin badges) adhere to a strict semantic color mapping:
+  - **Digital Content Specialist**: Blue (`bg-blue-50`, `text-blue-900`)
+  - **Instructional Designer**: Purple (`bg-purple-50`, `text-purple-900`)
+  - **Admin**: Yellow (`bg-yellow-50`, `text-yellow-900`)
+- **Lecturer Management Constraints:** Alphabetical sorting uses `.trim()` to prevent blank space sorting errors. Deleting a lecturer via the Admin panel actively checks for tied projects and strictly blocks the deletion if any exist, protecting referential integrity.
+
+## 9. Supabase Client Usage Rules ⚠️
+
+This is a **critical architectural rule**. There are two Supabase client helpers, and using the wrong one will silently break features.
+
+| Helper | File | Key Used | Bypasses RLS? | When to Use |
+|---|---|---|---|---|
+| `createClient()` | `src/lib/supabase/server.ts` | `ANON_KEY` | ❌ No | Authenticated routes only (reads/writes where a logged-in session exists) |
+| `createServiceClient()` | `src/lib/supabase/service.ts` | `SERVICE_ROLE_KEY` | ✅ Yes | Public/unauthenticated routes that must write to the DB |
+
+### The Public Feedback Form Pattern
+
+The lecturer feedback form at `/feedback/[slug]` is **intentionally unauthenticated** — lecturers receive a unique link and fill it out without logging in. All Server Actions inside `src/app/feedback/[slug]/actions.ts` (`submitFeedback`, `externalApproveVideo`, `externalRequestRevision`) **must use `createServiceClient()`**.
+
+**Why it broke:** In April 2026, a security audit tightened Supabase RLS policies across all tables. Before that, `feedback_submission` had permissive RLS that allowed anonymous writes. After the audit, the anon-key client (no session = anonymous user) was blocked by RLS, causing: `"Database Error: Could not submit feedback."`.
+
+**The fix:** Use `createServiceClient()` in feedback actions. The `submission_uuid` in every query still scopes all operations to the correct row, so this is secure — the service key just lets the server-side action write past RLS.
+
+> ⚠️ **Never expose `createServiceClient()` to browser-side code or API routes accessible without authentication.** It must only appear in `'use server'` files.
+
