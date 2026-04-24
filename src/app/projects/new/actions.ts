@@ -72,6 +72,26 @@ export async function createProject(prevState: FormState, formData: FormData): P
     }
   }
 
+  // Create initial team assignments if provided
+  const assignmentCount = Number(formData.get('assignment_count') || '0');
+  if (assignmentCount > 0) {
+    const assignmentsToInsert = [];
+    for (let i = 0; i < assignmentCount; i++) {
+      const profileId = formData.get(`assignment_${i}_profile_id`) as string;
+      const role = formData.get(`assignment_${i}_role`) as string;
+      if (profileId && role) {
+        assignmentsToInsert.push({ project_id: newProject.id, profile_id: profileId, role });
+      }
+    }
+    if (assignmentsToInsert.length > 0) {
+      const { error: assignError } = await supabase.from('project_assignments').insert(assignmentsToInsert);
+      if (assignError) {
+        console.error('Error creating assignments:', assignError);
+        // Non-fatal: project was created, just log the issue
+      }
+    }
+  }
+
   revalidatePath('/');
   revalidatePath(`/projects/${newProject.id}`);
 

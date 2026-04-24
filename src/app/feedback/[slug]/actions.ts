@@ -46,10 +46,28 @@ export async function submitFeedback(submissionUuid: string, prevState: FormStat
     return { message: 'Database Error: Could not submit feedback.' };
   }
 
-  // We can now access the project_id much more simply
   const projectId = data.project_id;
+
   if (projectId) {
+    // Auto-complete the project if all its videos are already Done.
+    // This satisfies the full completion condition:
+    //   ✓ All videos Done (lecturer approved each one via the feedback page)
+    //   ✓ Feedback survey just submitted (this is the trigger)
+    const { data: videos } = await supabase
+      .from('videos')
+      .select('status')
+      .eq('project_id', projectId);
+
+    const allVideosDone = videos && videos.length > 0 && videos.every((v: any) => v.status === 'Done');
+    if (allVideosDone) {
+      await supabase
+        .from('projects')
+        .update({ status: 'Done' })
+        .eq('id', projectId);
+    }
+
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath('/');
   }
 
   redirect('/feedback/thank-you');

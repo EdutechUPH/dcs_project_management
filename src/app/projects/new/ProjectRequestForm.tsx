@@ -9,12 +9,14 @@ import AddLecturerModal from './AddLecturerModal';
 import { PlusCircle } from 'lucide-react';
 import { type Option, type ProdiOption, type LecturerOption } from '@/lib/types';
 import { toast } from "sonner";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type DataProps = {
   terms: Option[];
   faculties: Option[];
   prodi: ProdiOption[];
   lecturers: LecturerOption[];
+  profiles: { id: string; full_name: string; role: string }[];
 };
 
 type FormState = {
@@ -24,7 +26,7 @@ type FormState = {
 
 const initialState: FormState = { message: '' };
 
-export default function ProjectRequestForm({ terms, faculties, prodi, lecturers }: DataProps) {
+export default function ProjectRequestForm({ terms, faculties, prodi, lecturers, profiles }: DataProps) {
   const [state, formAction] = useActionState(createProject, initialState);
   const router = useRouter();
 
@@ -56,6 +58,23 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
   const [courseName, setCourseName] = useState('');
   const [videoTitles, setVideoTitles] = useState<string[]>(['Video 1']);
   const prevCourseNameRef = useRef('');
+
+  // Team assignment state
+  type Assignment = { profileId: string; role: string };
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+
+  const addAssignment = () => setAssignments(prev => [...prev, { profileId: '', role: '' }]);
+  const removeAssignment = (index: number) => setAssignments(prev => prev.filter((_, i) => i !== index));
+  const updateAssignment = (index: number, field: 'profileId' | 'role', value: string) => {
+    setAssignments(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a));
+  };
+
+  // Group profiles by role for the select dropdown
+  const profilesByRole = {
+    dcs: profiles.filter(p => p.role === 'Digital Content Specialist').sort((a, b) => a.full_name.localeCompare(b.full_name)),
+    id: profiles.filter(p => p.role === 'Instructional Designer').sort((a, b) => a.full_name.localeCompare(b.full_name)),
+    admin: profiles.filter(p => p.role === 'Admin').sort((a, b) => a.full_name.localeCompare(b.full_name)),
+  };
   /* 
      Restoring logic to sync video titles with video count. 
      This updates the videoTitles array when the videoCount input changes.
@@ -189,7 +208,116 @@ export default function ProjectRequestForm({ terms, faculties, prodi, lecturers 
                 </select>
               </div>
             </div>
-            {/* ... rest of inputs */}
+            {/* Team Assignments (Optional) */}
+            <div className="md:col-span-2 bg-white p-5 border border-gray-200 rounded-lg shadow-sm space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Initial Team Assignments <span className="text-xs font-normal text-gray-400">(Optional)</span></label>
+                  <p className="text-xs text-gray-500 mt-0.5">You can also assign members later from the project page.</p>
+                </div>
+                <button type="button" onClick={addAssignment} className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 transition-colors">
+                  <PlusCircle size={14} /> Add Member
+                </button>
+              </div>
+
+              {/* Hidden serialised assignment data */}
+              <input type="hidden" name="assignment_count" value={assignments.length} />
+              {assignments.map((a, i) => (
+                <input key={`hid-pid-${i}`} type="hidden" name={`assignment_${i}_profile_id`} value={a.profileId} />
+              ))}
+              {assignments.map((a, i) => (
+                <input key={`hid-role-${i}`} type="hidden" name={`assignment_${i}_role`} value={a.role} />
+              ))}
+
+              {assignments.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-2">No members added yet.</p>
+              )}
+
+              {assignments.map((a, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  {/* Member dropdown — colour-coded Radix Select */}
+                  <Select
+                    value={a.profileId || undefined}
+                    onValueChange={(v) => updateAssignment(i, 'profileId', v)}
+                  >
+                    <SelectTrigger className="flex-1 bg-white">
+                      <SelectValue placeholder="Select member..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {profilesByRole.dcs.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel className="bg-blue-50/50 text-blue-800 font-bold border-b border-blue-100">Digital Content Specialists</SelectLabel>
+                          {profilesByRole.dcs.map(p => (
+                            <SelectItem key={p.id} value={p.id} className="data-[highlighted]:bg-blue-50 focus:bg-blue-50 focus:text-blue-900 transition-colors cursor-pointer pl-6 py-2">
+                              {p.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                      {profilesByRole.id.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel className="bg-purple-50/50 text-purple-800 font-bold border-b border-purple-100 mt-2">Instructional Designers</SelectLabel>
+                          {profilesByRole.id.map(p => (
+                            <SelectItem key={p.id} value={p.id} className="data-[highlighted]:bg-purple-50 focus:bg-purple-50 focus:text-purple-900 transition-colors cursor-pointer pl-6 py-2">
+                              {p.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                      {profilesByRole.admin.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel className="bg-yellow-50/50 text-yellow-800 font-bold border-b border-yellow-100 mt-2">Admins</SelectLabel>
+                          {profilesByRole.admin.map(p => (
+                            <SelectItem key={p.id} value={p.id} className="data-[highlighted]:bg-yellow-50 focus:bg-yellow-50 focus:text-yellow-900 transition-colors cursor-pointer pl-6 py-2">
+                              {p.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                    </SelectContent>
+                  </Select>
+
+                  {/* Role dropdown — colour-coded Radix Select */}
+                  <Select
+                    value={a.role || undefined}
+                    onValueChange={(v) => updateAssignment(i, 'role', v)}
+                  >
+                    <SelectTrigger className="flex-1 bg-white">
+                      <SelectValue placeholder="Select role..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel className="bg-purple-50/50 text-purple-800 font-bold border-b border-purple-100">Instructional Designer</SelectLabel>
+                        <SelectItem value="Instructional Designer" className="data-[highlighted]:bg-purple-50 focus:bg-purple-50 focus:text-purple-900 transition-colors cursor-pointer pl-6 py-2">
+                          Instructional Designer
+                        </SelectItem>
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel className="bg-blue-50/50 text-blue-800 font-bold border-b border-blue-100 mt-2">Digital Content Specialists</SelectLabel>
+                        <SelectItem value="Main Editor / Videographer" className="data-[highlighted]:bg-blue-50 focus:bg-blue-50 focus:text-blue-900 transition-colors cursor-pointer pl-6 py-2">
+                          Main Editor / Videographer
+                        </SelectItem>
+                        <SelectItem value="Assistant Editor" className="data-[highlighted]:bg-blue-50 focus:bg-blue-50 focus:text-blue-900 transition-colors cursor-pointer pl-6 py-2">
+                          Assistant Editor
+                        </SelectItem>
+                        <SelectItem value="Assistant Videographer" className="data-[highlighted]:bg-blue-50 focus:bg-blue-50 focus:text-blue-900 transition-colors cursor-pointer pl-6 py-2">
+                          Assistant Videographer
+                        </SelectItem>
+                        <SelectItem value="Sound Engineer" className="data-[highlighted]:bg-blue-50 focus:bg-blue-50 focus:text-blue-900 transition-colors cursor-pointer pl-6 py-2">
+                          Sound Engineer
+                        </SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+
+                  <button type="button" onClick={() => removeAssignment(i)} className="text-red-500 hover:text-red-700 text-xs font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors whitespace-nowrap">
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Number of Videos */}
             <div className="md:col-span-2 bg-white p-5 border border-gray-200 rounded-lg shadow-sm">
               <label htmlFor="video_count" className="block text-sm font-medium text-gray-700">
                 Number of Videos <span className="text-gray-500 font-normal ml-1">(this can be edited later)</span>

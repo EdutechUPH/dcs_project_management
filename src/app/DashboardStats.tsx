@@ -33,7 +33,7 @@ export function DashboardStats({
             <Card className="bg-gradient-to-br from-purple-500/10 via-white/50 to-pink-500/10 backdrop-blur-md border-purple-500/20 shadow-sm hover:shadow-md transition-all">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-purple-700">
-                        Videos WIP
+                        Videos in Progress
                     </CardTitle>
                     <Film className="h-4 w-4 text-purple-500" />
                 </CardHeader>
@@ -61,7 +61,7 @@ export function DashboardStats({
             <Card className="bg-gradient-to-br from-green-500/10 via-white/50 to-emerald-500/10 backdrop-blur-md border-green-500/20 shadow-sm hover:shadow-md transition-all">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-green-700">
-                        Completed
+                        Projects Completed
                     </CardTitle>
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                 </CardHeader>

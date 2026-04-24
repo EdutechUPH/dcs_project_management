@@ -5,7 +5,6 @@ import { assignTeamMember, removeTeamMemberAssignment } from './actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useActionState } from 'react';
 import { useMemo } from 'react';
-import { PROJECT_ROLES } from '@/lib/constants';
 import { type Assignment, type Profile } from '@/lib/types';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -52,7 +51,7 @@ export default function AssignedTeam({ projectId, assignments, profiles, workloa
   return (
     <div className="mt-8 lg:mt-0">
       <h2 className="text-xl font-semibold mb-4">Assigned Team</h2>
-      <div className="p-6 border rounded-lg bg-white">
+      <div className="p-6 border border-gray-200 rounded-xl bg-white shadow-md">
         <form action={formAction} className="grid grid-cols-1 gap-4 items-end mb-6 pb-6 border-b">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Team Member</label>
@@ -96,10 +95,34 @@ export default function AssignedTeam({ projectId, assignments, profiles, workloa
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Project Role</label>
-            <select name="role" required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
-              <option value="">Select a role</option>
-              {PROJECT_ROLES.map(role => <option key={role}>{role}</option>)}
-            </select>
+            <Select name="role" required>
+              <SelectTrigger className="mt-1 w-full bg-white">
+                <SelectValue placeholder="Select a role..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel className="bg-purple-50/50 text-purple-800 font-bold border-b border-purple-100">Instructional Designer</SelectLabel>
+                  <SelectItem value="Instructional Designer" className="data-[highlighted]:bg-purple-50 focus:bg-purple-50 focus:text-purple-900 transition-colors cursor-pointer pl-6 py-2">
+                    Instructional Designer
+                  </SelectItem>
+                </SelectGroup>
+                <SelectGroup>
+                  <SelectLabel className="bg-blue-50/50 text-blue-800 font-bold border-b border-blue-100 mt-2">Digital Content Specialists</SelectLabel>
+                  <SelectItem value="Main Editor / Videographer" className="data-[highlighted]:bg-blue-50 focus:bg-blue-50 focus:text-blue-900 transition-colors cursor-pointer pl-6 py-2">
+                    Main Editor / Videographer
+                  </SelectItem>
+                  <SelectItem value="Assistant Editor" className="data-[highlighted]:bg-blue-50 focus:bg-blue-50 focus:text-blue-900 transition-colors cursor-pointer pl-6 py-2">
+                    Assistant Editor
+                  </SelectItem>
+                  <SelectItem value="Assistant Videographer" className="data-[highlighted]:bg-blue-50 focus:bg-blue-50 focus:text-blue-900 transition-colors cursor-pointer pl-6 py-2">
+                    Assistant Videographer
+                  </SelectItem>
+                  <SelectItem value="Sound Engineer" className="data-[highlighted]:bg-blue-50 focus:bg-blue-50 focus:text-blue-900 transition-colors cursor-pointer pl-6 py-2">
+                    Sound Engineer
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
           <SubmitButton className="bg-gray-800 text-white rounded-md shadow-sm py-2 px-4 hover:bg-gray-700 disabled:bg-gray-400" pendingText="Assigning...">
             Assign Member

@@ -100,7 +100,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <div className="p-6 border rounded-lg bg-white">
+          <div className="p-6 border border-gray-200 rounded-xl bg-white shadow-md hover:shadow-lg transition-shadow">
             <EditProjectDetails
               project={project as ProjectType}
               masterLists={masterLists}

@@ -129,22 +129,25 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
             {isDirty && <span className="text-xs text-amber-600 font-medium mr-auto ml-4">Unsaved changes</span>}
             <div className="flex items-center gap-2">
               {/* Status Select in Edit Mode */}
-              <select
-                value={project.status || 'Active'}
-                onChange={(e) => handleStatusChange(e.target.value as any)}
-                disabled={isPendingStatus}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors border outline-none
-                  ${project.status === 'Done' ? 'bg-green-50 text-green-700 border-green-200 focus:border-green-400'
-                  : project.status === 'Pending' ? 'bg-orange-50 text-orange-700 border-orange-200 focus:border-orange-400'
-                  : project.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200 focus:border-red-400'
-                  : 'bg-white text-gray-700 border-gray-300 focus:border-blue-400'
-                }`}
-              >
-                <option value="Active">Active</option>
-                <option value="Pending">Pending</option>
-                <option value="Done">Done</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-medium text-gray-500 whitespace-nowrap">Project Status</label>
+                <select
+                  value={project.status || 'Active'}
+                  onChange={(e) => handleStatusChange(e.target.value as any)}
+                  disabled={isPendingStatus}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors border outline-none
+                    ${project.status === 'Done' ? 'bg-green-50 text-green-700 border-green-200 focus:border-green-400'
+                    : project.status === 'Pending' ? 'bg-orange-50 text-orange-700 border-orange-200 focus:border-orange-400'
+                    : project.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200 focus:border-red-400'
+                    : 'bg-white text-gray-700 border-gray-300 focus:border-blue-400'
+                  }`}
+                >
+                  <option value="Active">Active</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Done">Done</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -254,22 +257,25 @@ export default function EditProjectDetails({ project, masterLists, userRole }: E
         <div className="flex items-center gap-4">
           <h2 className="text-xl font-semibold">Overall Details</h2>
           {/* Status Select */}
-          <select
-            value={project.status || 'Active'}
-            onChange={(e) => handleStatusChange(e.target.value as any)}
-            disabled={isPendingStatus}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors border outline-none
-              ${project.status === 'Done' ? 'bg-green-50 text-green-700 border-green-200 focus:border-green-400'
-              : project.status === 'Pending' ? 'bg-orange-50 text-orange-700 border-orange-200 focus:border-orange-400'
-              : project.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200 focus:border-red-400'
-              : 'bg-white text-gray-700 border-gray-300 focus:border-blue-400'
-            }`}
-          >
-            <option value="Active">Active</option>
-            <option value="Pending">Pending</option>
-            <option value="Done">Done</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs font-medium text-gray-500 whitespace-nowrap">Project Status</label>
+            <select
+              value={project.status || 'Active'}
+              onChange={(e) => handleStatusChange(e.target.value as any)}
+              disabled={isPendingStatus}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors border outline-none
+                ${project.status === 'Done' ? 'bg-green-50 text-green-700 border-green-200 focus:border-green-400'
+                : project.status === 'Pending' ? 'bg-orange-50 text-orange-700 border-orange-200 focus:border-orange-400'
+                : project.status === 'Cancelled' ? 'bg-red-50 text-red-700 border-red-200 focus:border-red-400'
+                : 'bg-white text-gray-700 border-gray-300 focus:border-blue-400'
+              }`}
+            >
+              <option value="Active">Active</option>
+              <option value="Pending">Pending</option>
+              <option value="Done">Done</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
         </div>
         <button onClick={() => setIsEditing(true)} className="text-sm font-medium text-blue-600 hover:underline">Edit Details</button>
       </div>

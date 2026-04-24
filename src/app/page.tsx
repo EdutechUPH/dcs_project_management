@@ -5,9 +5,9 @@ import { type Project, type Video } from '@/lib/types';
 import { DataTable } from './projects/data-table/data-table';
 import { columns } from './projects/data-table/columns';
 import { DashboardStats } from './DashboardStats';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'; // Removed Content, handled by params
 import { SearchBar } from '@/components/SearchBar';
 import { Pagination } from '@/components/Pagination';
+import StatusTabsClient from './StatusTabsClient';
 
 export const revalidate = 0;
 
@@ -22,15 +22,37 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const to = from + itemsPerPage - 1;
 
   // Status Filter Logic (Default to 'ongoing')
-  const statusFilter = resolvedSearchParams.status || 'ongoing'; // 'ongoing' | 'completed' | 'all' (optional)
+  const statusFilter = resolvedSearchParams.status || 'ongoing';
 
-  const { data: allStatsData } = await supabase
+  // --- STATS QUERY: respects active dropdown filters (faculty, term, team member) ---
+  // For team member, first resolve project IDs via the assignments table
+  let statsTeamMemberIds: number[] | null = null;
+  if (resolvedSearchParams.teamMember) {
+    const { data: assignments } = await supabase
+      .from('project_assignments')
+      .select('project_id')
+      .eq('profile_id', resolvedSearchParams.teamMember);
+    statsTeamMemberIds = (assignments || []).map((a: any) => a.project_id);
+  }
+
+  let statsQuery = supabase
     .from('projects')
     .select('id, due_date, status, videos(status), feedback_submission(submitted_at)');
 
+  if (resolvedSearchParams.faculty) {
+    statsQuery = statsQuery.eq('faculty_id', resolvedSearchParams.faculty);
+  }
+  if (resolvedSearchParams.term) {
+    statsQuery = statsQuery.eq('term_id', resolvedSearchParams.term);
+  }
+  if (statsTeamMemberIds !== null) {
+    statsQuery = statsQuery.in('id', statsTeamMemberIds.length > 0 ? statsTeamMemberIds : [-1]);
+  }
+
+  const { data: allStatsData } = await statsQuery;
+
   // Function to determine if a project is considered completed
   const isCompleted = (p: any) => {
-    // Depending on relation type, feedback_submission might be an object or an array
     const fb = Array.isArray(p.feedback_submission) ? p.feedback_submission[0] : p.feedback_submission;
     const hasFeedback = fb && fb.submitted_at;
     return p.status === 'Done' || hasFeedback;
@@ -79,14 +101,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     query = query.eq('project_assignments.profile_id', resolvedSearchParams.teamMember);
   }
 
-  // 3. Status Filtering (Server-Side)
-  // This is tricky because "status" is derived from the `videos` relation.
-  // Supabase filters generally apply to the top-level table.
-  // We can't easily say "where all videos are done" in a simple PostgREST query on the parent.
-  // However, we can use the `!inner` trick to filter by children, but "ALL done" is hard.
-  // A common workaround without RPC is to fetch more and filter in memory, OR use Client-Side Filtering as before (but problematic for pagination).
-  //
-  // BEST FIX (without changing schema): Use the "lightweight" stats data to get IDs of projects that match the status, then filter by those IDs!
+  // 3. Status Filtering using pre-computed IDs
   let validProjectIds: number[] = [];
   if (statusFilter === 'completed') {
     validProjectIds = globalComplete.map(p => p.id);
@@ -95,25 +110,20 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   } else if (statusFilter === 'cancelled') {
     validProjectIds = globalCancelled.map(p => p.id);
   } else {
-    // ongoing
     validProjectIds = globalIncomplete.map(p => p.id);
   }
 
-  // Apply ID filter
   if (validProjectIds.length > 0) {
     query = query.in('id', validProjectIds);
   } else {
-    // If no projects match the status, ensure we get 0 results
     query = query.eq('id', -1);
   }
-
 
   // Apply Range for Pagination
   const { data: projects, error, count } = await query
     .order('due_date', { ascending: true })
     .range(from, to);
 
-  // Calculate Total Pages
   const totalPages = Math.ceil((count || 0) / itemsPerPage);
 
   // Fetch filter options
@@ -149,55 +159,25 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         teamMembers={profiles?.map(p => ({ id: p.id, name: p.full_name })) ?? []}
       />
 
-      <Tabs defaultValue={statusFilter} className="w-full">
-        <TabsList className="grid w-full max-w-[800px] grid-cols-4 bg-gray-100/80 backdrop-blur-sm p-1 rounded-full border border-gray-200 shadow-inner hide-scrollbar">
-          <Link href="?status=ongoing" scroll={false} className="w-full min-w-[150px]">
-            <TabsTrigger
-              value="ongoing"
-              className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium"
-            >
-              Ongoing ({globalIncomplete.length})
-            </TabsTrigger>
-          </Link>
-          <Link href="?status=completed" scroll={false} className="w-full min-w-[150px]">
-            <TabsTrigger
-              value="completed"
-              className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium"
-            >
-              Completed ({globalComplete.length})
-            </TabsTrigger>
-          </Link>
-          <Link href="?status=pending" scroll={false} className="w-full min-w-[150px]">
-             <TabsTrigger
-              value="pending"
-              className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium"
-            >
-              Pending ({globalPending.length})
-            </TabsTrigger>
-          </Link>
-          <Link href="?status=cancelled" scroll={false} className="w-full min-w-[150px]">
-             <TabsTrigger
-              value="cancelled"
-              className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-red-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium"
-            >
-              Cancelled ({globalCancelled.length})
-            </TabsTrigger>
-          </Link>
-        </TabsList>
-
-        <div className="mt-6">
-          <DataTable columns={columns} data={projects as Project[]} />
+      <StatusTabsClient
+        statusFilter={statusFilter}
+        counts={{
+          ongoing: globalIncomplete.length,
+          completed: globalComplete.length,
+          pending: globalPending.length,
+          cancelled: globalCancelled.length,
+        }}
+      >
+        <DataTable columns={columns} data={projects as Project[]} />
+        <div className="mt-8">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            hasNextPage={currentPage < totalPages}
+            hasPrevPage={currentPage > 1}
+          />
         </div>
-      </Tabs>
-
-      <div className="mt-8">
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          hasNextPage={currentPage < totalPages}
-          hasPrevPage={currentPage > 1}
-        />
-      </div>
+      </StatusTabsClient>
     </div>
   );
 }
