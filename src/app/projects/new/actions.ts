@@ -126,8 +126,8 @@ export async function getLecturersByFaculty(facultyId: number): Promise<Lecturer
   // Supabase returns a single nested object per row (many-to-one FK join),
   // i.e. each item is { lecturers: LecturerOption | null }, NOT an array.
   const lecturers =
-    data
-      ?.map((item: { lecturers: LecturerOption | null }) => item.lecturers)
+    (data as unknown as { lecturers: LecturerOption | null }[] | null)
+      ?.map((item) => item.lecturers)
       .filter((lecturer): lecturer is LecturerOption => Boolean(lecturer)) ?? [];
 
   return lecturers;
