@@ -9,7 +9,8 @@ import VideoCompletionTrend from "./VideoCompletionTrend";
 import EditorLeaderboard from "./EditorLeaderboard";
 import FeedbackCategoryChart from "./FeedbackCategoryChart";
 import SatisfactionTrend from "./SatisfactionTrend";
-import TeamFilters from "./TeamFilters";
+import SoundEngineerTable from "./SoundEngineerTable";
+import RevisionStats from "./RevisionStats";
 import { type AnalyticsData, type KeyMetricsData } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, parseISO, startOfWeek } from 'date-fns';
@@ -42,10 +43,11 @@ type ProjectJoin = {
   lecturers?: Named | null;
   terms?: Named | null;
   feedback_submission?: FeedbackSub | null;
-  project_assignments?: { profile_id: string; role: string }[];
+  project_assignments?: { profile_id: string; role: string; profiles?: { id: string; full_name: string | null; role?: string | null } | null }[];
 };
 
 type VideoRow = {
+  id?: number | null;
   status: string;
   duration_minutes?: number | null;
   duration_seconds?: number | null;
@@ -83,7 +85,6 @@ export default async function AnalyticsPage(props: {
   const lecturerIds = toArray(searchParams.lecturers);
   const termIds = toArray(searchParams.terms);
   const editorIds = toArray(searchParams.editors);
-  const mainEditorOnly = searchParams.mainEditorOnly !== 'false'; // Default to true
 
   // --- Main Query ---
   let query = supabase
@@ -106,7 +107,7 @@ export default async function AnalyticsPage(props: {
             rating_timeliness,
             created_at
         ),
-        project_assignments ( profile_id, role )
+        project_assignments ( profile_id, role, profiles ( id, full_name, role ) )
       ),
       profiles ( id, full_name, role )
     `
@@ -128,22 +129,10 @@ export default async function AnalyticsPage(props: {
 
   let videos: VideoRow[] = (queryRes.data ?? []) as VideoRow[];
 
-  // --- Team Tab Data (Scoped Filter) ---
-  let teamVideos = videos;
-  if (mainEditorOnly) {
-    teamVideos = videos.filter(v => {
-      // 1. Must be a DCS (System Role)
-      const isDCS = v.profiles?.role === 'Digital Content Specialist';
-      if (!isDCS) return false;
-
-      // 2. Must be assigned as 'Main Editor / Videographer' on this specific project
-      const userAssignment = v.projects?.project_assignments?.find(
-        (a) => a.profile_id === v.main_editor_id
-      );
-
-      return userAssignment?.role === 'Main Editor / Videographer';
-    });
-  }
+  // --- Team Tab Data ---
+  // Use all videos that have a main_editor assigned — main_editor_id is set manually
+  // so no role filtering is needed; unassigned videos are skipped downstream.
+  const teamVideos = videos.filter(v => v.main_editor_id != null);
 
   const completedVideos = videos.filter((v) => v.status === "Done");
 
@@ -163,11 +152,18 @@ export default async function AnalyticsPage(props: {
   const totalScore = Array.from(uniqueProjectsWithFeedback.values()).reduce((sum: number, score: any) => sum + (Number(score) || 0), 0);
   const avgScore = uniqueProjectsWithFeedback.size > 0 ? totalScore / uniqueProjectsWithFeedback.size : null;
 
+  const videosInReview = videos.filter(v =>
+    v.status === 'Review' &&
+    v.projects?.status !== 'Pending' &&
+    v.projects?.status !== 'Cancelled'
+  ).length;
+
   const keyMetricsData: KeyMetricsData = {
     total_videos_completed: completedProductionVideos.length,
     total_duration_minutes: totalMinutes + Math.floor(totalSeconds / 60),
     total_duration_seconds: totalSeconds % 60,
     avg_satisfaction_score: avgScore,
+    videos_in_review: videosInReview,
   };
 
   // --- Weekly Trend Data for Overview ---
@@ -222,6 +218,31 @@ export default async function AnalyticsPage(props: {
     }
   });
   const leaderboardData = Object.values(leaderboardMap);
+
+  // --- Sound Engineer Data (separate from editor workload) ---
+  type SoundEngineerEntry = { engineerId: string; engineerName: string; completedVideos: number; activeVideos: number; minutesProduced: number };
+  const soundEngineerMap: Record<string, SoundEngineerEntry> = {};
+
+  videos.forEach(v => {
+    const seAssignment = v.projects?.project_assignments?.find(a => a.role === 'Sound Engineer');
+    if (!seAssignment?.profiles?.full_name) return;
+
+    const engineerId = seAssignment.profile_id;
+    const engineerName = seAssignment.profiles.full_name;
+
+    if (!soundEngineerMap[engineerId]) {
+      soundEngineerMap[engineerId] = { engineerId, engineerName, completedVideos: 0, activeVideos: 0, minutesProduced: 0 };
+    }
+
+    if (v.status === 'Done' && v.projects?.project_type !== 'Translation') {
+      soundEngineerMap[engineerId].completedVideos += 1;
+      soundEngineerMap[engineerId].minutesProduced += (v.duration_minutes || 0) + (v.duration_seconds || 0) / 60;
+    } else if (isVideoActive(v)) {
+      soundEngineerMap[engineerId].activeVideos += 1;
+    }
+  });
+
+  const soundEngineerData = Object.values(soundEngineerMap);
 
   // --- Feedback Analysis Data ---
   let satisfactionTrendMap: Record<string, { date: string; sum: number; count: number; sortKey: number }> = {};
@@ -324,9 +345,25 @@ export default async function AnalyticsPage(props: {
     acc[editorName][type] = (acc[editorName][type] as number) + Math.round(minutes * 100) / 100;
     return acc;
   }, {});
-  const stackedChartData = Object.values(workloadData);
+  const stackedChartData = Object.values(workloadData).sort((a, b) => {
+    const total = (row: typeof a) => Object.entries(row).reduce((sum, [k, v]) => k === 'name' ? sum : sum + (Number(v) || 0), 0);
+    return total(b) - total(a);
+  });
 
   // --- Fetch Filter Options ---
+  // Fetch revision logs scoped to the videos already in view
+  const videoIds = videos.map(v => v.id).filter((id): id is number => id != null);
+  const revisionLogsResult = videoIds.length > 0
+    ? await supabase.from("video_feedback_log").select("video_id").in("video_id", videoIds)
+    : { data: [] as { video_id: number }[] };
+  const revisionLogs = revisionLogsResult.data ?? [];
+
+  const totalRevisionRequests = revisionLogs.length;
+  const videosWithRevision = new Set(revisionLogs.map(l => l.video_id)).size;
+  const revisionRate = completedProductionVideos.length > 0
+    ? Math.round((videosWithRevision / completedProductionVideos.length) * 100)
+    : 0;
+
   const [
     { data: faculties },
     { data: prodi },
@@ -376,14 +413,20 @@ export default async function AnalyticsPage(props: {
         </TabsContent>
 
         <TabsContent value="team" className="space-y-6">
-          <TeamFilters />
-          <div className="grid grid-cols-1 gap-6">
-            <StackedWorkloadChart data={stackedChartData} title="Team Workload Distribution (Minutes Produced by Type)" />
+          <StackedWorkloadChart data={stackedChartData} title="Editor Workload Distribution (Minutes Produced by Type)" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <EditorLeaderboard data={leaderboardData} />
+            {soundEngineerData.length > 0 && <SoundEngineerTable data={soundEngineerData} />}
           </div>
         </TabsContent>
 
         <TabsContent value="feedback" className="space-y-6">
+          <RevisionStats
+            totalRevisionRequests={totalRevisionRequests}
+            videosWithRevision={videosWithRevision}
+            revisionRate={revisionRate}
+            totalCompleted={completedProductionVideos.length}
+          />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FeedbackCategoryChart data={feedbackCategoryData} title="Average Score by Category" />
             {satisfactionTrendData.length > 0 ? (

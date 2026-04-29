@@ -16,7 +16,10 @@ The application uses the Next.js App Router paradigm. Below are the primary dash
   - Users (`/admin/users`) and approval processes.
   - Faculties (`/admin/faculties`), Prodi/Study Programs (`/admin/prodi`), and Lecturers (`/admin/lecturers`).
   - Academic Terms (`/admin/terms`).
-- **`/analytics`:** Provides charts and key metrics data (e.g., total videos completed, average satisfaction score).
+- **`/analytics`:** Provides charts and key metrics across three tabs:
+  - **Overview & Trends:** Key metrics (videos completed, duration, satisfaction, videos in review), weekly completion trend, active/completed counts by grouping.
+  - **Team Performance:** Editor workload distribution chart (minutes by project type, horizontal stacked bars), Editor Leaderboard, Sound Engineer Contributions table.
+  - **Feedback Insights:** Revision stats (total revision rounds, first-pass approval rate from `video_feedback_log`), category scores, satisfaction trend.
 - **`/auth` & `/login`:** Authentication flows, callbacks, and login interfaces.
 - **`/feedback/[slug]`:** Public or client-facing portals where reviewers can leave feedback based on automatically generated unique slugs.
 - **`/my-projects`:** Personalized dashboard for editors to see only projects they are assigned to.
@@ -137,7 +140,18 @@ When modifying or extending this application:
 3. **Keep Components Clean:** Maintain the separation of UI primitives (`src/components/ui`) and feature components. Use `cn()` from `src/lib/utils.ts` for dynamic class names.
 4. **Preserve Current Functionality:** This is a production-active app. Validate existing SQL queries and UI before modifying or deleting.
 
-## 8. Established Business Logic & UI Conventions
+## 8. Analytics Attribution Rules
+
+These rules govern how work is credited in the analytics page and must be preserved:
+
+- **Editor attribution is per-video only.** The analytics reads `videos.main_editor_id` as the single source of truth for who edited each video. It does **not** use the `project_assignments` table to attribute editing minutes — the project assignment only determines the default editor when a video is first created. If a per-video override is set, only that person gets credit.
+- **`teamVideos` filter:** Videos included in the Team Performance tab are those where `main_editor_id IS NOT NULL`. A role-based filter (DCS only) was intentionally removed because editors can have any system role (including Admin).
+- **Sound engineers are tracked separately** from editors. Since sound engineers don't have per-video assignments, their contributions are derived from `project_assignments` (role = `'Sound Engineer'`) and credited for all completed videos in their assigned project. They appear in their own table, never in the Editor Workload chart.
+- **Revision stats** come from the `video_feedback_log` table, scoped to the video IDs returned by the main query (so all active filters apply). `totalRevisionRequests` = total log entries; `videosWithRevision` = distinct video IDs in those logs.
+- **Videos In Review** (`status = 'Review'`, excluding Pending/Cancelled projects) is a Key Metrics card representing the per-video review pipeline — videos sent to a lecturer for individual review before the project is fully complete.
+- **Feedback form ratings** (category scores, satisfaction trend) are still project-level — the form is only submitted by the lecturer when the whole project is done. Do not confuse this with the per-video `video_feedback_log` revision entries.
+
+## 9. Established Business Logic & UI Conventions
 The following functional rules and styling standardizations have been strictly implemented and must be respected:
 
 - **Completed Projects Definition:** A project is inherently considered "Completed" if its `status` is explicitly set to `'Done'`, OR if a `feedback_submission` record exists for it.
@@ -148,7 +162,7 @@ The following functional rules and styling standardizations have been strictly i
   - **Admin**: Yellow (`bg-yellow-50`, `text-yellow-900`)
 - **Lecturer Management Constraints:** Alphabetical sorting uses `.trim()` to prevent blank space sorting errors. Deleting a lecturer via the Admin panel actively checks for tied projects and strictly blocks the deletion if any exist, protecting referential integrity.
 
-## 9. Supabase Client Usage Rules ⚠️
+## 10. Supabase Client Usage Rules ⚠️
 
 This is a **critical architectural rule**. There are two Supabase client helpers, and using the wrong one will silently break features.
 

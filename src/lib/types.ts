@@ -117,6 +117,7 @@ export interface KeyMetricsData {
   total_duration_minutes: number;
   total_duration_seconds: number;
   avg_satisfaction_score: number | null;
+  videos_in_review: number;
 }
 
 // Add this to the bottom of src/lib/types.ts

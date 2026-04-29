@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\kenan\\Users\\kenan\\.claude\\projects\\c--Users-kenan-OneDrive-Documents-Creations-DCS-Project-Tool-dcs-project-tracker\\memory",
+      "c:\\Users\\kenan\\.claude\\projects\\c--Users-kenan-OneDrive-Documents-Creations-DCS-Project-Tool-dcs-project-tracker\\memory"
+    ]
+  }
+}

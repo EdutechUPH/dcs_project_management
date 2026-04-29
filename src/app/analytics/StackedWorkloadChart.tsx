@@ -14,11 +14,27 @@ type ChartProps = {
     title: string;
 };
 
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'];
+const COLORS = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#f43f5e', '#a855f7'];
+
+const MAX_LABEL_LEN = 18;
 
 export default function StackedWorkloadChart({ data, title }: ChartProps) {
-    // Extract all keys except 'name' to identify the project types dynamically
     const keys = data.length > 0 ? Object.keys(data[0]).filter(k => k !== 'name') : [];
+    const barHeight = 52;
+    const chartHeight = Math.max(200, data.length * barHeight + 60);
+
+    if (data.length === 0) {
+        return (
+            <Card className="col-span-1 lg:col-span-2">
+                <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
+                        No completed videos yet — data will appear once editors finish their first videos.
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <Card className="col-span-1 lg:col-span-2">
@@ -26,28 +42,34 @@ export default function StackedWorkloadChart({ data, title }: ChartProps) {
                 <CardTitle>{title}</CardTitle>
             </CardHeader>
             <CardContent className="pl-2">
-                <div className="h-[400px] w-full">
+                <div style={{ height: chartHeight }} className="w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 50 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                            <XAxis
-                                dataKey="name"
-                                angle={-45}
-                                textAnchor="end"
-                                interval={0}
-                                height={80}
-                                stroke="#6b7280"
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                            />
+                        <BarChart
+                            layout="vertical"
+                            data={data}
+                            margin={{ top: 8, right: 40, left: 8, bottom: 8 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
                             <YAxis
-                                label={{ value: 'Minutes Produced', angle: -90, position: 'insideLeft' }}
-                                allowDecimals={false}
+                                type="category"
+                                dataKey="name"
+                                width={150}
+                                stroke="#6b7280"
+                                fontSize={13}
+                                tickLine={false}
+                                axisLine={false}
+                                tickFormatter={(v: string) =>
+                                    v.length > MAX_LABEL_LEN ? v.slice(0, MAX_LABEL_LEN - 1) + '…' : v
+                                }
+                            />
+                            <XAxis
+                                type="number"
                                 stroke="#6b7280"
                                 fontSize={12}
                                 tickLine={false}
                                 axisLine={false}
+                                allowDecimals={false}
+                                label={{ value: 'Minutes', position: 'insideBottomRight', offset: -4, fontSize: 11, fill: '#9ca3af' }}
                             />
                             <Tooltip
                                 cursor={{ fill: '#f9fafb', opacity: 0.5 }}
@@ -57,16 +79,8 @@ export default function StackedWorkloadChart({ data, title }: ChartProps) {
                                     borderRadius: '0.5rem',
                                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
                                 }}
-                                labelFormatter={(label, payload) => {
-                                    if (payload && payload.length > 0) {
-                                        // The payload in Stacked Chart is a bit different, it contains the whole data object
-                                        return payload[0].payload.name || label;
-                                        // Note: For StackedChart, 'name' IS the label/category. 
-                                        // If we want FULL name, we need to pass it in data.
-                                        // In AnalyticsPage, we are constructing workloadData.
-                                    }
-                                    return label;
-                                }}
+                                formatter={(value: number, name: string) => [`${value.toFixed(1)}m`, name]}
+                                labelFormatter={(label) => label}
                             />
                             <Legend verticalAlign="top" height={36} />
                             {keys.map((key, index) => (
@@ -75,7 +89,7 @@ export default function StackedWorkloadChart({ data, title }: ChartProps) {
                                     dataKey={key}
                                     stackId="a"
                                     fill={COLORS[index % COLORS.length]}
-                                    radius={[0, 0, 0, 0]}
+                                    radius={index === keys.length - 1 ? [0, 4, 4, 0] : [0, 0, 0, 0]}
                                 />
                             ))}
                         </BarChart>
