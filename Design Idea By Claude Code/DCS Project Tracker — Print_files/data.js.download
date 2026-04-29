@@ -1,0 +1,376 @@
+// Mock data for DCS Project Tracker
+// Realistic data — Indonesian university (this is an Indonesian higher-ed instructional video team based on the codebase)
+
+const TERMS = [
+  { id: 1, name: "Spring 2026" },
+  { id: 2, name: "Fall 2025" },
+  { id: 3, name: "Summer 2025" },
+];
+
+const FACULTIES = [
+  { id: 1, name: "Faculty of Engineering" },
+  { id: 2, name: "Faculty of Business" },
+  { id: 3, name: "Faculty of Computer Science" },
+  { id: 4, name: "Faculty of Medicine" },
+  { id: 5, name: "Faculty of Liberal Arts" },
+];
+
+const PRODI = [
+  { id: 1, faculty_id: 1, name: "Mechanical Engineering" },
+  { id: 2, faculty_id: 1, name: "Civil Engineering" },
+  { id: 3, faculty_id: 2, name: "Management" },
+  { id: 4, faculty_id: 2, name: "Accounting" },
+  { id: 5, faculty_id: 3, name: "Informatics" },
+  { id: 6, faculty_id: 3, name: "Data Science" },
+  { id: 7, faculty_id: 4, name: "Public Health" },
+  { id: 8, faculty_id: 5, name: "Communication Studies" },
+];
+
+const LECTURERS = [
+  { id: 1, name: "Dr. Siti Nurhaliza, M.Sc." },
+  { id: 2, name: "Prof. Bambang Wijaya, Ph.D." },
+  { id: 3, name: "Dr. Anindya Pratiwi" },
+  { id: 4, name: "Rizal Hakim, M.Eng." },
+  { id: 5, name: "Dr. Maya Saraswati" },
+  { id: 6, name: "Prof. Hendro Susanto" },
+  { id: 7, name: "Dr. Putri Larasati" },
+  { id: 8, name: "Faisal Abdurrahman, M.A." },
+  { id: 9, name: "Dr. Tantri Wulandari" },
+  { id: 10, name: "Yusuf Mahendra, Ph.D." },
+];
+
+const PROFILES = [
+  { id: "u1", full_name: "Adit Pranoto", role: "Admin", initials: "AP" },
+  { id: "u2", full_name: "Lisa Hartono", role: "Instructional Designer", initials: "LH" },
+  { id: "u3", full_name: "Reza Mahesa", role: "Instructional Designer", initials: "RM" },
+  { id: "u4", full_name: "Dimas Permana", role: "Digital Content Specialist", initials: "DP" },
+  { id: "u5", full_name: "Naya Kusuma", role: "Digital Content Specialist", initials: "NK" },
+  { id: "u6", full_name: "Bagas Iskandar", role: "Digital Content Specialist", initials: "BI" },
+  { id: "u7", full_name: "Citra Lestari", role: "Digital Content Specialist", initials: "CL" },
+  { id: "u8", full_name: "Hanif Ramadhan", role: "Digital Content Specialist", initials: "HR" },
+  { id: "u9", full_name: "Mega Setiawati", role: "Instructional Designer", initials: "MS" },
+];
+
+// Pipeline order
+const STATUS_ORDER = [
+  "Requested",
+  "Scheduled for Taping",
+  "Audio Editing",
+  "Video Editing",
+  "Review",
+  "Done",
+];
+const PROJECT_STATUSES = [...STATUS_ORDER, "Pending", "Cancelled"];
+
+// Generator
+function makeVideo(id, project_id, title, status, editor_id, mins, secs, opts = {}) {
+  return {
+    id,
+    project_id,
+    title,
+    status,
+    main_editor_id: editor_id,
+    duration_minutes: mins,
+    duration_seconds: secs,
+    language: opts.language || "Indonesian",
+    has_english_subtitle: opts.en_sub || false,
+    has_indonesian_subtitle: opts.id_sub !== false,
+    revision_notes: opts.revision_notes || null,
+    notes: opts.notes || null,
+    position: opts.position || id,
+    video_size_mb: mins ? Math.round((mins * 60 + (secs || 0)) * 8) : null,
+    profiles: PROFILES.find(p => p.id === editor_id) || null,
+    video_link: opts.video_link || null,
+  };
+}
+
+let _vid = 1;
+const v = (pid, title, status, editor, mins, secs, opts) => makeVideo(_vid++, pid, title, status, editor, mins, secs, opts);
+
+const PROJECTS = [
+  {
+    id: 101,
+    created_at: "2026-02-12",
+    course_name: "Thermodynamics for Mechanical Engineers",
+    due_date: "2026-05-15",
+    status: "Active",
+    notes: "Lecturer wants animated diagrams for the second law of thermodynamics. Studio booked April 30.",
+    term_id: 1, faculty_id: 1, prodi_id: 1, lecturer_id: 2,
+    lecturers: { name: "Prof. Bambang Wijaya, Ph.D." },
+    prodi: { name: "Mechanical Engineering", faculties: { name: "Faculty of Engineering" } },
+    terms: { name: "Spring 2026" },
+    feedback_submission: null,
+    project_assignments: [
+      { id: 1, role: "Instructional Designer", profiles: PROFILES[1] },
+      { id: 2, role: "Main Editor / Videographer", profiles: PROFILES[3] },
+      { id: 3, role: "Assistant Editor", profiles: PROFILES[5] },
+      { id: 4, role: "Sound Engineer", profiles: PROFILES[7] },
+    ],
+    videos: [
+      v(101, "01 — Laws of Thermodynamics: Foundations", "Done", "u4", 14, 22, { en_sub: true, position: 1 }),
+      v(101, "02 — Heat Engines & Carnot Cycle", "Review", "u4", 18, 7, { en_sub: true, position: 2, revision_notes: "Tighten the intro, fix audio dip at 8:42" }),
+      v(101, "03 — Entropy & Irreversibility", "Video Editing", "u4", 0, 0, { position: 3 }),
+      v(101, "04 — Refrigeration Cycles", "Audio Editing", "u6", 0, 0, { position: 4 }),
+      v(101, "05 — Real Gas Behavior", "Scheduled for Taping", "u4", 0, 0, { position: 5 }),
+      v(101, "06 — Power Cycles in Practice", "Requested", null, 0, 0, { position: 6 }),
+    ],
+  },
+  {
+    id: 102,
+    created_at: "2026-01-28",
+    course_name: "Financial Accounting Principles",
+    due_date: "2026-05-02",
+    status: "Active",
+    notes: null,
+    term_id: 1, faculty_id: 2, prodi_id: 4, lecturer_id: 5,
+    lecturers: { name: "Dr. Maya Saraswati" },
+    prodi: { name: "Accounting", faculties: { name: "Faculty of Business" } },
+    terms: { name: "Spring 2026" },
+    feedback_submission: null,
+    project_assignments: [
+      { id: 5, role: "Instructional Designer", profiles: PROFILES[2] },
+      { id: 6, role: "Main Editor / Videographer", profiles: PROFILES[4] },
+    ],
+    videos: [
+      v(102, "01 — Accounting Equation", "Done", "u5", 12, 50, { position: 1 }),
+      v(102, "02 — Journal Entries Walkthrough", "Done", "u5", 16, 12, { position: 2 }),
+      v(102, "03 — Trial Balance Mechanics", "Review", "u5", 14, 30, { position: 3, revision_notes: "Add slide for adjusting entries" }),
+      v(102, "04 — Income Statement Preparation", "Video Editing", "u5", 0, 0, { position: 4 }),
+      v(102, "05 — Cash Flow Statement", "Requested", null, 0, 0, { position: 5 }),
+    ],
+  },
+  {
+    id: 103,
+    created_at: "2026-02-20",
+    course_name: "Introduction to Machine Learning",
+    due_date: "2026-06-10",
+    status: "Active",
+    notes: "High-priority. Used across three Prodi.",
+    term_id: 1, faculty_id: 3, prodi_id: 6, lecturer_id: 10,
+    lecturers: { name: "Yusuf Mahendra, Ph.D." },
+    prodi: { name: "Data Science", faculties: { name: "Faculty of Computer Science" } },
+    terms: { name: "Spring 2026" },
+    feedback_submission: null,
+    project_assignments: [
+      { id: 7, role: "Instructional Designer", profiles: PROFILES[1] },
+      { id: 8, role: "Main Editor / Videographer", profiles: PROFILES[6] },
+      { id: 9, role: "Assistant Videographer", profiles: PROFILES[5] },
+      { id: 10, role: "Sound Engineer", profiles: PROFILES[7] },
+    ],
+    videos: [
+      v(103, "01 — What is Machine Learning?", "Done", "u7", 11, 5, { en_sub: true, position: 1 }),
+      v(103, "02 — Supervised vs Unsupervised", "Done", "u7", 15, 40, { en_sub: true, position: 2 }),
+      v(103, "03 — Linear Regression Hands-on", "Video Editing", "u7", 0, 0, { position: 3 }),
+      v(103, "04 — Logistic Regression", "Audio Editing", "u7", 0, 0, { position: 4 }),
+      v(103, "05 — Decision Trees", "Scheduled for Taping", "u7", 0, 0, { position: 5 }),
+      v(103, "06 — Neural Network Intuition", "Requested", null, 0, 0, { position: 6 }),
+      v(103, "07 — Ethics in ML", "Requested", null, 0, 0, { position: 7 }),
+    ],
+  },
+  {
+    id: 104,
+    created_at: "2026-03-04",
+    course_name: "Public Health Communication",
+    due_date: "2026-04-30",
+    status: "Active",
+    notes: null,
+    term_id: 1, faculty_id: 4, prodi_id: 7, lecturer_id: 7,
+    lecturers: { name: "Dr. Putri Larasati" },
+    prodi: { name: "Public Health", faculties: { name: "Faculty of Medicine" } },
+    terms: { name: "Spring 2026" },
+    feedback_submission: null,
+    project_assignments: [
+      { id: 11, role: "Instructional Designer", profiles: PROFILES[8] },
+      { id: 12, role: "Main Editor / Videographer", profiles: PROFILES[3] },
+    ],
+    videos: [
+      v(104, "01 — Risk Communication 101", "Review", "u4", 13, 14, { position: 1, revision_notes: "Lower bg music at 4:12-5:30" }),
+      v(104, "02 — Community Engagement Methods", "Video Editing", "u4", 0, 0, { position: 2 }),
+      v(104, "03 — Social Media for Public Health", "Audio Editing", "u4", 0, 0, { position: 3 }),
+      v(104, "04 — Crisis Comms Case Studies", "Requested", null, 0, 0, { position: 4 }),
+    ],
+  },
+  {
+    id: 105,
+    created_at: "2025-11-08",
+    course_name: "Statics & Strength of Materials",
+    due_date: "2026-04-02",
+    status: "Active",
+    notes: "Overdue — lecturer travel delay.",
+    term_id: 1, faculty_id: 1, prodi_id: 2, lecturer_id: 4,
+    lecturers: { name: "Rizal Hakim, M.Eng." },
+    prodi: { name: "Civil Engineering", faculties: { name: "Faculty of Engineering" } },
+    terms: { name: "Spring 2026" },
+    feedback_submission: null,
+    project_assignments: [
+      { id: 13, role: "Instructional Designer", profiles: PROFILES[2] },
+      { id: 14, role: "Main Editor / Videographer", profiles: PROFILES[5] },
+    ],
+    videos: [
+      v(105, "01 — Force Systems & Equilibrium", "Done", "u6", 17, 30, { position: 1 }),
+      v(105, "02 — Truss Analysis", "Review", "u6", 20, 12, { position: 2 }),
+      v(105, "03 — Shear & Moment Diagrams", "Video Editing", "u6", 0, 0, { position: 3 }),
+    ],
+  },
+  {
+    id: 106,
+    created_at: "2025-09-02",
+    course_name: "Strategic Management Capstone",
+    due_date: "2026-01-15",
+    status: "Done",
+    notes: null,
+    term_id: 2, faculty_id: 2, prodi_id: 3, lecturer_id: 6,
+    lecturers: { name: "Prof. Hendro Susanto" },
+    prodi: { name: "Management", faculties: { name: "Faculty of Business" } },
+    terms: { name: "Fall 2025" },
+    feedback_submission: { submission_uuid: "fb-106", submitted_at: "2026-01-22" },
+    project_assignments: [
+      { id: 15, role: "Instructional Designer", profiles: PROFILES[1] },
+      { id: 16, role: "Main Editor / Videographer", profiles: PROFILES[4] },
+    ],
+    videos: [
+      v(106, "01 — Porter's Five Forces", "Done", "u5", 16, 0, { position: 1 }),
+      v(106, "02 — SWOT in Practice", "Done", "u5", 14, 22, { position: 2 }),
+      v(106, "03 — Blue Ocean Strategy", "Done", "u5", 18, 5, { position: 3 }),
+      v(106, "04 — Capstone Wrap-up", "Done", "u5", 12, 8, { position: 4 }),
+    ],
+  },
+  {
+    id: 107,
+    created_at: "2026-03-22",
+    course_name: "Crisis Communication & PR",
+    due_date: "2026-06-25",
+    status: "Active",
+    notes: null,
+    term_id: 1, faculty_id: 5, prodi_id: 8, lecturer_id: 8,
+    lecturers: { name: "Faisal Abdurrahman, M.A." },
+    prodi: { name: "Communication Studies", faculties: { name: "Faculty of Liberal Arts" } },
+    terms: { name: "Spring 2026" },
+    feedback_submission: null,
+    project_assignments: [
+      { id: 17, role: "Instructional Designer", profiles: PROFILES[8] },
+      { id: 18, role: "Main Editor / Videographer", profiles: PROFILES[6] },
+    ],
+    videos: [
+      v(107, "01 — Frameworks of Crisis Comms", "Scheduled for Taping", "u7", 0, 0, { position: 1 }),
+      v(107, "02 — Stakeholder Mapping", "Requested", null, 0, 0, { position: 2 }),
+      v(107, "03 — Press Conference Mechanics", "Requested", null, 0, 0, { position: 3 }),
+    ],
+  },
+  {
+    id: 108,
+    created_at: "2026-02-01",
+    course_name: "Algorithms & Data Structures",
+    due_date: "2026-05-28",
+    status: "Active",
+    notes: null,
+    term_id: 1, faculty_id: 3, prodi_id: 5, lecturer_id: 1,
+    lecturers: { name: "Dr. Siti Nurhaliza, M.Sc." },
+    prodi: { name: "Informatics", faculties: { name: "Faculty of Computer Science" } },
+    terms: { name: "Spring 2026" },
+    feedback_submission: null,
+    project_assignments: [
+      { id: 19, role: "Instructional Designer", profiles: PROFILES[2] },
+      { id: 20, role: "Main Editor / Videographer", profiles: PROFILES[7] },
+      { id: 21, role: "Assistant Editor", profiles: PROFILES[5] },
+    ],
+    videos: [
+      v(108, "01 — Big-O & Complexity", "Done", "u8", 13, 50, { en_sub: true, position: 1 }),
+      v(108, "02 — Arrays & Linked Lists", "Done", "u8", 15, 18, { en_sub: true, position: 2 }),
+      v(108, "03 — Hash Tables", "Audio Editing", "u8", 0, 0, { position: 3 }),
+      v(108, "04 — Trees & Graphs", "Scheduled for Taping", "u8", 0, 0, { position: 4 }),
+      v(108, "05 — Sorting Algorithms", "Requested", null, 0, 0, { position: 5 }),
+      v(108, "06 — Dynamic Programming", "Requested", null, 0, 0, { position: 6 }),
+    ],
+  },
+  {
+    id: 109,
+    created_at: "2025-10-15",
+    course_name: "Tax Accounting Workshop",
+    due_date: "2025-12-20",
+    status: "Active",
+    notes: null,
+    term_id: 2, faculty_id: 2, prodi_id: 4, lecturer_id: 9,
+    lecturers: { name: "Dr. Tantri Wulandari" },
+    prodi: { name: "Accounting", faculties: { name: "Faculty of Business" } },
+    terms: { name: "Fall 2025" },
+    feedback_submission: { submission_uuid: "fb-109", submitted_at: "2026-01-08" },
+    project_assignments: [
+      { id: 22, role: "Instructional Designer", profiles: PROFILES[1] },
+      { id: 23, role: "Main Editor / Videographer", profiles: PROFILES[3] },
+    ],
+    videos: [
+      v(109, "01 — Indonesian Tax System Overview", "Done", "u4", 19, 12, { position: 1 }),
+      v(109, "02 — Personal Income Tax", "Done", "u4", 22, 5, { position: 2 }),
+      v(109, "03 — Corporate Tax", "Done", "u4", 24, 30, { position: 3 }),
+    ],
+  },
+  {
+    id: 110,
+    created_at: "2026-04-01",
+    course_name: "Mobile App Development",
+    due_date: "2026-07-15",
+    status: "Pending",
+    notes: "Awaiting lecturer confirmation",
+    term_id: 1, faculty_id: 3, prodi_id: 5, lecturer_id: 3,
+    lecturers: { name: "Dr. Anindya Pratiwi" },
+    prodi: { name: "Informatics", faculties: { name: "Faculty of Computer Science" } },
+    terms: { name: "Spring 2026" },
+    feedback_submission: null,
+    project_assignments: [],
+    videos: [
+      v(110, "01 — TBD", "Pending", null, 0, 0, { position: 1 }),
+    ],
+  },
+];
+
+// Feedback summary (mock)
+const FEEDBACK_SUMMARIES = [
+  { project_id: 106, avg_pre_production: 4.6, avg_communication: 4.8, avg_quality: 4.7, avg_timeliness: 4.2, avg_final_product: 4.9, avg_recommendation: 5.0 },
+  { project_id: 109, avg_pre_production: 4.3, avg_communication: 4.5, avg_quality: 4.6, avg_timeliness: 3.9, avg_final_product: 4.4, avg_recommendation: 4.7 },
+];
+
+// Time-series for analytics
+const VIDEOS_COMPLETED_TREND = [
+  { week: "W1 Jan", count: 4 },
+  { week: "W2 Jan", count: 6 },
+  { week: "W3 Jan", count: 5 },
+  { week: "W4 Jan", count: 8 },
+  { week: "W1 Feb", count: 7 },
+  { week: "W2 Feb", count: 11 },
+  { week: "W3 Feb", count: 9 },
+  { week: "W4 Feb", count: 13 },
+  { week: "W1 Mar", count: 12 },
+  { week: "W2 Mar", count: 15 },
+  { week: "W3 Mar", count: 14 },
+  { week: "W4 Mar", count: 18 },
+  { week: "W1 Apr", count: 16 },
+  { week: "W2 Apr", count: 19 },
+  { week: "W3 Apr", count: 17 },
+  { week: "W4 Apr", count: 21 },
+];
+
+const SATISFACTION_TREND = [
+  { month: "Nov '25", score: 4.4 },
+  { month: "Dec '25", score: 4.5 },
+  { month: "Jan '26", score: 4.6 },
+  { month: "Feb '26", score: 4.5 },
+  { month: "Mar '26", score: 4.7 },
+  { month: "Apr '26", score: 4.7 },
+];
+
+const FEEDBACK_CATEGORIES = [
+  { category: "Pre-production", score: 4.5 },
+  { category: "Communication", score: 4.7 },
+  { category: "Quality", score: 4.65 },
+  { category: "Timeliness", score: 4.05 },
+  { category: "Final Product", score: 4.65 },
+  { category: "Recommendation", score: 4.85 },
+];
+
+window.DCS_DATA = {
+  TERMS, FACULTIES, PRODI, LECTURERS, PROFILES,
+  PROJECTS, STATUS_ORDER, PROJECT_STATUSES,
+  FEEDBACK_SUMMARIES, VIDEOS_COMPLETED_TREND,
+  SATISFACTION_TREND, FEEDBACK_CATEGORIES,
+};
