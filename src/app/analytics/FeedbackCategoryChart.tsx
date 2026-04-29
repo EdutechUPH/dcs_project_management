@@ -72,7 +72,7 @@ export default function FeedbackCategoryChart({ data, title }: ChartProps) {
                                 <LabelList
                                     dataKey="score"
                                     position="right"
-                                    formatter={(v: number) => v > 0 ? v.toFixed(1) : '—'}
+                                    formatter={(v: unknown) => typeof v === 'number' && v > 0 ? v.toFixed(1) : '—'}
                                     style={{ fontSize: 12, fill: '#374151', fontWeight: 600 }}
                                 />
                             </Bar>
