@@ -1,11 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(git -C \"c:\\\\Users\\\\kenan\\\\Documents\\\\Creations\\\\DCS Project Tool\\\\dcs-project-tracker\" log --oneline -5)",
+      "Bash(Get-ChildItem \"c:\\\\Users\\\\kenan\\\\Documents\\\\Creations\\\\DCS Project Tool\\\\dcs-project-tracker\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "PowerShell(git -C \"c:\\\\Users\\\\kenan\\\\Documents\\\\Creations\\\\DCS Project Tool\\\\dcs-project-tracker\" status --short)"
     ],
     "additionalDirectories": [
-      "c:\\Users\\kenan\\Users\\kenan\\.claude\\projects\\c--Users-kenan-OneDrive-Documents-Creations-DCS-Project-Tool-dcs-project-tracker\\memory",
-      "c:\\Users\\kenan\\.claude\\projects\\c--Users-kenan-OneDrive-Documents-Creations-DCS-Project-Tool-dcs-project-tracker\\memory"
+      "c:\\Users\\kenan\\.claude\\projects\\c--Users-kenan-Documents-Creations-DCS-Project-Tool-dcs-project-tracker\\memory"
     ]
   }
 }

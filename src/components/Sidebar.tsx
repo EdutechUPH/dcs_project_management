@@ -11,7 +11,8 @@ import {
     Settings,
     LogOut,
     PlusCircle,
-    Users
+    Users,
+    ClipboardCheck
 } from "lucide-react"
 
 const sidebarItems = [
@@ -34,6 +35,11 @@ const sidebarItems = [
         title: "Team Workload",
         href: "/workload",
         icon: Users,
+    },
+    {
+        title: "Quality Standard",
+        href: "/quality",
+        icon: ClipboardCheck,
     },
     {
         title: "Admin",
