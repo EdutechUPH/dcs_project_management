@@ -133,3 +133,38 @@ export async function externalRequestRevision(uuid: string, videoId: number, not
   revalidatePath(`/projects/${submission.project_id}`);
   return true;
 }
+
+export async function getExternalVideoFeedbackHistory(uuid: string, videoId: number) {
+  const supabase = createServiceClient();
+
+  // Validate ownership via UUID
+  const { data: submission } = await supabase
+    .from('feedback_submission')
+    .select('project_id')
+    .eq('submission_uuid', uuid)
+    .single();
+
+  if (!submission) return [];
+
+  // Check if video belongs to this project
+  const { data: video } = await supabase
+    .from('videos')
+    .select('id')
+    .eq('id', videoId)
+    .eq('project_id', submission.project_id)
+    .single();
+
+  if (!video) return [];
+
+  const { data, error } = await supabase
+    .from('video_feedback_log')
+    .select('*')
+    .eq('video_id', videoId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching feedback history:', error);
+    return [];
+  }
+  return data;
+}

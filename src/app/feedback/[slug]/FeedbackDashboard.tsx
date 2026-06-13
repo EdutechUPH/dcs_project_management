@@ -6,10 +6,11 @@ import { type Project, type Video } from '@/lib/types';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, MessageSquare, PlayCircle, AlertCircle } from 'lucide-react';
-import { externalApproveVideo, externalRequestRevision } from './actions';
+import { CheckCircle, MessageSquare, PlayCircle, AlertCircle, History as HistoryIcon, Loader2 } from 'lucide-react';
+import { externalApproveVideo, externalRequestRevision, getExternalVideoFeedbackHistory } from './actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea"; // Assuming we have or will use standard textarea
+import { format } from 'date-fns';
 
 // We will import the Survey Form here (need to extract it first)
 import FeedbackSurveyForm from './FeedbackSurveyForm';
@@ -25,6 +26,24 @@ export default function FeedbackDashboard({ project, submissionUuid }: Dashboard
     const [revisionNote, setRevisionNote] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // States for revision history timeline
+    const [expandedHistory, setExpandedHistory] = useState<Record<number, boolean>>({});
+    const [historyLogs, setHistoryLogs] = useState<Record<number, any[]>>({});
+    const [loadingHistory, setLoadingHistory] = useState<Record<number, boolean>>({});
+    const [expandedNotes, setExpandedNotes] = useState<Record<number, boolean>>({});
+
+    const toggleHistory = (videoId: number) => {
+        setExpandedHistory(prev => ({ ...prev, [videoId]: !prev[videoId] }));
+    };
+
+    const fetchHistory = async (videoId: number) => {
+        if (historyLogs[videoId]) return; // already loaded
+        setLoadingHistory(prev => ({ ...prev, [videoId]: true }));
+        const data = await getExternalVideoFeedbackHistory(submissionUuid, videoId);
+        setHistoryLogs(prev => ({ ...prev, [videoId]: data || [] }));
+        setLoadingHistory(prev => ({ ...prev, [videoId]: false }));
+    };
 
     // Check if all videos are Done
     const allApproved = videos.length > 0 && videos.every(v => v.status === 'Done');
@@ -122,15 +141,48 @@ export default function FeedbackDashboard({ project, submissionUuid }: Dashboard
                                         )}
 
                                         {/* Status Context Messages */}
-                                        {video.status === 'Video Editing' && (
-                                            <div className="mt-3 text-sm bg-blue-50 text-blue-800 p-3 rounded-md border border-blue-100 flex gap-2 items-center">
-                                                <MessageSquare size={16} />
-                                                <span>
-                                                    <strong>In Revision:</strong> The editor is currently working on your feedback:
-                                                    <span className="italic block mt-1 pl-4 border-l-2 border-blue-200">"{video.revision_notes}"</span>
-                                                </span>
-                                            </div>
-                                        )}
+                                        {video.status === 'Video Editing' && video.revision_notes && (() => {
+                                            const isLong = video.revision_notes.length > 200;
+                                            const isExpanded = expandedNotes[video.id];
+                                            const text = isLong && !isExpanded 
+                                              ? video.revision_notes.slice(0, 200) + '...' 
+                                              : video.revision_notes;
+                                            return (
+                                                <div className="mt-3 text-sm bg-blue-50 text-blue-800 p-4 rounded-md border border-blue-100 flex gap-3 items-start">
+                                                    <MessageSquare size={16} className="mt-0.5 shrink-0 text-blue-600" />
+                                                    <div className="flex-grow min-w-0">
+                                                        <strong className="block mb-1">In Revision:</strong>
+                                                        <span className="text-blue-900">The editor is currently working on your feedback:</span>
+                                                        <div className="italic block mt-1 pl-4 border-l-2 border-blue-200 whitespace-pre-wrap break-words text-blue-950 font-medium">
+                                                            {text}
+                                                        </div>
+                                                        {isLong && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setExpandedNotes(prev => ({ ...prev, [video.id]: !prev[video.id] }))}
+                                                                className="text-xs text-blue-700 hover:text-blue-900 font-semibold mt-2 underline decoration-dotted"
+                                                            >
+                                                                {isExpanded ? "Show Less" : "Show More"}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        {/* History Accordion Trigger */}
+                                        <div className="pt-1">
+                                            <button
+                                                onClick={() => {
+                                                    toggleHistory(video.id);
+                                                    fetchHistory(video.id);
+                                                }}
+                                                className="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
+                                            >
+                                                <HistoryIcon size={14} />
+                                                {expandedHistory[video.id] ? "Hide Revision History" : "View Revision History"}
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="flex flex-col sm:flex-row gap-3 shrink-0 items-center justify-center">
@@ -167,6 +219,60 @@ export default function FeedbackDashboard({ project, submissionUuid }: Dashboard
                                         )}
                                     </div>
                                 </div>
+
+                                {/* Collapsible History Timeline */}
+                                {expandedHistory[video.id] && (
+                                    <div className="border-t border-gray-150 bg-gray-50/50 p-6 space-y-4">
+                                        <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                                            <HistoryIcon size={12} /> Revision History
+                                        </h4>
+                                        {loadingHistory[video.id] ? (
+                                            <div className="flex items-center gap-2 text-sm text-gray-500 py-2">
+                                                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                                Loading logs...
+                                            </div>
+                                        ) : !historyLogs[video.id] || historyLogs[video.id].length === 0 ? (
+                                            <p className="text-xs text-gray-500 italic py-2">No revision history found yet.</p>
+                                        ) : (
+                                            <div className="relative pl-4 border-l border-gray-200 space-y-4 max-h-[350px] overflow-y-auto pr-2">
+                                                {historyLogs[video.id].map((log) => {
+                                                    const isApproved = log.status_context === 'Approved';
+                                                    const isReady = log.status_context === 'Ready for Review';
+                                                    const isRevision = log.status_context === 'Revision Requested';
+
+                                                    let badgeColor = 'bg-gray-100 text-gray-800 border-gray-200';
+                                                    let dotColor = 'bg-white border-gray-300';
+                                                    if (isApproved) {
+                                                        badgeColor = 'bg-green-50 text-green-800 border-green-200';
+                                                        dotColor = 'bg-green-50 border-green-500';
+                                                    } else if (isReady) {
+                                                        badgeColor = 'bg-blue-50 text-blue-800 border-blue-200';
+                                                        dotColor = 'bg-blue-50 border-blue-500';
+                                                    } else if (isRevision) {
+                                                        badgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
+                                                        dotColor = 'bg-white border-amber-500';
+                                                    }
+
+                                                    return (
+                                                        <div key={log.id} className="relative pl-4">
+                                                            {/* Dot */}
+                                                            <span className={`absolute -left-[22px] top-1.5 w-3 h-3 rounded-full border-2 ${dotColor}`} />
+                                                            <div className="flex flex-wrap items-center gap-2 text-xs mb-1">
+                                                                <span className="font-semibold text-gray-700">
+                                                                    {format(new Date(log.created_at), 'PPP p')}
+                                                                </span>
+                                                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-medium ${badgeColor}`}>
+                                                                    {log.status_context}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{log.feedback_text}</p>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     ))}

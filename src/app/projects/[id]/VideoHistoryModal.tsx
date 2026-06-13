@@ -32,7 +32,7 @@ export default function VideoHistoryModal({ videoId, isOpen, onClose, videoTitle
         <Dialog.Root open={isOpen} onOpenChange={open => !open && onClose()}>
             <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50 animate-in fade-in" />
-                <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 sm:rounded-lg">
+                <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 sm:rounded-lg">
                     <div className="flex flex-col space-y-1.5 text-center sm:text-left">
                         <div className="flex justify-between items-center">
                             <Dialog.Title className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
@@ -49,7 +49,7 @@ export default function VideoHistoryModal({ videoId, isOpen, onClose, videoTitle
                         </Dialog.Description>
                     </div>
 
-                    <div className="max-h-[300px] overflow-y-auto pr-2 space-y-3">
+                    <div className="max-h-[500px] overflow-y-auto pr-2 space-y-3">
                         {loading ? (
                             <div className="flex justify-center py-8">
                                 <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
@@ -67,7 +67,7 @@ export default function VideoHistoryModal({ videoId, isOpen, onClose, videoTitle
                                         <div className="text-xs text-gray-500 mb-1">
                                             {format(new Date(log.created_at), 'PPP p')}
                                         </div>
-                                        <div className={`p-3 rounded-md text-sm relative group ${isApproved ? 'bg-green-50 text-green-800' : 'bg-gray-50 text-gray-700'}`}>
+                                        <div className={`p-3 rounded-md text-sm relative group whitespace-pre-wrap break-words ${isApproved ? 'bg-green-50 text-green-800' : 'bg-gray-50 text-gray-700'}`}>
                                             {isApproved ? (
                                                 <CheckCircle className="absolute top-2 right-2 w-4 h-4 text-green-600" />
                                             ) : (

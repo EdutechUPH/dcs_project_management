@@ -149,8 +149,7 @@ export default function FeedbackManager({ projectId, feedbackSubmission, videos 
   }
 
   const hasRevisionRequest = videos.some(v =>
-    v.status === 'Revision Requested' ||
-    (!!v.revision_notes && v.status !== 'Done' && v.status !== 'Ready for Review')
+    v.status === 'Video Editing' && !!v.revision_notes
   );
 
   return (

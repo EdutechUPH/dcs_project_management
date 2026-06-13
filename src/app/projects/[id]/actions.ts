@@ -210,6 +210,11 @@ export async function updateVideoStatus(formData: FormData) {
   const updateData: any = { status: newStatus };
   if (newStatus === 'Done') {
     updateData.revision_notes = null;
+    await supabase.from('video_feedback_log').insert({
+      video_id: Number(videoId),
+      feedback_text: 'Video approved by project team.',
+      status_context: 'Approved'
+    });
   }
 
   const { error } = await supabase.from('videos').update(updateData).eq('id', videoId);
@@ -433,4 +438,81 @@ export async function getVideoFeedbackHistory(videoId: number) {
     return [];
   }
   return data;
+}
+
+export async function markVideoReadyForReview(formData: FormData) {
+  const supabase = await createClient();
+  const videoId = formData.get('videoId') as string;
+  const projectId = formData.get('projectId') as string;
+  const completionNotes = formData.get('completionNotes') as string;
+
+  if (!videoId || !projectId) return { error: 'Missing fields' };
+
+  // Log the completion in the history log
+  const logText = completionNotes?.trim() || 'Editor marked the video as ready for review.';
+  const { error: logError } = await supabase.from('video_feedback_log').insert({
+    video_id: Number(videoId),
+    feedback_text: logText,
+    status_context: 'Ready for Review'
+  });
+
+  if (logError) {
+    console.error('Error logging feedback history:', logError);
+  }
+
+  // Update video status to Review (which is the actual db status) and clear revision_notes
+  const { error: updateError } = await supabase
+    .from('videos')
+    .update({
+      status: 'Review',
+      revision_notes: null // We clear current revision notes as it is addressed
+    })
+    .eq('id', videoId);
+
+  if (updateError) {
+    console.error('Error updating video status:', updateError);
+    return { error: 'Failed to update video status.' };
+  }
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath('/');
+  return { success: true };
+}
+
+export async function internalRequestRevision(formData: FormData) {
+  const supabase = await createClient();
+  const videoId = formData.get('videoId') as string;
+  const projectId = formData.get('projectId') as string;
+  const revisionNotes = formData.get('revisionNotes') as string;
+
+  if (!videoId || !projectId || !revisionNotes) return { error: 'Missing fields' };
+
+  // Log the revision request in the history log
+  const { error: logError } = await supabase.from('video_feedback_log').insert({
+    video_id: Number(videoId),
+    feedback_text: revisionNotes,
+    status_context: 'Revision Requested'
+  });
+
+  if (logError) {
+    console.error('Error logging feedback history:', logError);
+  }
+
+  // Update video status to Video Editing and set revision_notes
+  const { error: updateError } = await supabase
+    .from('videos')
+    .update({
+      status: 'Video Editing',
+      revision_notes: revisionNotes
+    })
+    .eq('id', videoId);
+
+  if (updateError) {
+    console.error('Error updating video status:', updateError);
+    return { error: 'Failed to update video status.' };
+  }
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath('/');
+  return { success: true };
 }

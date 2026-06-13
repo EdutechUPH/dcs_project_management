@@ -27,6 +27,7 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
     const formRef = useRef<HTMLFormElement>(null);
     const [isDirty, setIsDirty] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [isFeedbackExpanded, setIsFeedbackExpanded] = useState(false);
 
     // Notify parent of dirty state changes
     useEffect(() => {
@@ -72,14 +73,30 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
                 </div>
 
                 {/* Feedback Alert in Edit Mode */}
-                {video.revision_notes && video.status !== 'Done' && (
-                    <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        <div>
-                            <span className="font-semibold">Lecturer Feedback:</span> {video.revision_notes}
+                {video.revision_notes && video.status !== 'Done' && (() => {
+                    const isLong = video.revision_notes.length > 200;
+                    const text = isLong && !isFeedbackExpanded 
+                      ? video.revision_notes.slice(0, 200) + '...' 
+                      : video.revision_notes;
+                    return (
+                        <div className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600" />
+                            <div className="flex-grow min-w-0">
+                                <span className="font-semibold block mb-1">Lecturer Feedback:</span>
+                                <div className="whitespace-pre-wrap break-words">{text}</div>
+                                {isLong && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsFeedbackExpanded(!isFeedbackExpanded)}
+                                        className="text-xs text-amber-800 hover:text-amber-950 font-semibold mt-1.5 underline decoration-dotted"
+                                    >
+                                        {isFeedbackExpanded ? "Show Less" : "Show More"}
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Title */}

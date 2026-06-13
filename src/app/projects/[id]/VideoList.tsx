@@ -1,14 +1,17 @@
 'use client';
 
-import { addVideoToProject, deleteVideo, updateVideoStatus, moveVideo } from './actions';
+import { addVideoToProject, deleteVideo, updateVideoStatus, moveVideo, markVideoReadyForReview, internalRequestRevision } from './actions';
 import SubmitButton from '@/components/SubmitButton';
 import { useRef, useState } from 'react';
 import { MAIN_EDITOR_ROLE } from '@/lib/constants';
 import { type Video, type Profile, type Assignment } from '@/lib/types';
-import { ArrowUp, ArrowDown, Film, AlertCircle, CheckCircle, History as HistoryIcon } from 'lucide-react';
+import { ArrowUp, ArrowDown, Film, AlertCircle, CheckCircle, History as HistoryIcon, Loader2 } from 'lucide-react';
 import VideoEditForm from './VideoEditForm';
 import VideoHistoryModal from './VideoHistoryModal';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 
 type VideoListProps = {
   videos: Video[];
@@ -48,6 +51,32 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
     description: '',
     onConfirm: () => { },
   });
+
+  // States for Mark Ready dialog
+  const [isReadyDialogOpen, setIsReadyDialogOpen] = useState(false);
+  const [selectedVideoForReady, setSelectedVideoForReady] = useState<Video | null>(null);
+  const [completionNotes, setCompletionNotes] = useState('');
+  const [isActionSubmitting, setIsActionSubmitting] = useState(false);
+  const [expandedNotes, setExpandedNotes] = useState<Record<number, boolean>>({});
+
+  const handleMarkReadySubmit = async () => {
+    if (!selectedVideoForReady) return;
+    setIsActionSubmitting(true);
+    const formData = new FormData();
+    formData.append('videoId', String(selectedVideoForReady.id));
+    formData.append('projectId', String(projectId));
+    formData.append('completionNotes', completionNotes);
+
+    const result = await markVideoReadyForReview(formData);
+    setIsActionSubmitting(false);
+    if (result && 'error' in result) {
+      alert(result.error);
+    } else {
+      setIsReadyDialogOpen(false);
+      setCompletionNotes('');
+      setSelectedVideoForReady(null);
+    }
+  };
 
   const addVideoWithId = addVideoToProject.bind(null, projectId);
   const formRef = useRef<HTMLFormElement>(null);
@@ -163,14 +192,31 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                         </button>
                       </div>
 
-                      {video.revision_notes && video.status !== 'Done' && (
-                        <div className="mt-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 p-2 rounded flex items-start gap-2 max-w-xl">
-                          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <span className="font-semibold">Lecturer Feedback:</span> {video.revision_notes}
+                      {video.revision_notes && video.status !== 'Done' && (() => {
+                        const isLong = video.revision_notes.length > 200;
+                        const isExpanded = expandedNotes[video.id];
+                        const text = isLong && !isExpanded 
+                          ? video.revision_notes.slice(0, 200) + '...' 
+                          : video.revision_notes;
+                        return (
+                          <div className="mt-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded flex items-start gap-2 max-w-xl">
+                            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-600" />
+                            <div className="flex-grow min-w-0">
+                              <span className="font-semibold block mb-1">Lecturer Feedback:</span>
+                              <div className="whitespace-pre-wrap break-words">{text}</div>
+                              {isLong && (
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedNotes(prev => ({ ...prev, [video.id]: !prev[video.id] }))}
+                                  className="text-xs text-amber-800 hover:text-amber-950 font-semibold mt-1.5 underline decoration-dotted"
+                                >
+                                  {isExpanded ? "Show Less" : "Show More"}
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {video.status === 'Done' && (
                         <div className="mt-1 text-xs text-green-700 font-medium flex items-center gap-1">
@@ -189,51 +235,23 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                         {video.status}
                       </span>
 
-                      {video.status === 'WIP' && (
+                      {video.status === 'Video Editing' && (
                         video.video_link ? (
-                          <form action={updateVideoStatus}>
-                            <input type="text" name="videoId" value={video.id} readOnly className="hidden" />
-                            <input type="text" name="projectId" value={projectId} readOnly className="hidden" />
-                            <input type="text" name="newStatus" value="Ready for Review" readOnly className="hidden" />
-                            <SubmitButton className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200" pendingText="...">Request Review</SubmitButton>
-                          </form>
+                          <button
+                            onClick={() => {
+                              setSelectedVideoForReady(video);
+                              setCompletionNotes('');
+                              setIsReadyDialogOpen(true);
+                            }}
+                            className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 font-medium animate-fade-in"
+                          >
+                            Revision Completed
+                          </button>
                         ) : (
                           <span className="text-xs text-red-500 font-medium px-2 py-1 bg-red-50 rounded border border-red-100" title="Add a video link to request review">
                             Link required
                           </span>
                         )
-                      )}
-
-                      {video.status === 'Ready for Review' && (
-                        <div className="flex gap-2">
-                          <form action={updateVideoStatus}>
-                            <input type="hidden" name="videoId" value={video.id} />
-                            <input type="hidden" name="projectId" value={projectId} />
-                            <input type="hidden" name="newStatus" value="Revision Requested" />
-                            <SubmitButton className="px-3 py-1 text-sm bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200" pendingText="...">Request Revision</SubmitButton>
-                          </form>
-                          <form action={updateVideoStatus}>
-                            <input type="hidden" name="videoId" value={video.id} />
-                            <input type="hidden" name="projectId" value={projectId} />
-                            <input type="hidden" name="newStatus" value="Done" />
-                            <SubmitButton className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded-md hover:bg-green-200" pendingText="...">Approve</SubmitButton>
-                          </form>
-                        </div>
-                      )}
-
-                      {video.status === 'Revision Requested' && (
-                        <div className="flex flex-col items-end gap-2">
-                          <div className="text-xs bg-orange-50 text-orange-800 p-2 rounded border border-orange-200 max-w-xs text-right">
-                            <strong>Revision Request:</strong><br />
-                            {video.revision_notes || "Please check the comments."}
-                          </div>
-                          <form action={updateVideoStatus}>
-                            <input type="hidden" name="videoId" value={video.id} />
-                            <input type="hidden" name="projectId" value={projectId} />
-                            <input type="hidden" name="newStatus" value="Ready for Review" />
-                            <SubmitButton className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200" pendingText="...">Mark Ready</SubmitButton>
-                          </form>
-                        </div>
                       )}
 
                       <button onClick={() => handleEditClick(video.id)} className="px-3 py-1 text-sm text-blue-600 border border-blue-300 rounded-md hover:bg-blue-50">Edit</button>
@@ -307,6 +325,32 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
         variant={confirmModal.variant}
         confirmText={confirmModal.confirmText} // Pass optional confirmText
       />
+
+      {/* Mark Ready Dialog */}
+      <Dialog open={isReadyDialogOpen} onOpenChange={setIsReadyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark Revision as Completed</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-500">
+              Entering completion notes helps the lecturer know what changes were made.
+            </p>
+            <Textarea
+              placeholder="e.g. Adjusted audio level at 1:15, added requested title slide..."
+              value={completionNotes}
+              onChange={(e) => setCompletionNotes(e.target.value)}
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsReadyDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleMarkReadySubmit} disabled={isActionSubmitting}>
+              {isActionSubmitting ? 'Saving...' : 'Mark Completed'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
