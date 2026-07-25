@@ -125,6 +125,25 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
                         </select>
                     </div>
 
+                    {/* Per-video Due Date */}
+                    <div className="md:col-span-2">
+                        <label className="text-sm font-medium">
+                            Video Due Date
+                            <span className="text-gray-500 font-normal ml-1">(optional)</span>
+                        </label>
+                        <input
+                            type="date"
+                            name="due_date"
+                            defaultValue={video.due_date || ''}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+                            onChange={handleFieldChange}
+                        />
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            Leave empty to use the project due date. Set this for classes that need videos
+                            delivered on a weekly or staggered schedule.
+                        </p>
+                    </div>
+
                     {/* Main Editor */}
                     <div className="md:col-span-2">
                         <label className="text-sm font-medium">Main Editor</label>

@@ -10,16 +10,18 @@ import EditorLeaderboard from "./EditorLeaderboard";
 import FeedbackCategoryChart from "./FeedbackCategoryChart";
 import SatisfactionTrend from "./SatisfactionTrend";
 import SoundEngineerTable from "./SoundEngineerTable";
+import OnTimeDeliveryTable, { type OnTimeEntry } from "./OnTimeDeliveryTable";
 import RevisionStats from "./RevisionStats";
 import { type AnalyticsData, type KeyMetricsData } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, parseISO, startOfWeek } from 'date-fns';
+import { endOfDay, format, parseISO, startOfWeek } from 'date-fns';
 
 // Minimal shapes used by this page
 type Named = { id: number | string; name: string; short_name?: string | null };
 type ProfileNamed = { id: string; full_name: string | null; role?: string | null };
 
 type FeedbackSub = {
+  submitted_at?: string | null;
   rating_final_product?: number | null;
   rating_pre_production?: number | null;
   rating_communication?: number | null;
@@ -38,6 +40,7 @@ type ProjectJoin = {
   term_id?: string | null;
   project_type?: string | null;
   status?: string | null;
+  due_date?: string | null;
   faculties?: Named | null;
   prodi?: Named | null;
   lecturers?: Named | null;
@@ -53,6 +56,10 @@ type VideoRow = {
   duration_seconds?: number | null;
   main_editor_id?: string | null;
   updated_at?: string | null;
+  /** Per-video deadline; NULL means inherit projects.due_date. */
+  due_date?: string | null;
+  /** First hand-off to the lecturer, stamped by DB trigger. NULL before tracking existed. */
+  delivered_at?: string | null;
   projects?: ProjectJoin | null;
   profiles?: ProfileNamed | null;
 };
@@ -98,13 +105,13 @@ export default async function AnalyticsPage(props: {
         prodi ( id, name ),
         lecturers ( id, name ),
         terms ( id, name ),
-        feedback_submission ( 
+        feedback_submission (
             rating_final_product,
             rating_pre_production,
             rating_communication,
             rating_quality,
             rating_timeliness,
-            rating_timeliness,
+            submitted_at,
             created_at
         ),
         project_assignments ( profile_id, role, profiles ( id, full_name, role ) )
@@ -135,6 +142,24 @@ export default async function AnalyticsPage(props: {
   const teamVideos = videos.filter(v => v.main_editor_id != null);
 
   const completedVideos = videos.filter((v) => v.status === "Done");
+
+  // --- Feedback / Revision Logs (scoped to the videos already in view) ---
+  const videoIds = videos.map(v => v.id).filter((id): id is number => id != null);
+  const revisionLogsResult = videoIds.length > 0
+    ? await supabase.from("video_feedback_log").select("video_id, status_context, created_at").in("video_id", videoIds)
+    : { data: [] as { video_id: number; status_context: string | null; created_at: string | null }[] };
+  const revisionLogs = revisionLogsResult.data ?? [];
+
+  // Latest approval per video. This is the only real per-video completion timestamp the schema has —
+  // written both when the team marks a video Done and when the lecturer approves it. Used for the
+  // completion trend below. See AI_README §11.
+  const approvedAtByVideo = new Map<number, number>();
+  revisionLogs.forEach(log => {
+    if (log.status_context !== 'Approved' || !log.created_at) return;
+    const ts = parseISO(log.created_at).getTime();
+    const current = approvedAtByVideo.get(log.video_id);
+    if (current == null || ts > current) approvedAtByVideo.set(log.video_id, ts);
+  });
 
   // --- Key Metrics ---
   const completedProductionVideos = completedVideos.filter(v => v.projects?.project_type !== 'Translation');
@@ -167,15 +192,23 @@ export default async function AnalyticsPage(props: {
   };
 
   // --- Weekly Trend Data for Overview ---
+  // Buckets completed videos by the week they were actually approved. This previously read
+  // `v.updated_at || v.projects?.created_at`; since videos.updated_at does not exist (AI_README §11)
+  // it silently always used the project's REQUEST date, so the chart was not a completion trend at
+  // all. Videos with no recorded approval date are excluded rather than dated by proxy — the count
+  // is surfaced under the chart so the gap is visible.
   const trendMap: Record<string, { date: string; count: number; sortKey: number }> = {};
+  let completedWithoutDate = 0;
 
   completedVideos.forEach(v => {
-    const dateStr = v.updated_at || v.projects?.created_at;
-    if (!dateStr) return;
+    const approvedAt = v.id != null ? approvedAtByVideo.get(v.id) : undefined;
+    if (approvedAt == null) {
+      completedWithoutDate += 1;
+      return;
+    }
 
-    const date = parseISO(dateStr);
     // Get start of week (Sunday or Monday depending on locale, default Sunday)
-    const weekStart = startOfWeek(date);
+    const weekStart = startOfWeek(new Date(approvedAt));
     const weekLabel = format(weekStart, 'd MMM'); // e.g., "1 Jan", "8 Jan"
     const sortKey = weekStart.getTime();
 
@@ -243,6 +276,62 @@ export default async function AnalyticsPage(props: {
   });
 
   const soundEngineerData = Object.values(soundEngineerMap);
+
+  // --- On-Time Delivery Data (per-video, credited to the video's main editor) ---
+  // "Delivered" is the first hand-off to the lecturer, i.e. videos.delivered_at, stamped by a DB
+  // trigger when a video first enters 'Review'. That moment is entirely within the team's control,
+  // unlike lecturer approval or feedback-form submission.
+  //
+  // The deadline is the video's own due_date when set, otherwise the parent project's — this is what
+  // supports classes that need videos weekly or on a staggered schedule. Both are the LATEST agreed
+  // dates; renegotiations are surfaced separately via due_date_changes so a lecturer moving a
+  // deadline never reads as team lateness. See AI_README §11.
+  //
+  // delivered_at and videos.due_date are NULL for everything delivered before this tracking existed,
+  // so those videos land in `untracked` and are excluded from the rate rather than assumed on time.
+  const onTimeMap: Record<string, OnTimeEntry> = {};
+
+  teamVideos.forEach(v => {
+    const editorId = v.main_editor_id;
+    const editorName = v.profiles?.full_name;
+    if (!editorId || !editorName) return;
+
+    // Only count work actually handed over: delivered to the lecturer, or already finished.
+    const isHandedOver = v.delivered_at != null || v.status === 'Review' || v.status === 'Done';
+    if (!isHandedOver) return;
+
+    if (!onTimeMap[editorId]) {
+      onTimeMap[editorId] = { editorId, editorName, measured: 0, onTime: 0, late: 0, untracked: 0 };
+    }
+    const entry = onTimeMap[editorId];
+
+    const deadline = v.due_date ?? v.projects?.due_date ?? null;
+    if (v.delivered_at == null || deadline == null) {
+      entry.untracked += 1;
+      return;
+    }
+
+    // A deadline counts as met through the end of that day.
+    entry.measured += 1;
+    if (parseISO(v.delivered_at).getTime() <= endOfDay(parseISO(deadline)).getTime()) {
+      entry.onTime += 1;
+    } else {
+      entry.late += 1;
+    }
+  });
+
+  const onTimeData = Object.values(onTimeMap);
+
+  // Deadline renegotiations across the projects currently in scope. The table lives behind the same
+  // filters as everything else, so scope this to the projects we actually loaded.
+  const projectIdsInScope = Array.from(
+    new Set(videos.map(v => v.projects?.id).filter((id): id is number => id != null))
+  );
+  const deadlineChangesResult = projectIdsInScope.length > 0
+    ? await supabase.from("due_date_changes").select("id", { count: "exact", head: true }).in("project_id", projectIdsInScope)
+    : { count: 0 };
+  // The table may not exist yet (migration not run) — treat that as "nothing recorded".
+  const deadlineChanges = deadlineChangesResult.count ?? 0;
 
   // --- Feedback Analysis Data ---
   let satisfactionTrendMap: Record<string, { date: string; sum: number; count: number; sortKey: number }> = {};
@@ -350,16 +439,13 @@ export default async function AnalyticsPage(props: {
     return total(b) - total(a);
   });
 
-  // --- Fetch Filter Options ---
-  // Fetch revision logs scoped to the videos already in view
-  const videoIds = videos.map(v => v.id).filter((id): id is number => id != null);
-  const revisionLogsResult = videoIds.length > 0
-    ? await supabase.from("video_feedback_log").select("video_id").in("video_id", videoIds)
-    : { data: [] as { video_id: number }[] };
-  const revisionLogs = revisionLogsResult.data ?? [];
-
-  const totalRevisionRequests = revisionLogs.length;
-  const videosWithRevision = new Set(revisionLogs.map(l => l.video_id)).size;
+  // --- Revision Stats (from the logs fetched above) ---
+  // Only 'Revision Requested' entries are revisions. This previously counted EVERY log row, so
+  // lecturer approvals and ready-for-review notices were being reported as rework — inflating the
+  // revision count roughly 5× and correspondingly understating the first-pass approval rate.
+  const revisionRequestLogs = revisionLogs.filter(l => l.status_context === 'Revision Requested');
+  const totalRevisionRequests = revisionRequestLogs.length;
+  const videosWithRevision = new Set(revisionRequestLogs.map(l => l.video_id)).size;
   const revisionRate = completedProductionVideos.length > 0
     ? Math.round((videosWithRevision / completedProductionVideos.length) * 100)
     : 0;
@@ -405,7 +491,13 @@ export default async function AnalyticsPage(props: {
 
         <TabsContent value="overview" className="space-y-6">
           <KeyMetrics data={keyMetricsData} />
-          {trendData.length > 0 && <VideoCompletionTrend data={trendData} title="Productivity Trend (Videos Completed per Week)" />}
+          {trendData.length > 0 && (
+            <VideoCompletionTrend
+              data={trendData}
+              title="Productivity Trend (Videos Completed per Week)"
+              excludedCount={completedWithoutDate}
+            />
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <AnalyticsChart data={analyticsData} title={`Active Videos (by ${groupBy})`} dataKey="active_count" fillColor="#3b82f6" />
             <AnalyticsChart data={analyticsData} title={`Completed Videos (by ${groupBy})`} dataKey="completed_count" fillColor="#10b981" />
@@ -418,6 +510,7 @@ export default async function AnalyticsPage(props: {
             <EditorLeaderboard data={leaderboardData} />
             {soundEngineerData.length > 0 && <SoundEngineerTable data={soundEngineerData} />}
           </div>
+          <OnTimeDeliveryTable data={onTimeData} deadlineChanges={deadlineChanges} />
         </TabsContent>
 
         <TabsContent value="feedback" className="space-y-6">

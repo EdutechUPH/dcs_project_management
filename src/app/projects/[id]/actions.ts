@@ -172,9 +172,13 @@ export async function updateVideo(prevState: FormState | any, formData: FormData
 
   const mainEditorId = formData.get('main_editor_id') as string;
 
+  const videoDueDate = formData.get('due_date') as string | null;
+
   const videoData = {
     title: formData.get('title') as string,
     status: formData.get('status') as string,
+    // Empty means "inherit the project due date" — store NULL, not ''.
+    due_date: videoDueDate?.trim() ? videoDueDate : null,
     duration_minutes: Number(formData.get('duration_minutes')) || 0,
     duration_seconds: Number(formData.get('duration_seconds')) || 0,
     video_size_mb: formData.get('video_size_mb') ? Number(formData.get('video_size_mb')) : null,

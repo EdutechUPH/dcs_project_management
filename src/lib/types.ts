@@ -43,6 +43,10 @@ export interface Video {
   notes?: string | null; // Internal notes
   position: number;
   video_size_mb?: number | null;
+  /** Per-video deadline. NULL = inherit projects.due_date. See AI_README §11. */
+  due_date?: string | null;
+  /** First hand-off to the lecturer (status entered 'Review'). Stamped by DB trigger. */
+  delivered_at?: string | null;
 }
 
 export interface Assignment {

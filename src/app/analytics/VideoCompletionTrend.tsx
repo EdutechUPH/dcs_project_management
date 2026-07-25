@@ -2,7 +2,7 @@
 "use client";
 
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type TrendData = {
     date: string; // "Jan 2024", "Feb 2024" etc.
@@ -13,13 +13,22 @@ type TrendData = {
 type ChartProps = {
     data: TrendData[];
     title: string;
+    /** Completed videos with no recorded approval date, excluded from the chart. */
+    excludedCount?: number;
 };
 
-export default function VideoCompletionTrend({ data, title }: ChartProps) {
+export default function VideoCompletionTrend({ data, title, excludedCount = 0 }: ChartProps) {
     return (
         <Card className="col-span-1 lg:col-span-2">
             <CardHeader>
                 <CardTitle>{title}</CardTitle>
+                {excludedCount > 0 && (
+                    <CardDescription>
+                        Dated by lecturer approval. {excludedCount} completed{" "}
+                        {excludedCount === 1 ? "video has" : "videos have"} no recorded approval date and{" "}
+                        {excludedCount === 1 ? "is" : "are"} not shown — approval logging began in January 2026.
+                    </CardDescription>
+                )}
             </CardHeader>
             <CardContent className="pl-2">
                 <div className="h-[350px] w-full">
