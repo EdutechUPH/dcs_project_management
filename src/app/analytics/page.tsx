@@ -2,7 +2,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AnalyticsFilters from "./AnalyticsFilters";
-import AnalyticsChart from "./AnalyticsChart";
+import PortfolioBreakdown from "./PortfolioBreakdown";
+import PipelineFunnel, { type PipelineStage } from "./PipelineFunnel";
+import DeadlineRisk, { type AtRiskProject, type RiskBucket } from "./DeadlineRisk";
 import StackedWorkloadChart from "./StackedWorkloadChart";
 import KeyMetrics from "./KeyMetrics";
 import VideoCompletionTrend from "./VideoCompletionTrend";
@@ -12,9 +14,12 @@ import SatisfactionTrend from "./SatisfactionTrend";
 import SoundEngineerTable from "./SoundEngineerTable";
 import OnTimeDeliveryTable, { type OnTimeEntry } from "./OnTimeDeliveryTable";
 import RevisionStats from "./RevisionStats";
+import { SectionHeading, StatTile, EmptyState } from "./ui";
+import { PIPELINE_STAGES, formatMinutes } from "./chart-theme";
 import { type AnalyticsData, type KeyMetricsData } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { endOfDay, format, parseISO, startOfWeek } from 'date-fns';
+import { differenceInCalendarDays, endOfDay, format, parseISO, startOfDay, startOfWeek } from 'date-fns';
+import { Gauge, MessageSquareQuote, Scale, Users } from "lucide-react";
 
 // Minimal shapes used by this page
 type Named = { id: number | string; name: string; short_name?: string | null };
@@ -34,6 +39,7 @@ type ProjectJoin = {
   id: number;
   created_at?: string | null;
   updated_at?: string | null;
+  course_name?: string | null;
   faculty_id?: string | null;
   prodi_id?: string | null;
   lecturer_id?: string | null;
@@ -52,6 +58,7 @@ type ProjectJoin = {
 type VideoRow = {
   id?: number | null;
   status: string;
+  created_at?: string | null;
   duration_minutes?: number | null;
   duration_seconds?: number | null;
   main_editor_id?: string | null;
@@ -68,6 +75,15 @@ type Mappable = {
   id: number | string;
   name?: string;
   full_name?: string;
+};
+
+const GROUP_LABELS: Record<string, string> = {
+  faculty: "faculty",
+  prodi: "program",
+  lecturer: "lecturer",
+  term: "term",
+  editor: "editor",
+  type: "work type",
 };
 
 export const revalidate = 0;
@@ -134,7 +150,7 @@ export default async function AnalyticsPage(props: {
     return <p>Error loading data.</p>;
   }
 
-  let videos: VideoRow[] = (queryRes.data ?? []) as VideoRow[];
+  const videos: VideoRow[] = (queryRes.data ?? []) as VideoRow[];
 
   // --- Team Tab Data ---
   // Use all videos that have a main_editor assigned — main_editor_id is set manually
@@ -166,7 +182,7 @@ export default async function AnalyticsPage(props: {
   const totalMinutes = completedProductionVideos.reduce((acc, v) => acc + (v.duration_minutes ?? 0), 0);
   const totalSeconds = completedProductionVideos.reduce((acc, v) => acc + (v.duration_seconds ?? 0), 0);
 
-  const uniqueProjectsWithFeedback = new Map();
+  const uniqueProjectsWithFeedback = new Map<number, number>();
   completedVideos.forEach(v => {
     const rating = v.projects?.feedback_submission?.rating_final_product;
     if (v.projects?.id && rating) {
@@ -174,7 +190,7 @@ export default async function AnalyticsPage(props: {
     }
   });
 
-  const totalScore = Array.from(uniqueProjectsWithFeedback.values()).reduce((sum: number, score: any) => sum + (Number(score) || 0), 0);
+  const totalScore = Array.from(uniqueProjectsWithFeedback.values()).reduce((sum, score) => sum + (Number(score) || 0), 0);
   const avgScore = uniqueProjectsWithFeedback.size > 0 ? totalScore / uniqueProjectsWithFeedback.size : null;
 
   const videosInReview = videos.filter(v =>
@@ -183,13 +199,16 @@ export default async function AnalyticsPage(props: {
     v.projects?.status !== 'Cancelled'
   ).length;
 
-  const keyMetricsData: KeyMetricsData = {
-    total_videos_completed: completedProductionVideos.length,
-    total_duration_minutes: totalMinutes + Math.floor(totalSeconds / 60),
-    total_duration_seconds: totalSeconds % 60,
-    avg_satisfaction_score: avgScore,
-    videos_in_review: videosInReview,
+  // Shared definition of "in flight": unfinished, and in a project that is neither
+  // parked nor abandoned. Used by the pipeline, the risk buckets and every workload count.
+  const isVideoActive = (v: VideoRow) => {
+    if (v.status === 'Done') return false;
+    const pStatus = v.projects?.status;
+    if (pStatus === 'Pending' || pStatus === 'Cancelled') return false;
+    return true;
   };
+
+  const activeVideos = videos.filter(isVideoActive);
 
   // --- Weekly Trend Data for Overview ---
   // Buckets completed videos by the week they were actually approved. This previously read
@@ -220,15 +239,111 @@ export default async function AnalyticsPage(props: {
 
   const trendData = Object.values(trendMap).sort((a, b) => a.sortKey - b.sortKey);
 
+  // --- Cycle time -----------------------------------------------------------
+  // How long a video takes from being logged in the tracker to being approved by the
+  // lecturer. The start point is videos.created_at (the earliest per-video timestamp
+  // that exists) and the end point is the approval log — the same timestamp the trend
+  // chart uses. It is a median rather than a mean because a handful of very old rows
+  // would otherwise drag the average somewhere no real video has ever been.
+  const cycleDurations = completedVideos
+    .map(v => {
+      const approvedAt = v.id != null ? approvedAtByVideo.get(v.id) : undefined;
+      if (approvedAt == null || !v.created_at) return null;
+      const days = differenceInCalendarDays(new Date(approvedAt), parseISO(v.created_at));
+      return days >= 0 ? days : null;
+    })
+    .filter((d): d is number => d != null)
+    .sort((a, b) => a - b);
+
+  const medianCycleDays = cycleDurations.length > 0
+    ? cycleDurations.length % 2 === 1
+      ? cycleDurations[(cycleDurations.length - 1) / 2]
+      : (cycleDurations[cycleDurations.length / 2 - 1] + cycleDurations[cycleDurations.length / 2]) / 2
+    : null;
+
+  // --- Pipeline snapshot ----------------------------------------------------
+  // Where every video in scope currently sits, in workflow order. Videos parked in
+  // Pending or Cancelled projects are reported separately — they are not in flight and
+  // counting them as "Requested" would overstate the queue.
+  const parkedVideos = videos.filter(
+    v => v.status !== 'Done' && (v.projects?.status === 'Pending' || v.projects?.status === 'Cancelled')
+  ).length;
+
+  const pipelineCounts = new Map<string, number>();
+  videos.forEach(v => {
+    if (v.status !== 'Done' && !isVideoActive(v)) return; // parked, counted above
+    pipelineCounts.set(v.status, (pipelineCounts.get(v.status) ?? 0) + 1);
+  });
+
+  const pipelineData: PipelineStage[] = [
+    // Known stages first, in real workflow order…
+    ...PIPELINE_STAGES.filter(stage => (pipelineCounts.get(stage) ?? 0) > 0).map(stage => ({
+      stage,
+      count: pipelineCounts.get(stage) ?? 0,
+    })),
+    // …then anything the enum grows later, so a new status is never silently dropped.
+    ...Array.from(pipelineCounts.entries())
+      .filter(([stage]) => !PIPELINE_STAGES.includes(stage as (typeof PIPELINE_STAGES)[number]))
+      .map(([stage, count]) => ({ stage, count })),
+  ];
+
+  // --- Deadline risk --------------------------------------------------------
+  // Deadline is the video's own due date where one is set, otherwise the project's —
+  // the same rule the on-time table uses, so the two cards never disagree.
+  const today = startOfDay(new Date());
+  const riskCounts = { overdue: 0, week: 0, month: 0, later: 0, none: 0 };
+  const overdueByProject = new Map<number, { courseName: string; dueDate: string | null; daysLate: number; remaining: number }>();
+
+  activeVideos.forEach(v => {
+    const deadline = v.due_date ?? v.projects?.due_date ?? null;
+    if (!deadline) {
+      riskCounts.none += 1;
+      return;
+    }
+
+    const daysLeft = differenceInCalendarDays(parseISO(deadline), today);
+    if (daysLeft < 0) {
+      riskCounts.overdue += 1;
+      const project = v.projects;
+      if (project?.id != null) {
+        const existing = overdueByProject.get(project.id);
+        overdueByProject.set(project.id, {
+          courseName: project.course_name?.trim() || `Project #${project.id}`,
+          dueDate: deadline,
+          daysLate: Math.max(existing?.daysLate ?? 0, -daysLeft),
+          remaining: (existing?.remaining ?? 0) + 1,
+        });
+      }
+    } else if (daysLeft <= 7) {
+      riskCounts.week += 1;
+    } else if (daysLeft <= 30) {
+      riskCounts.month += 1;
+    } else {
+      riskCounts.later += 1;
+    }
+  });
+
+  const riskBuckets: RiskBucket[] = [
+    { key: "overdue", label: "Past deadline", count: riskCounts.overdue },
+    { key: "week", label: "Due within 7 days", count: riskCounts.week },
+    { key: "month", label: "Due in 8–30 days", count: riskCounts.month },
+    { key: "later", label: "More than 30 days out", count: riskCounts.later },
+    { key: "none", label: "No deadline set", count: riskCounts.none },
+  ];
+
+  const atRiskProjects: AtRiskProject[] = Array.from(overdueByProject.entries())
+    .map(([projectId, p]) => ({
+      projectId,
+      courseName: p.courseName,
+      dueDate: p.dueDate ? format(parseISO(p.dueDate), "d MMM yyyy") : null,
+      daysLate: p.daysLate,
+      remaining: p.remaining,
+    }))
+    .sort((a, b) => (b.daysLate ?? 0) - (a.daysLate ?? 0))
+    .slice(0, 5);
+
   // --- Editor Leaderboard Data ---
   const leaderboardMap: Record<string, { editorId: string; editorName: string; completedVideos: number; activeVideos: number; minutesProduced: number }> = {};
-  
-  const isVideoActive = (v: VideoRow) => {
-    if (v.status === 'Done') return false;
-    const pStatus = v.projects?.status;
-    if (pStatus === 'Pending' || pStatus === 'Cancelled') return false;
-    return true; /* Feedback implicitly tracked via status manually currently depending on context */
-  };
 
   teamVideos.forEach(v => {
     const editorId = v.main_editor_id ?? "unassigned";
@@ -251,6 +366,15 @@ export default async function AnalyticsPage(props: {
     }
   });
   const leaderboardData = Object.values(leaderboardMap);
+
+  // Concentration of finished runtime in one person. High is a delivery risk, not a
+  // compliment — it means the schedule depends on a single editor staying available.
+  const teamMinutes = leaderboardData.reduce((sum, e) => sum + e.minutesProduced, 0);
+  const topEditorShare = teamMinutes > 0
+    ? Math.max(...leaderboardData.map(e => e.minutesProduced)) / teamMinutes * 100
+    : null;
+  const activeEditors = leaderboardData.filter(e => e.activeVideos > 0).length;
+  const totalActiveAssigned = leaderboardData.reduce((sum, e) => sum + e.activeVideos, 0);
 
   // --- Sound Engineer Data (separate from editor workload) ---
   type SoundEngineerEntry = { engineerId: string; engineerName: string; completedVideos: number; activeVideos: number; minutesProduced: number };
@@ -334,8 +458,8 @@ export default async function AnalyticsPage(props: {
   const deadlineChanges = deadlineChangesResult.count ?? 0;
 
   // --- Feedback Analysis Data ---
-  let satisfactionTrendMap: Record<string, { date: string; sum: number; count: number; sortKey: number }> = {};
-  let categoryScores = {
+  const satisfactionTrendMap: Record<string, { date: string; sum: number; count: number; sortKey: number }> = {};
+  const categoryScores = {
     pre: { sum: 0, count: 0, label: "Pre-Production" },
     comm: { sum: 0, count: 0, label: "Communication" },
     qual: { sum: 0, count: 0, label: "Quality" },
@@ -377,12 +501,20 @@ export default async function AnalyticsPage(props: {
   });
 
   const feedbackCategoryData = [
-    { category: 'Pre-Prod', fullLabel: "Pre-Production", score: categoryScores.pre.count ? categoryScores.pre.sum / categoryScores.pre.count : 0 },
-    { category: 'Comm', fullLabel: "Communication", score: categoryScores.comm.count ? categoryScores.comm.sum / categoryScores.comm.count : 0 },
+    { category: 'Pre-production', fullLabel: "Pre-Production", score: categoryScores.pre.count ? categoryScores.pre.sum / categoryScores.pre.count : 0 },
+    { category: 'Communication', fullLabel: "Communication", score: categoryScores.comm.count ? categoryScores.comm.sum / categoryScores.comm.count : 0 },
     { category: 'Quality', fullLabel: "Quality", score: categoryScores.qual.count ? categoryScores.qual.sum / categoryScores.qual.count : 0 },
-    { category: 'Timeline', fullLabel: "Timeliness", score: categoryScores.time.count ? categoryScores.time.sum / categoryScores.time.count : 0 },
-    { category: 'Final', fullLabel: "Final Product", score: categoryScores.final.count ? categoryScores.final.sum / categoryScores.final.count : 0 },
+    { category: 'Timeliness', fullLabel: "Timeliness", score: categoryScores.time.count ? categoryScores.time.sum / categoryScores.time.count : 0 },
+    { category: 'Final product', fullLabel: "Final Product", score: categoryScores.final.count ? categoryScores.final.sum / categoryScores.final.count : 0 },
   ];
+
+  const feedbackResponses = Math.max(
+    categoryScores.pre.count,
+    categoryScores.comm.count,
+    categoryScores.qual.count,
+    categoryScores.time.count,
+    categoryScores.final.count
+  );
 
   const satisfactionTrendData = Object.values(satisfactionTrendMap)
     .sort((a, b) => a.sortKey - b.sortKey)
@@ -409,13 +541,13 @@ export default async function AnalyticsPage(props: {
     const { name: category, fullName } = getCategory(video);
     if (groupBy === 'editor' && category === 'Unassigned') return acc;
     if (!acc[category]) acc[category] = { category, full_category: fullName, active_count: 0, completed_count: 0 };
-    
+
     if (video.status === "Done") {
       acc[category].completed_count++;
     } else if (isVideoActive(video)) {
       acc[category].active_count++;
     }
-    
+
     return acc;
   }, {});
 
@@ -450,6 +582,20 @@ export default async function AnalyticsPage(props: {
     ? Math.round((videosWithRevision / completedProductionVideos.length) * 100)
     : 0;
 
+  const keyMetricsData: KeyMetricsData = {
+    total_videos_completed: completedProductionVideos.length,
+    total_duration_minutes: totalMinutes,
+    total_duration_seconds: totalSeconds,
+    avg_satisfaction_score: avgScore,
+    videos_in_review: videosInReview,
+    active_videos: activeVideos.length,
+    median_cycle_days: medianCycleDays,
+    cycle_sample: cycleDurations.length,
+    first_pass_rate: completedProductionVideos.length > 0 ? 100 - revisionRate : null,
+    // Last 12 weeks of the trend, for the tile sparkline.
+    completion_sparkline: trendData.slice(-12).map(t => t.count),
+  };
+
   const [
     { data: faculties },
     { data: prodi },
@@ -467,11 +613,28 @@ export default async function AnalyticsPage(props: {
   const mapToOptions = (items: Mappable[] | null | undefined) =>
     (items ?? []).map((item) => ({ value: item.id.toString(), label: item.full_name || item.name || "" }));
 
+  const groupLabel = GROUP_LABELS[groupBy] ?? groupBy;
+  const tabTrigger =
+    "rounded-lg text-sm font-medium text-gray-600 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all";
+
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Analytics Dashboard</h1>
-        <Link href="/" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">← Back to Projects</Link>
+    <div className="space-y-6 p-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1.5">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Analytics</h1>
+          <p className="text-sm text-gray-500">
+            {videos.length.toLocaleString()} videos across {projectIdsInScope.length}{" "}
+            {projectIdsInScope.length === 1 ? "project" : "projects"} in scope ·{" "}
+            {formatMinutes(totalMinutes + Math.floor(totalSeconds / 60))} of finished runtime ·{" "}
+            {leaderboardData.length} credited {leaderboardData.length === 1 ? "editor" : "editors"}
+          </p>
+        </div>
+        <Link
+          href="/"
+          className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+        >
+          ← Back to Projects
+        </Link>
       </div>
 
       <AnalyticsFilters
@@ -483,51 +646,112 @@ export default async function AnalyticsPage(props: {
       />
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 h-14 bg-gray-100/80 p-1.5 rounded-xl">
-          <TabsTrigger value="overview" className="text-sm md:text-base font-medium data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-md transition-all">Overview & Trends</TabsTrigger>
-          <TabsTrigger value="team" className="text-sm md:text-base font-medium data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-md transition-all">Team Performance</TabsTrigger>
-          <TabsTrigger value="feedback" className="text-sm md:text-base font-medium data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-md transition-all">Feedback Insights</TabsTrigger>
+        <TabsList className="grid h-11 w-full grid-cols-3 rounded-xl bg-gray-100/80 p-1">
+          <TabsTrigger value="overview" className={tabTrigger}>Delivery & Flow</TabsTrigger>
+          <TabsTrigger value="team" className={tabTrigger}>Team Performance</TabsTrigger>
+          <TabsTrigger value="feedback" className={tabTrigger}>Quality & Feedback</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <KeyMetrics data={keyMetricsData} />
-          {trendData.length > 0 && (
+
+          <SectionHeading
+            title="Flow"
+            description="What the team is holding right now, and what is closest to its deadline."
+          />
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <PipelineFunnel data={pipelineData} parked={parkedVideos} />
+            <DeadlineRisk buckets={riskBuckets} atRisk={atRiskProjects} />
+          </div>
+
+          <SectionHeading title="Throughput" description="Output over time, and where it lands." />
+          {trendData.length > 0 ? (
             <VideoCompletionTrend
               data={trendData}
-              title="Productivity Trend (Videos Completed per Week)"
+              title="Videos completed per week"
               excludedCount={completedWithoutDate}
             />
+          ) : (
+            <EmptyState icon={<Gauge className="h-8 w-8" />} title="No dated completions in scope">
+              Videos are plotted by their lecturer-approval date. Nothing in this selection has one yet.
+            </EmptyState>
           )}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <AnalyticsChart data={analyticsData} title={`Active Videos (by ${groupBy})`} dataKey="active_count" fillColor="#3b82f6" />
-            <AnalyticsChart data={analyticsData} title={`Completed Videos (by ${groupBy})`} dataKey="completed_count" fillColor="#10b981" />
-          </div>
+          <PortfolioBreakdown data={analyticsData} groupLabel={groupLabel} />
         </TabsContent>
 
         <TabsContent value="team" className="space-y-6">
-          <StackedWorkloadChart data={stackedChartData} title="Editor Workload Distribution (Minutes Produced by Type)" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            <StatTile
+              label="Active assignments"
+              value={String(totalActiveAssigned)}
+              icon={<Users className="h-4 w-4" />}
+              hint={`Held by ${activeEditors} ${activeEditors === 1 ? "editor" : "editors"}${activeEditors > 0 ? `, ${(totalActiveAssigned / activeEditors).toFixed(1)} each on average` : ""}.`}
+            />
+            <StatTile
+              label="Runtime delivered"
+              value={formatMinutes(teamMinutes)}
+              icon={<Gauge className="h-4 w-4" />}
+              hint={`Across ${leaderboardData.length} credited ${leaderboardData.length === 1 ? "editor" : "editors"}.`}
+            />
+            <StatTile
+              label="Busiest editor's share"
+              value={topEditorShare == null ? "—" : `${topEditorShare.toFixed(0)}%`}
+              tone={topEditorShare == null ? "neutral" : topEditorShare >= 50 ? "warning" : "good"}
+              icon={<Scale className="h-4 w-4" />}
+              meter={topEditorShare}
+              hint="Of all finished runtime. A high share means the schedule leans on one person."
+            />
+          </div>
+
+          <SectionHeading
+            title="Workload"
+            description="Editor credit follows the main editor set on each video, never the project assignment."
+          />
+          <StackedWorkloadChart data={stackedChartData} title="Runtime produced per editor" />
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <EditorLeaderboard data={leaderboardData} />
             {soundEngineerData.length > 0 && <SoundEngineerTable data={soundEngineerData} />}
           </div>
+
+          <SectionHeading title="Punctuality" description="Measured from hand-off to the lecturer." />
           <OnTimeDeliveryTable data={onTimeData} deadlineChanges={deadlineChanges} />
         </TabsContent>
 
         <TabsContent value="feedback" className="space-y-6">
+          <SectionHeading
+            title="Rework"
+            description="How often finished work comes back, and how hard it comes back."
+          />
           <RevisionStats
             totalRevisionRequests={totalRevisionRequests}
             videosWithRevision={videosWithRevision}
             revisionRate={revisionRate}
             totalCompleted={completedProductionVideos.length}
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FeedbackCategoryChart data={feedbackCategoryData} title="Average Score by Category" />
-            {satisfactionTrendData.length > 0 ? (
-              <SatisfactionTrend data={satisfactionTrendData} title="Satisfaction Trend (Weekly)" />
+
+          <SectionHeading
+            title="Lecturer feedback"
+            description="From the form the lecturer fills in once a whole project is finished — project-level, not per video."
+          />
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <FeedbackCategoryChart
+              data={feedbackCategoryData}
+              title="Average score by category"
+              responses={feedbackResponses}
+            />
+            {satisfactionTrendData.length > 1 ? (
+              <SatisfactionTrend data={satisfactionTrendData} title="Satisfaction over time" />
             ) : (
-              <div className="p-12 border rounded-lg bg-gray-50 text-center text-gray-400 border-dashed justify-center flex items-center h-[400px]">
-                Not enough feedback data for trend analysis
-              </div>
+              <EmptyState
+                icon={<MessageSquareQuote className="h-8 w-8" />}
+                title="Not enough feedback for a trend"
+                className="h-full"
+              >
+                A trend needs responses from at least two different weeks.{" "}
+                {satisfactionTrendData.length === 1
+                  ? "So far there is only one."
+                  : "None have come in for this selection."}
+              </EmptyState>
             )}
           </div>
         </TabsContent>

@@ -2,8 +2,8 @@
 "use client";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ChartCard, ShareBar } from "./ui";
+import { INK, SERIES, formatMinutes } from "./chart-theme";
 
 type SoundEngineerEntry = {
     engineerId: string;
@@ -19,47 +19,60 @@ type Props = {
 
 export default function SoundEngineerTable({ data }: Props) {
     const sorted = [...data].sort((a, b) => b.minutesProduced - a.minutesProduced);
+    const totalMinutes = sorted.reduce((sum, e) => sum + e.minutesProduced, 0);
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Sound Engineer Contributions</CardTitle>
-                <CardDescription>
-                    Sound engineers are credited for all completed videos in their assigned projects.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[240px]">Name</TableHead>
-                            <TableHead className="text-right">Completed Videos</TableHead>
-                            <TableHead className="text-right">Active Videos</TableHead>
-                            <TableHead className="text-right">Minutes Covered</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {sorted.map((entry) => (
-                            <TableRow key={entry.engineerId}>
-                                <TableCell className="font-medium">{entry.engineerName}</TableCell>
-                                <TableCell className="text-right">
-                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                        {entry.completedVideos}
-                                    </Badge>
+        <ChartCard
+            title="Sound engineer coverage"
+            description="Sound engineers have no per-video assignment, so they are credited for every completed video in the projects they are assigned to."
+            footnote="Because credit is project-wide, these minutes overlap with the editor scorecard rather than adding to it — the same video is counted for both roles."
+            className="h-full"
+        >
+            <Table>
+                <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                        <TableHead className="text-xs uppercase tracking-wide text-gray-500">Engineer</TableHead>
+                        <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">Done</TableHead>
+                        <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">
+                            Active
+                        </TableHead>
+                        <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">
+                            Runtime
+                        </TableHead>
+                        <TableHead className="w-[112px] text-xs uppercase tracking-wide text-gray-500">Share</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {sorted.map(entry => {
+                        const share = totalMinutes > 0 ? (entry.minutesProduced / totalMinutes) * 100 : 0;
+                        return (
+                            <TableRow key={entry.engineerId} className="border-gray-100">
+                                <TableCell className="font-medium text-gray-900">{entry.engineerName}</TableCell>
+                                <TableCell className="text-right text-sm font-semibold tabular-nums text-gray-900">
+                                    {entry.completedVideos}
                                 </TableCell>
-                                <TableCell className="text-right">
-                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                        {entry.activeVideos}
-                                    </Badge>
+                                <TableCell className="text-right text-sm tabular-nums text-gray-600">
+                                    {entry.activeVideos || <span className="text-gray-300">—</span>}
                                 </TableCell>
-                                <TableCell className="text-right font-mono text-xs">
-                                    {entry.minutesProduced.toFixed(1)}m
+                                <TableCell className="text-right text-sm tabular-nums text-gray-900">
+                                    {formatMinutes(entry.minutesProduced)}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2">
+                                        <ShareBar value={share} color={SERIES[2]} />
+                                        <span
+                                            className="w-9 shrink-0 text-right text-xs tabular-nums"
+                                            style={{ color: INK.secondary }}
+                                        >
+                                            {share.toFixed(0)}%
+                                        </span>
+                                    </div>
                                 </TableCell>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                        );
+                    })}
+                </TableBody>
+            </Table>
+        </ChartCard>
     );
 }

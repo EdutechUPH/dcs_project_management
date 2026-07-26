@@ -1,8 +1,8 @@
 // src/app/analytics/RevisionStats.tsx
 "use client";
 
-import { RotateCcw, CheckCircle2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RotateCcw, CheckCircle2, Repeat } from "lucide-react";
+import { StatTile } from "./ui";
 
 type Props = {
   totalRevisionRequests: number;
@@ -11,34 +11,50 @@ type Props = {
   totalCompleted: number;
 };
 
-export default function RevisionStats({ totalRevisionRequests, videosWithRevision, revisionRate, totalCompleted }: Props) {
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Revision Rounds</CardTitle>
-          <RotateCcw className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{totalRevisionRequests}</div>
-          <p className="text-xs text-muted-foreground">
-            Across {videosWithRevision} video{videosWithRevision !== 1 ? 's' : ''} that needed rework
-          </p>
-        </CardContent>
-      </Card>
+export default function RevisionStats({
+  totalRevisionRequests,
+  videosWithRevision,
+  revisionRate,
+  totalCompleted,
+}: Props) {
+  const firstPass = totalCompleted > 0 ? 100 - revisionRate : null;
+  const roundsPerRevised =
+    videosWithRevision > 0 ? totalRevisionRequests / videosWithRevision : null;
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">First-Pass Approval Rate</CardTitle>
-          <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{totalCompleted > 0 ? `${100 - revisionRate}%` : "N/A"}</div>
-          <p className="text-xs text-muted-foreground">
-            Videos approved without revision ({totalCompleted - videosWithRevision} of {totalCompleted})
-          </p>
-        </CardContent>
-      </Card>
+  const tone = firstPass == null ? "neutral" : firstPass >= 90 ? "good" : firstPass >= 75 ? "warning" : "critical";
+
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      <StatTile
+        label="First-pass approval"
+        value={firstPass == null ? "—" : `${firstPass.toFixed(0)}%`}
+        tone={tone}
+        icon={<CheckCircle2 className="h-4 w-4" />}
+        meter={firstPass}
+        hint={
+          totalCompleted > 0
+            ? `${totalCompleted - videosWithRevision} of ${totalCompleted} finished videos were approved without a single revision round.`
+            : "No finished videos in scope yet."
+        }
+      />
+
+      <StatTile
+        label="Revision rounds"
+        value={String(totalRevisionRequests)}
+        icon={<RotateCcw className="h-4 w-4" />}
+        hint={`Logged across ${videosWithRevision} ${videosWithRevision === 1 ? "video that needed" : "videos that needed"} rework. Only entries explicitly marked "Revision Requested" count.`}
+      />
+
+      <StatTile
+        label="Rounds per revised video"
+        value={roundsPerRevised == null ? "—" : roundsPerRevised.toFixed(1)}
+        icon={<Repeat className="h-4 w-4" />}
+        hint={
+          roundsPerRevised == null
+            ? "Nothing in scope has needed a revision."
+            : "How many times a video comes back once it comes back at all — the cost of a miss, separate from how often one happens."
+        }
+      />
     </div>
   );
 }

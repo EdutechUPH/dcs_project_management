@@ -122,6 +122,16 @@ export interface KeyMetricsData {
   total_duration_seconds: number;
   avg_satisfaction_score: number | null;
   videos_in_review: number;
+  /** Videos not yet Done in projects that are neither Pending nor Cancelled. */
+  active_videos: number;
+  /** Median days from a video being logged in the tracker to lecturer approval. */
+  median_cycle_days: number | null;
+  /** Videos the cycle-time median could be measured on. */
+  cycle_sample: number;
+  /** Share of completed videos approved without a revision round, 0–100. */
+  first_pass_rate: number | null;
+  /** Weekly completion counts, oldest → newest, for the sparkline. */
+  completion_sparkline: number[];
 }
 
 // Add this to the bottom of src/lib/types.ts

@@ -2,8 +2,9 @@
 "use client";
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ChartCard, EmptyState, ShareBar } from "./ui";
+import { INK, SERIES, formatMinutes } from "./chart-theme";
+import { UserRound } from "lucide-react";
 
 type LeaderboardEntry = {
     editorId: string;
@@ -18,46 +19,92 @@ type LeaderboardProps = {
 };
 
 export default function EditorLeaderboard({ data }: LeaderboardProps) {
-    // Sort by Completed Videos desc, then Minutes desc
-    const sortedData = [...data].sort((a, b) => b.completedVideos - a.completedVideos || b.minutesProduced - a.minutesProduced);
+    const sorted = [...data].sort(
+        (a, b) => b.completedVideos - a.completedVideos || b.minutesProduced - a.minutesProduced
+    );
+
+    const totalMinutes = sorted.reduce((sum, e) => sum + e.minutesProduced, 0);
+
+    if (sorted.length === 0) {
+        return (
+            <ChartCard title="Editor scorecard" description="Per-video credit, from videos.main_editor_id.">
+                <EmptyState icon={<UserRound className="h-8 w-8" />} title="No editor has been credited yet">
+                    Videos are credited once a main editor is set on them.
+                </EmptyState>
+            </ChartCard>
+        );
+    }
 
     return (
-        <Card className="col-span-1">
-            <CardHeader>
-                <CardTitle>Editor Leaderboard</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[200px]">Editor Name</TableHead>
-                            <TableHead className="text-right">Completed</TableHead>
-                            <TableHead className="text-right">Active Tasks</TableHead>
-                            <TableHead className="text-right">Minutes Produced</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {sortedData.map((entry) => (
-                            <TableRow key={entry.editorId}>
-                                <TableCell className="font-medium">{entry.editorName}</TableCell>
-                                <TableCell className="text-right">
-                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                        {entry.completedVideos}
-                                    </Badge>
+        <ChartCard
+            title="Editor scorecard"
+            description="Credit follows the main editor set on each individual video, not the project assignment."
+            footnote={
+                <>
+                    <span className="font-medium text-gray-700">Share</span> is this editor&rsquo;s portion of all
+                    finished runtime in scope. <span className="font-medium text-gray-700">Active</span> counts
+                    unfinished videos in projects that are neither Pending nor Cancelled.
+                </>
+            }
+        >
+            <Table>
+                <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                        <TableHead className="w-[44px] text-xs uppercase tracking-wide text-gray-500">#</TableHead>
+                        <TableHead className="text-xs uppercase tracking-wide text-gray-500">Editor</TableHead>
+                        <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">Done</TableHead>
+                        <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">
+                            Active
+                        </TableHead>
+                        <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">
+                            Runtime
+                        </TableHead>
+                        <TableHead className="w-[132px] text-xs uppercase tracking-wide text-gray-500">Share</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {sorted.map((entry, index) => {
+                        const share = totalMinutes > 0 ? (entry.minutesProduced / totalMinutes) * 100 : 0;
+                        const avgLength =
+                            entry.completedVideos > 0 ? entry.minutesProduced / entry.completedVideos : 0;
+                        return (
+                            <TableRow key={entry.editorId} className="border-gray-100">
+                                <TableCell className="text-sm font-medium tabular-nums text-gray-400">
+                                    {index + 1}
                                 </TableCell>
-                                <TableCell className="text-right">
-                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                        {entry.activeVideos}
-                                    </Badge>
+                                <TableCell>
+                                    <span className="block font-medium text-gray-900">{entry.editorName}</span>
+                                    {entry.completedVideos > 0 && (
+                                        <span className="text-xs text-gray-500">
+                                            {avgLength.toFixed(1)} min avg per video
+                                        </span>
+                                    )}
                                 </TableCell>
-                                <TableCell className="text-right font-mono text-xs">
-                                    {entry.minutesProduced.toFixed(1)}m
+                                <TableCell className="text-right text-sm font-semibold tabular-nums text-gray-900">
+                                    {entry.completedVideos}
+                                </TableCell>
+                                <TableCell className="text-right text-sm tabular-nums text-gray-600">
+                                    {entry.activeVideos || <span className="text-gray-300">—</span>}
+                                </TableCell>
+                                <TableCell className="text-right text-sm tabular-nums text-gray-900">
+                                    {formatMinutes(entry.minutesProduced)}
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2">
+                                        <ShareBar value={share} color={SERIES[0]} />
+                                        <span
+                                            className="w-9 shrink-0 text-right text-xs tabular-nums"
+                                            style={{ color: INK.secondary }}
+                                        >
+                                            {share.toFixed(0)}%
+                                        </span>
+                                    </div>
                                 </TableCell>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                        );
+                    })}
+                </TableBody>
+            </Table>
+        </ChartCard>
     );
 }

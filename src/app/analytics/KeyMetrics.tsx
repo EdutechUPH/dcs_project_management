@@ -1,79 +1,81 @@
 // src/app/analytics/KeyMetrics.tsx
 "use client";
 
-import { PlaySquare, Clock, Eye } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlaySquare, Clock, Timer, Layers, Star } from "lucide-react";
+import { type KeyMetricsData } from "@/lib/types";
+import { StatTile } from "./ui";
+import { compactNumber, formatMinutes } from "./chart-theme";
 
-type KeyMetricsProps = {
-  data: {
-    total_videos_completed: number;
-    total_duration_minutes: number;
-    total_duration_seconds: number;
-    avg_satisfaction_score?: number | null;
-    videos_in_review?: number;
-  } | null;
-};
+type KeyMetricsProps = { data: KeyMetricsData | null };
 
 export default function KeyMetrics({ data }: KeyMetricsProps) {
   if (!data) return null;
 
-  const totalMinutes = (data.total_duration_minutes || 0) + Math.floor((data.total_duration_seconds || 0) / 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  const durationString = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  const totalMinutes =
+    (data.total_duration_minutes || 0) + Math.floor((data.total_duration_seconds || 0) / 60);
+  const avgLength =
+    data.total_videos_completed > 0 ? totalMinutes / data.total_videos_completed : 0;
+
+  const satisfaction = data.avg_satisfaction_score;
+  const satisfactionTone =
+    satisfaction == null ? "neutral" : satisfaction >= 4.5 ? "good" : satisfaction >= 3.5 ? "warning" : "critical";
+
+  const cycle = data.median_cycle_days;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Videos Completed</CardTitle>
-          <PlaySquare className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{data.total_videos_completed}</div>
-          <p className="text-xs text-muted-foreground">Approved as done by lecturer</p>
-        </CardContent>
-      </Card>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <StatTile
+        hero
+        label="Videos delivered"
+        value={compactNumber(data.total_videos_completed)}
+        icon={<PlaySquare className="h-4 w-4" />}
+        hint={
+          data.completion_sparkline.length > 1
+            ? "Approved as done. Trend shows the last weeks of approvals."
+            : "Approved as done by the lecturer."
+        }
+        sparkline={data.completion_sparkline}
+      />
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Duration Produced</CardTitle>
-          <Clock className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{durationString}</div>
-          <p className="text-xs text-muted-foreground">Combined runtime of all done videos</p>
-        </CardContent>
-      </Card>
+      <StatTile
+        label="Runtime produced"
+        value={formatMinutes(totalMinutes)}
+        icon={<Clock className="h-4 w-4" />}
+        hint={
+          data.total_videos_completed > 0
+            ? `Averaging ${avgLength.toFixed(1)} min per finished video.`
+            : "Combined runtime of all finished videos."
+        }
+      />
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Avg. Satisfaction</CardTitle>
-          <div className="text-yellow-500">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-              <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
-            </svg>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {data.avg_satisfaction_score ? data.avg_satisfaction_score.toFixed(1) : "N/A"}
-            {data.avg_satisfaction_score && <span className="text-base font-normal text-muted-foreground">/5</span>}
-          </div>
-          <p className="text-xs text-muted-foreground">From completed project forms</p>
-        </CardContent>
-      </Card>
+      <StatTile
+        label="Median cycle time"
+        value={cycle == null ? "—" : cycle.toFixed(0)}
+        unit={cycle == null ? undefined : cycle === 1 ? "day" : "days"}
+        icon={<Timer className="h-4 w-4" />}
+        hint={
+          cycle == null
+            ? "No video has both a logged date and a recorded approval yet."
+            : `Logged in the tracker → lecturer approval, across ${data.cycle_sample} measurable ${data.cycle_sample === 1 ? "video" : "videos"}.`
+        }
+      />
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Videos In Review</CardTitle>
-          <Eye className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{data.videos_in_review ?? 0}</div>
-          <p className="text-xs text-muted-foreground">Awaiting lecturer approval</p>
-        </CardContent>
-      </Card>
+      <StatTile
+        label="In the pipeline"
+        value={compactNumber(data.active_videos)}
+        icon={<Layers className="h-4 w-4" />}
+        hint={`${data.videos_in_review ?? 0} of these ${(data.videos_in_review ?? 0) === 1 ? "is" : "are"} with the lecturer for review.`}
+      />
+
+      <StatTile
+        label="Avg. satisfaction"
+        value={satisfaction == null ? "—" : satisfaction.toFixed(1)}
+        unit={satisfaction == null ? undefined : "/5"}
+        tone={satisfactionTone}
+        icon={<Star className="h-4 w-4" />}
+        meter={satisfaction == null ? null : (satisfaction / 5) * 100}
+        hint="Final-product rating from completed project feedback forms."
+      />
     </div>
   );
 }

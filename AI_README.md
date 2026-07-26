@@ -16,10 +16,10 @@ The application uses the Next.js App Router paradigm. Below are the primary dash
   - Users (`/admin/users`) and approval processes.
   - Faculties (`/admin/faculties`), Prodi/Study Programs (`/admin/prodi`), and Lecturers (`/admin/lecturers`).
   - Academic Terms (`/admin/terms`).
-- **`/analytics`:** Provides charts and key metrics across three tabs:
-  - **Overview & Trends:** Key metrics (videos completed, duration, satisfaction, videos in review), weekly completion trend, active/completed counts by grouping.
-  - **Team Performance:** Editor workload distribution chart (minutes by project type, horizontal stacked bars), Editor Leaderboard, Sound Engineer Contributions table.
-  - **Feedback Insights:** Revision stats (total revision rounds, first-pass approval rate from `video_feedback_log`), category scores, satisfaction trend.
+- **`/analytics`:** Provides charts and key metrics across three tabs (see §12 for the shared chart system):
+  - **Delivery & Flow:** KPI tiles (videos delivered + sparkline, runtime produced, median cycle time, pipeline size, satisfaction), Production Pipeline (videos by workflow stage), Deadline Risk (unfinished videos bucketed by deadline proximity + the most overdue projects), weekly completion trend with a 4-week moving average, and one stacked Delivery-by-grouping chart.
+  - **Team Performance:** Capacity tiles (active assignments, runtime delivered, busiest editor's share), runtime-per-editor chart, Editor Scorecard, Sound Engineer coverage, On-Time Delivery.
+  - **Quality & Feedback:** Revision stats (first-pass approval, revision rounds, rounds per revised video from `video_feedback_log`), category scores against the overall mean, satisfaction trend.
 - **`/auth` & `/login`:** Authentication flows, callbacks, and login interfaces.
 - **`/feedback/[slug]`:** Public or client-facing portals where reviewers can leave feedback based on automatically generated unique slugs.
 - **`/my-projects`:** Personalized dashboard for editors to see only projects they are assigned to.
@@ -231,8 +231,28 @@ Both were consequences of the missing `updated_at`. **Any report produced before
 
 When adding a new `status_context` value, check both of these call sites — neither should treat an unrecognised context as a revision.
 
-### Two known consequences elsewhere in analytics
+*(A duplicate section describing these two bugs as still-open was removed in July 2026 — both are fixed above.)*
 
-1. **Productivity Trend chart** (`analytics/page.tsx`) reads `v.updated_at || v.projects?.created_at`. Since `updated_at` does not exist, it *always* falls back to the project's request date — so "Videos Completed per Week" is really bucketed by when projects were requested, not completed.
-2. **Revision stats** count **every** `video_feedback_log` row as a revision request, including the 61 `Approved` and 1 `Ready for Review` entries. `totalRevisionRequests` and the derived rate are therefore inflated; only `status_context = 'Revision Requested'` (14 rows) represents an actual revision.
+## 12. The analytics chart system
 
+The analytics page is one visual system, not a pile of independently styled charts. Two shared modules hold it together — **use them instead of hard-coding hex or rebuilding a card frame**:
+
+| File | Provides |
+|---|---|
+| `src/app/analytics/chart-theme.ts` | `SERIES` (categorical slots), `BLUE_RAMP` (ordinal/sequential), `STATUS`, `INK`, `AXIS`, `TOOLTIP_STYLE`, `PIPELINE_STAGES`, and the number/duration formatters |
+| `src/app/analytics/ui.tsx` | `ChartCard`, `StatTile`, `SectionHeading`, `Legend`, `Sparkline`, `ShareBar`, `EmptyState` |
+
+Rules that were deliberate, not stylistic preference:
+
+- **`SERIES` is assigned in fixed slot order and never cycled.** The order was validated for colour-vision-deficiency separation against a white surface (worst adjacent pair ΔE 9.1; normal-vision floor 19.6). Re-ordering or inserting a hue invalidates that — re-validate if you change it. Slots 3–5 fall below 3:1 contrast on white, so any chart using them must also carry visible value labels or a table.
+- **`BLUE_RAMP` means magnitude or workflow position, never identity.** The pipeline card shades light → dark by stage order; those stages are not interchangeable series.
+- **`STATUS` colours are reserved for state** (good/warning/serious/critical) and always ship beside a written label — never colour alone.
+- **No dual-axis charts.** Two measures of different scale get two charts.
+- **Empty states are written, not plotted.** A card with no data renders `EmptyState` explaining why, never a chart of zeroes — the on-time table is the canonical example (see §11's no-backfill policy).
+
+### Derived metrics added July 2026 — what they actually measure
+
+- **Median cycle time** (`Delivery & Flow` tiles): `videos.created_at` → the video's latest `Approved` entry in `video_feedback_log`, in calendar days. Median, not mean, because a few very old rows would otherwise drag the average somewhere no real video has been. Videos missing either endpoint are excluded and the sample size is printed on the tile. Note the start point is *when the video was logged in the tracker*, which is not necessarily when work began.
+- **Production pipeline**: videos grouped by `status` in `PIPELINE_STAGES` order. Videos in Pending/Cancelled projects are counted separately as "parked" — folding them into `Requested` would overstate the queue. Unrecognised statuses are appended rather than dropped, so a new enum value can never vanish silently.
+- **Deadline risk**: unfinished, non-parked videos bucketed by `differenceInCalendarDays(deadline, today)` where deadline is `videos.due_date ?? projects.due_date` — the **same rule the on-time table uses**, so the two cards can never disagree. This is a *snapshot of remaining risk* and is unrelated to `delivered_at`; it works on historical rows where punctuality does not.
+- **Busiest editor's share**: the top editor's finished runtime as a percentage of the team's. High is a delivery risk (schedule depends on one person), not a compliment.
