@@ -4,7 +4,7 @@
 import { PlaySquare, Clock, Timer, Layers, Star } from "lucide-react";
 import { type KeyMetricsData } from "@/lib/types";
 import { StatTile } from "./ui";
-import { compactNumber, formatMinutes } from "./chart-theme";
+import { SERIES, STATUS, compactNumber, formatMinutes } from "./chart-theme";
 
 type KeyMetricsProps = { data: KeyMetricsData | null };
 
@@ -22,6 +22,9 @@ export default function KeyMetrics({ data }: KeyMetricsProps) {
 
   const cycle = data.median_cycle_days;
 
+  // Accent colours give the five tiles distinct identities so the row can be scanned. Taken
+  // from the categorical palette in slot order, matching the dashboard tiles; the satisfaction
+  // tile accents on its own state because that is the one figure here that can be bad.
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       <StatTile
@@ -29,6 +32,7 @@ export default function KeyMetrics({ data }: KeyMetricsProps) {
         label="Videos delivered"
         value={compactNumber(data.total_videos_completed)}
         icon={<PlaySquare className="h-4 w-4" />}
+        accent={SERIES[0]}
         hint={
           data.completion_sparkline.length > 1
             ? "Approved as done. Trend shows the last weeks of approvals."
@@ -41,6 +45,7 @@ export default function KeyMetrics({ data }: KeyMetricsProps) {
         label="Runtime produced"
         value={formatMinutes(totalMinutes)}
         icon={<Clock className="h-4 w-4" />}
+        accent={SERIES[2]}
         hint={
           data.total_videos_completed > 0
             ? `Averaging ${avgLength.toFixed(1)} min per finished video.`
@@ -53,6 +58,7 @@ export default function KeyMetrics({ data }: KeyMetricsProps) {
         value={cycle == null ? "—" : cycle.toFixed(0)}
         unit={cycle == null ? undefined : cycle === 1 ? "day" : "days"}
         icon={<Timer className="h-4 w-4" />}
+        accent={SERIES[6]}
         hint={
           cycle == null
             ? "No video has both a logged date and a recorded approval yet."
@@ -64,6 +70,7 @@ export default function KeyMetrics({ data }: KeyMetricsProps) {
         label="In the pipeline"
         value={compactNumber(data.active_videos)}
         icon={<Layers className="h-4 w-4" />}
+        accent={SERIES[1]}
         hint={`${data.videos_in_review ?? 0} of these ${(data.videos_in_review ?? 0) === 1 ? "is" : "are"} with the lecturer for review.`}
       />
 
@@ -73,6 +80,15 @@ export default function KeyMetrics({ data }: KeyMetricsProps) {
         unit={satisfaction == null ? undefined : "/5"}
         tone={satisfactionTone}
         icon={<Star className="h-4 w-4" />}
+        accent={
+          satisfaction == null
+            ? SERIES[3]
+            : satisfactionTone === "good"
+              ? STATUS.good
+              : satisfactionTone === "warning"
+                ? STATUS.warning
+                : STATUS.critical
+        }
         meter={satisfaction == null ? null : (satisfaction / 5) * 100}
         hint="Final-product rating from completed project feedback forms."
       />

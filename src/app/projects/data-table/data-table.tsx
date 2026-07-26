@@ -9,7 +9,6 @@ import {
     getCoreRowModel,
     useReactTable,
     getExpandedRowModel,
-    Row,
     ExpandedState,
 } from "@tanstack/react-table"
 
@@ -22,6 +21,7 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { ExpandedRow } from "./ExpandedRow"
+import { EmptyState } from "@/components/insight/primitives"
 import { Project } from "@/lib/types" // Import Project type
 
 interface DataTableProps<TData, TValue> {
@@ -48,14 +48,19 @@ export function DataTable<TData, TValue>({
     })
 
     return (
-        <div className="rounded-md border shadow-sm bg-white overflow-hidden">
+        // overflow-x-auto so a wide table scrolls inside its own frame instead of forcing the
+        // whole page sideways on a laptop screen.
+        <div className="overflow-x-auto rounded-xl border border-gray-200/80 bg-white shadow-sm">
             <Table>
-                <TableHeader className="bg-gray-50">
+                <TableHeader className="bg-gray-50/80">
                     {table.getHeaderGroups().map((headerGroup) => (
                         <TableRow key={headerGroup.id} className="hover:bg-transparent">
                             {headerGroup.headers.map((header) => {
                                 return (
-                                    <TableHead key={header.id} className="font-semibold text-gray-700">
+                                    <TableHead
+                                        key={header.id}
+                                        className="whitespace-nowrap text-xs font-semibold uppercase tracking-wide text-gray-500"
+                                    >
                                         {header.isPlaceholder
                                             ? null
                                             : flexRender(
@@ -74,7 +79,7 @@ export function DataTable<TData, TValue>({
                             <React.Fragment key={row.id}>
                                 <TableRow
                                     data-state={row.getIsSelected() && "selected"}
-                                    className="cursor-pointer hover:bg-gray-50/80 transition-colors"
+                                    className="cursor-pointer border-gray-100 transition-colors hover:bg-gray-50/80"
                                     onClick={row.getToggleExpandedHandler()} // Make the whole row click to expand
                                 >
                                     {row.getVisibleCells().map((cell) => (
@@ -101,17 +106,16 @@ export function DataTable<TData, TValue>({
                             </React.Fragment>
                         ))
                     ) : (
-                        <TableRow>
-                            <TableCell colSpan={columns.length} className="h-64 text-center">
-                                <div className="flex flex-col items-center justify-center h-full text-center p-6">
-                                    <div className="bg-gray-100 p-3 rounded-full mb-3">
-                                        <FolderOpen className="h-6 w-6 text-gray-400" />
-                                    </div>
-                                    <h3 className="text-lg font-medium text-gray-900">No projects found</h3>
-                                    <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">
-                                        No results match your filters. Try adjusting them or create a new project.
-                                    </p>
-                                </div>
+                        <TableRow className="hover:bg-transparent">
+                            <TableCell colSpan={columns.length} className="p-4">
+                                <EmptyState
+                                    icon={<FolderOpen className="h-8 w-8" />}
+                                    title="No projects found"
+                                    className="border-0 bg-transparent"
+                                >
+                                    Nothing matches the current filters and status tab. Clear a filter above, or
+                                    start a new project request.
+                                </EmptyState>
                             </TableCell>
                         </TableRow>
                     )}

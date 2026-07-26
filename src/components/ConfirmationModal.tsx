@@ -8,10 +8,15 @@ type ConfirmationModalProps = {
     onClose: () => void;
     onConfirm: () => void;
     title: string;
-    description: string;
+    /** ReactNode rather than string: these dialogs spell out exactly which records change. */
+    description: React.ReactNode;
+    /** Extra controls under the description — an opt-in checkbox, for instance. */
+    children?: React.ReactNode;
     confirmText?: string;
     cancelText?: string;
     variant?: 'danger' | 'warning' | 'info';
+    /** Widen the dialog when the body carries a breakdown rather than one sentence. */
+    wide?: boolean;
 };
 
 export default function ConfirmationModal({
@@ -20,16 +25,18 @@ export default function ConfirmationModal({
     onConfirm,
     title,
     description,
+    children,
     confirmText = "Confirm",
     cancelText = "Cancel",
-    variant = 'warning'
+    variant = 'warning',
+    wide = false
 }: ConfirmationModalProps) {
 
     return (
         <Dialog.Root open={isOpen} onOpenChange={open => !open && onClose()}>
             <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50 animate-in fade-in duration-200" />
-                <Dialog.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 sm:rounded-lg animate-in fade-in zoom-in-95">
+                <Dialog.Content className={`fixed left-[50%] top-[50%] z-50 grid w-full ${wide ? 'max-w-lg' : 'max-w-md'} translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 sm:rounded-lg animate-in fade-in zoom-in-95`}>
                     <div className="flex flex-col space-y-2 text-center sm:text-left">
                         <div className="flex justify-between items-start">
                             <Dialog.Title className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2 text-gray-900">
@@ -42,10 +49,14 @@ export default function ConfirmationModal({
                                 <span className="sr-only">Close</span>
                             </button>
                         </div>
-                        <Dialog.Description className="text-sm text-gray-500 leading-relaxed pt-2">
-                            {description}
+                        <Dialog.Description asChild>
+                            <div className="text-sm text-gray-500 leading-relaxed pt-2 space-y-2">
+                                {description}
+                            </div>
                         </Dialog.Description>
                     </div>
+
+                    {children}
 
                     <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2 mt-4">
                         <button

@@ -31,50 +31,50 @@ export default function StatusTabsClient({ statusFilter, counts, children }: Sta
     });
   };
 
+  // Square tabs matching the analytics tab bar, rather than the old pill rail — same
+  // component, same shape, so the two pages read as one product. The count sits in a
+  // subdued chip so the tab label stays the thing you scan for.
+  const TABS: { value: string; label: string; count: number }[] = [
+    { value: 'ongoing', label: 'Ongoing', count: counts.ongoing },
+    { value: 'completed', label: 'Completed', count: counts.completed },
+    { value: 'pending', label: 'Pending', count: counts.pending },
+    { value: 'cancelled', label: 'Cancelled', count: counts.cancelled },
+  ];
+
   return (
     <Tabs value={statusFilter} className="w-full">
-      <TabsList className="grid w-full max-w-[800px] grid-cols-4 bg-gray-100/80 backdrop-blur-sm p-1 rounded-full border border-gray-200 shadow-inner hide-scrollbar">
-        <TabsTrigger
-          value="ongoing"
-          onClick={() => navigate('ongoing')}
-          className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium cursor-pointer"
-        >
-          Ongoing ({counts.ongoing})
-        </TabsTrigger>
-        <TabsTrigger
-          value="completed"
-          onClick={() => navigate('completed')}
-          className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-green-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium cursor-pointer"
-        >
-          Completed ({counts.completed})
-        </TabsTrigger>
-        <TabsTrigger
-          value="pending"
-          onClick={() => navigate('pending')}
-          className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium cursor-pointer"
-        >
-          Pending ({counts.pending})
-        </TabsTrigger>
-        <TabsTrigger
-          value="cancelled"
-          onClick={() => navigate('cancelled')}
-          className="w-full rounded-full data-[state=active]:bg-white data-[state=active]:text-red-600 data-[state=active]:shadow-sm transition-all hover:bg-white/60 font-medium cursor-pointer"
-        >
-          Cancelled ({counts.cancelled})
-        </TabsTrigger>
+      <TabsList className="grid h-11 w-full grid-cols-4 rounded-xl bg-gray-100/80 p-1 sm:max-w-[640px]">
+        {TABS.map(tab => (
+          <TabsTrigger
+            key={tab.value}
+            value={tab.value}
+            onClick={() => navigate(tab.value)}
+            className="cursor-pointer gap-1.5 rounded-lg text-sm font-medium text-gray-600 transition-all data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm"
+          >
+            {tab.label}
+            <span className="text-xs tabular-nums text-gray-400">{tab.count}</span>
+          </TabsTrigger>
+        ))}
       </TabsList>
 
       {/* Content area with loading overlay */}
-      <div className="mt-6 relative">
+      <div className="relative mt-6">
         {isPending && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 rounded-lg backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-gray-500 text-sm font-medium bg-white border border-gray-200 rounded-full px-4 py-2 shadow-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-              Loading...
-            </div>
+          <div className="pointer-events-none absolute inset-x-0 top-6 z-10 flex justify-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white px-3.5 py-2 text-xs font-medium text-blue-900 shadow-lg">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading projects…
+            </span>
           </div>
         )}
-        <div className={isPending ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
+        <div
+          className={
+            isPending
+              ? 'select-none opacity-50 blur-[3px] saturate-50 transition-[filter,opacity] duration-200 motion-reduce:blur-none motion-reduce:saturate-100'
+              : 'transition-[filter,opacity] duration-200'
+          }
+          aria-busy={isPending}
+        >
           {children}
         </div>
       </div>

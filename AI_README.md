@@ -144,6 +144,31 @@ When modifying or extending this application:
 
 These rules govern how work is credited in the analytics page and must be preserved:
 
+- **How `videos.main_editor_id` gets populated (the seed-and-override rule).** The team's rule: whoever *edited the video* gets the credit. So the project's Main Editor is seeded onto every video as the default, and a per-video change overrides it when someone else did that particular video. All three moments where a video or an editor appears must seed the column, or the work is credited to nobody:
+  1. **Project created** — `createProject()` (`projects/new/actions.ts`) stamps the form's Main Editor onto every video it inserts. It must *not* write `project_assignments` and leave the videos null; that bug credited 31 videos to nobody until July 2026.
+  2. **Video added mid-project** — `addVideoToProject()` looks up the project's Main Editor and stamps it. Ordered by `created_at, id` so the choice is deterministic when a project has several Main Editor assignments (three do).
+  3. **Main Editor assigned later** — `assignTeamMember()` back-fills `WHERE main_editor_id IS NULL`. It deliberately never overwrites a non-null value, because an existing value is someone's override.
+
+  Repair script for rows predating this: `db_backfill_main_editor.sql`.
+
+  Every case, and what happens:
+
+  | Scenario | Outcome |
+  |---|---|
+  | Main editor assigned at project creation | All videos seeded with them |
+  | Video added later | Seeded with the project's main editor (earliest assignment if several) |
+  | No main editor at first, assigned later | All videos are still null, so **all** get seeded — correct |
+  | Some videos have their own editor, then a main editor is assigned | Only the null ones are seeded. Overrides survive — **it does not overwrite everything** |
+  | Main editor replaced (hand-over) | Nothing is null any more, so the newcomer would be credited with **nothing**. Requires the explicit *reassign all* opt-in |
+  | Main editor removed | Videos stay credited to them — they may have done the work |
+  | Two co-main-editors | The first fills every null; the second gets nothing until videos are split per video |
+  | Per-video editor changed | That video alone moves; the project assignment is untouched |
+  | Any non-editor role assigned or removed | No effect on credit |
+
+  **Every one of these that moves credit is confirmed in the UI** — never silently. `AssignedTeam` blocks the submit and states the exact counts (how many are seeded, how many are left alone and to whom); `VideoEditForm` names both people before saving a per-video change. The hand-over case is an opt-in checkbox marked as irreversible, because it rewrites credit for work someone may already have done.
+
+  > ⚠️ Deliberate asymmetry: seeding never overwrites a non-null value. An existing value is somebody's override, and silently clobbering it would break the team's rule that credit follows whoever edited the video.
+
 - **Editor attribution is per-video only.** The analytics reads `videos.main_editor_id` as the single source of truth for who edited each video. It does **not** use the `project_assignments` table to attribute editing minutes — the project assignment only determines the default editor when a video is first created. If a per-video override is set, only that person gets credit.
 - **`teamVideos` filter:** Videos included in the Team Performance tab are those where `main_editor_id IS NOT NULL`. A role-based filter (DCS only) was intentionally removed because editors can have any system role (including Admin).
 - **Sound engineers are tracked separately** from editors. Since sound engineers don't have per-video assignments, their contributions are derived from `project_assignments` (role = `'Sound Engineer'`) and credited for all completed videos in their assigned project. They appear in their own table, never in the Editor Workload chart.

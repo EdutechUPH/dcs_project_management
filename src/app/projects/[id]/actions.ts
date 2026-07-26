@@ -46,11 +46,17 @@ export async function addVideoToProject(projectId: number, formData: FormData) {
   const title = formData.get('title') as string;
   if (!title) return;
 
+  // A video added mid-project inherits the project's main editor, same as one created with the
+  // project. Ordered because a project can carry more than one Main Editor assignment (three
+  // do); without it the seeded editor would be whichever row Postgres happened to return.
+  // Earliest assignment wins, matching db_backfill_main_editor.sql.
   const { data: mainEditorAssignment } = await supabase
     .from('project_assignments')
     .select('profile_id')
     .eq('project_id', projectId)
     .eq('role', MAIN_EDITOR_ROLE)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
     .limit(1)
     .single();
 
@@ -253,11 +259,26 @@ export async function assignTeamMember(projectId: number, prevState: FormState, 
   }
 
   if (role === MAIN_EDITOR_ROLE) {
-    const { error: updateVideosError } = await supabase
+    // Two modes, chosen explicitly in the UI (see AssignedTeam):
+    //
+    //  - default: seed only videos that have no editor. A video that already names someone is
+    //    an override — that person did the editing and keeps the credit (AI_README §8).
+    //  - reassign_all: take over every video in the project. Needed for a genuine hand-over,
+    //    which was previously impossible without editing each video by hand: assigning a
+    //    replacement main editor silently credited them with nothing, because by then no video
+    //    was null any more.
+    const reassignAll = formData.get('reassign_all') === 'on';
+
+    let updateVideos = supabase
       .from('videos')
       .update({ main_editor_id: profile_id })
-      .eq('project_id', projectId)
-      .is('main_editor_id', null);
+      .eq('project_id', projectId);
+
+    if (!reassignAll) {
+      updateVideos = updateVideos.is('main_editor_id', null);
+    }
+
+    const { error: updateVideosError } = await updateVideos;
 
     if (updateVideosError) {
       console.error('Error auto-assigning main editor to videos:', updateVideosError);

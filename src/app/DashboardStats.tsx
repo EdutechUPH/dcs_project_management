@@ -1,5 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, AlertCircle, CheckCircle2, Film } from "lucide-react"
+// src/app/DashboardStats.tsx
+import { Activity, AlertCircle, CheckCircle2, Film } from "lucide-react";
+import { StatTile } from "@/components/insight/primitives";
+import { SERIES, STATUS } from "@/components/insight/tokens";
 
 interface DashboardStatsProps {
     totalActive: number;
@@ -12,66 +14,61 @@ export function DashboardStats({
     totalActive,
     totalCompleted,
     videosInProduction,
-    overdueProjects
+    overdueProjects,
 }: DashboardStatsProps) {
+    const tracked = totalActive + totalCompleted;
+    const completionRate = tracked > 0 ? Math.round((totalCompleted / tracked) * 100) : null;
+
+    // The tiles used to be four different gradients, which spent colour on decoration. They
+    // then went fully plain, which made the row hard to scan. This is the middle: each tile
+    // gets an accent rule and a tinted icon so it is identifiable at a glance, while colour
+    // still carries meaning where it can — "Overdue" is the one tile that CHANGES with state,
+    // red while there is something to chase and green once there isn't.
     return (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-            <Card className="bg-gradient-to-br from-blue-500/10 via-white/50 to-indigo-500/10 backdrop-blur-md border-blue-500/20 shadow-sm hover:shadow-md transition-all">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-blue-700">
-                        Ongoing Projects
-                    </CardTitle>
-                    <Activity className="h-4 w-4 text-blue-500" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-gray-800">{totalActive}</div>
-                    <p className="text-xs text-muted-foreground pt-1">
-                        Currently in progress
-                    </p>
-                </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-br from-purple-500/10 via-white/50 to-pink-500/10 backdrop-blur-md border-purple-500/20 shadow-sm hover:shadow-md transition-all">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-purple-700">
-                        Videos in Progress
-                    </CardTitle>
-                    <Film className="h-4 w-4 text-purple-500" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-gray-800">{videosInProduction}</div>
-                    <p className="text-xs text-muted-foreground pt-1">
-                        Videos not yet &apos;Done&apos;
-                    </p>
-                </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-br from-red-500/10 via-white/50 to-orange-500/10 backdrop-blur-md border-red-500/20 shadow-sm hover:shadow-md transition-all">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-red-700">
-                        Attention Needed
-                    </CardTitle>
-                    <AlertCircle className={`h-4 w-4 ${overdueProjects > 0 ? "text-red-600" : "text-red-400"}`} />
-                </CardHeader>
-                <CardContent>
-                    <div className={`text-2xl font-bold ${overdueProjects > 0 ? "text-red-700" : "text-gray-800"}`}>{overdueProjects}</div>
-                    <p className="text-xs text-muted-foreground pt-1">
-                        Overdue projects
-                    </p>
-                </CardContent>
-            </Card>
-            <Card className="bg-gradient-to-br from-green-500/10 via-white/50 to-emerald-500/10 backdrop-blur-md border-green-500/20 shadow-sm hover:shadow-md transition-all">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-green-700">
-                        Projects Completed
-                    </CardTitle>
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-gray-800">{totalCompleted}</div>
-                    <p className="text-xs text-muted-foreground pt-1">
-                        Projects finished
-                    </p>
-                </CardContent>
-            </Card>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <StatTile
+                label="Ongoing projects"
+                value={totalActive.toLocaleString()}
+                icon={<Activity className="h-4 w-4" />}
+                accent={SERIES[0]}
+                hint={
+                    videosInProduction > 0
+                        ? `${videosInProduction.toLocaleString()} videos still to deliver`
+                        : "No videos left to deliver"
+                }
+            />
+            <StatTile
+                label="Videos in production"
+                value={videosInProduction.toLocaleString()}
+                icon={<Film className="h-4 w-4" />}
+                accent={SERIES[6]}
+                hint="Not yet marked Done, in projects that are still live"
+            />
+            <StatTile
+                label="Overdue"
+                value={overdueProjects.toLocaleString()}
+                icon={<AlertCircle className="h-4 w-4" />}
+                accent={overdueProjects > 0 ? STATUS.critical : STATUS.good}
+                tone={overdueProjects > 0 ? "critical" : "good"}
+                hint={
+                    overdueProjects > 0
+                        ? "Past the due date and unfinished"
+                        : "Everything live is inside its deadline"
+                }
+            />
+            <StatTile
+                label="Completed"
+                value={totalCompleted.toLocaleString()}
+                icon={<CheckCircle2 className="h-4 w-4" />}
+                accent={STATUS.good}
+                meter={completionRate}
+                tone="good"
+                hint={
+                    completionRate != null
+                        ? `${completionRate}% of the ${tracked.toLocaleString()} projects tracked here`
+                        : "No projects tracked yet"
+                }
+            />
         </div>
-    )
+    );
 }

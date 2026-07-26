@@ -29,6 +29,16 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
     const [showConfirm, setShowConfirm] = useState(false);
     const [isFeedbackExpanded, setIsFeedbackExpanded] = useState(false);
 
+    // Editing credit is read from this video's own editor (AI_README §8), so a change here
+    // silently moves who gets credited for it. Tracked in state to warn before saving.
+    const [editorId, setEditorId] = useState(video.main_editor_id || projectMainEditorId || '');
+    const [showEditorConfirm, setShowEditorConfirm] = useState(false);
+
+    const nameOf = (id: string) => profiles.find(p => p.id === id)?.full_name ?? 'Unassigned';
+    const originalEditorId = video.main_editor_id || projectMainEditorId || '';
+    const editorChanged = editorId !== originalEditorId;
+    const divergesFromProject = Boolean(projectMainEditorId) && editorId !== projectMainEditorId;
+
     // Notify parent of dirty state changes
     useEffect(() => {
         onDirtyChange?.(isDirty);
@@ -62,6 +72,13 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
                 key={JSON.stringify(video)} // Reset form if video prop changes externally
                 action={action}
                 ref={formRef}
+                onSubmit={event => {
+                    // Only a change of editor needs confirming; every other field is harmless.
+                    if (editorChanged && !showEditorConfirm) {
+                        event.preventDefault();
+                        setShowEditorConfirm(true);
+                    }
+                }}
                 className="space-y-4 border rounded-lg p-4 bg-blue-50/50"
             >
                 <input type="hidden" name="videoId" value={video.id} />
@@ -149,15 +166,32 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
                         <label className="text-sm font-medium">Main Editor</label>
                         <select
                             name="main_editor_id"
-                            defaultValue={video.main_editor_id || projectMainEditorId || ''}
+                            value={editorId}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
-                            onChange={handleFieldChange}
+                            onChange={e => {
+                                setEditorId(e.target.value);
+                                handleFieldChange();
+                            }}
                         >
                             <option value="">Unassigned</option>
                             {profiles.map(profile => (
                                 <option key={profile.id} value={profile.id}>{profile.full_name}</option>
                             ))}
                         </select>
+                        {/* Says plainly where the credit lands, since the field looks the same whether
+                            the value is this video's own or inherited from the project. */}
+                        {divergesFromProject ? (
+                            <p className="mt-1 text-xs text-amber-700">
+                                Overrides the project&rsquo;s main editor ({nameOf(projectMainEditorId!)}).
+                                This video will be credited to{' '}
+                                {editorId ? nameOf(editorId) : 'nobody'} in analytics.
+                            </p>
+                        ) : (
+                            <p className="mt-1 text-xs text-gray-500">
+                                Matches the project&rsquo;s main editor. Change it only if someone else
+                                edited this particular video.
+                            </p>
+                        )}
                     </div>
 
                     {/* Language */}
@@ -286,6 +320,44 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
                 description="You have unsaved changes. Discard?"
                 variant="warning"
                 confirmText="Discard"
+            />
+
+            <ConfirmationModal
+                isOpen={showEditorConfirm}
+                onClose={() => setShowEditorConfirm(false)}
+                onConfirm={() => {
+                    // showEditorConfirm is still true here, so the onSubmit guard lets it through.
+                    formRef.current?.requestSubmit();
+                }}
+                title="Change who is credited for this video?"
+                variant="warning"
+                confirmText="Save change"
+                description={
+                    <>
+                        <p>
+                            Editing credit in analytics comes from each video individually, so this
+                            changes the Editor Scorecard, runtime totals and on-time figures for both
+                            people.
+                        </p>
+                        <p className="rounded-lg bg-gray-50 p-3 text-gray-700">
+                            <span className="font-medium text-gray-900">{video.title}</span> moves from{' '}
+                            <span className="font-medium text-gray-900">
+                                {originalEditorId ? nameOf(originalEditorId) : 'nobody'}
+                            </span>{' '}
+                            to{' '}
+                            <span className="font-medium text-gray-900">
+                                {editorId ? nameOf(editorId) : 'nobody'}
+                            </span>
+                            .
+                        </p>
+                        {!editorId && (
+                            <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900">
+                                With no editor set, this video is credited to nobody at all and drops out
+                                of every per-editor metric.
+                            </p>
+                        )}
+                    </>
+                }
             />
         </>
     );

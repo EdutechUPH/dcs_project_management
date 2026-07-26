@@ -9,10 +9,9 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { INK, SERIES, STATUS } from "@/components/insight/tokens"
 
 const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
@@ -26,6 +25,34 @@ const formatDate = (dateString: string) => {
     });
 };
 
+const daysBetween = (from: Date, to: Date) =>
+    Math.round((to.getTime() - from.getTime()) / 86_400_000);
+
+/**
+ * One colour per status, covering the whole project_status enum.
+ *
+ * The previous version was `status === 'Done' ? green : blue`, which painted Pending and
+ * Cancelled in the same "active" blue as work in flight — the label said one thing and the
+ * colour said another. Anything unrecognised falls through to grey rather than to blue, so a
+ * new enum value can never masquerade as in-progress.
+ */
+const STATUS_STYLES: Record<string, { color: string; background: string }> = {
+    // 'Active' is what live project rows actually carry — it is not in the project_status enum
+    // documented in AI_README §4, but it is the most common value in the table, so it must not
+    // fall through to the neutral grey.
+    'Active': { color: '#1c5cab', background: '#e8f1fc' },
+    'Done': { color: '#0a7d0a', background: '#e9f7e9' },
+    'Review': { color: '#8a5a00', background: '#fdf3dd' },
+    'Video Editing': { color: '#1c5cab', background: '#e8f1fc' },
+    'Audio Editing': { color: '#1c5cab', background: '#e8f1fc' },
+    'Scheduled for Taping': { color: '#4a3aa7', background: '#eceafa' },
+    'Requested': { color: '#52514e', background: '#f1f0ec' },
+    'Pending': { color: '#8a5a00', background: '#faf1e2' },
+    'Cancelled': { color: '#6b6a66', background: '#eeedea' },
+};
+
+const NEUTRAL_STATUS = { color: INK.secondary, background: INK.track };
+
 export const columns: ColumnDef<Project>[] = [
     {
         accessorKey: "course_name",
@@ -33,9 +60,17 @@ export const columns: ColumnDef<Project>[] = [
         cell: ({ row }) => {
             const project = row.original
             return (
-                <div>
-                    <div className="font-medium text-gray-900">{project.course_name}</div>
-                    <div className="text-sm text-gray-500">{project.lecturers?.name}</div>
+                <div className="min-w-0">
+                    {/* The row click expands; this link opens the project. Without stopPropagation
+                        a click would do both, expanding a row you are navigating away from. */}
+                    <Link
+                        href={`/projects/${project.id}`}
+                        onClick={e => e.stopPropagation()}
+                        className="font-medium text-gray-900 underline-offset-2 hover:text-blue-700 hover:underline"
+                    >
+                        {project.course_name}
+                    </Link>
+                    <div className="truncate text-sm text-gray-500">{project.lecturers?.name}</div>
                 </div>
             )
         },
@@ -45,11 +80,12 @@ export const columns: ColumnDef<Project>[] = [
         header: "Status",
         cell: ({ row }) => {
             const status = row.original.status || 'Active';
+            const style = STATUS_STYLES[status] ?? NEUTRAL_STATUS;
             return (
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status === 'Done'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-blue-100 text-blue-700'
-                    }`}>
+                <span
+                    className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium"
+                    style={{ color: style.color, background: style.background }}
+                >
                     {status}
                 </span>
             )
@@ -59,13 +95,16 @@ export const columns: ColumnDef<Project>[] = [
         accessorKey: "created_at",
         header: "Requested",
         cell: ({ row }) => {
-            return <div className="text-gray-500">{formatDate(row.getValue("created_at"))}</div>
+            return <div className="whitespace-nowrap text-sm text-gray-500">{formatDate(row.getValue("created_at"))}</div>
         },
     },
     {
         id: "study_program",
         accessorFn: (row) => row.prodi?.name,
         header: "Study Program",
+        cell: ({ row }) => (
+            <div className="max-w-[200px] truncate text-sm text-gray-600">{row.original.prodi?.name ?? '—'}</div>
+        ),
     },
     {
         id: "main_editor",
@@ -78,7 +117,10 @@ export const columns: ColumnDef<Project>[] = [
                 .filter(Boolean)
                 .join(', ')
 
-            return <div className="text-gray-500">{mainTeamNames || 'Unassigned'}</div>
+            if (!mainTeamNames) {
+                return <span className="text-sm italic text-gray-400">Unassigned</span>
+            }
+            return <div className="max-w-[180px] truncate text-sm text-gray-600">{mainTeamNames}</div>
         },
     },
     {
@@ -89,16 +131,26 @@ export const columns: ColumnDef<Project>[] = [
             const totalCount = project.videos.length
             const doneCount = project.videos.filter((v) => v.status === 'Done').length
             const progress = totalCount > 0 ? (doneCount / totalCount) * 100 : 0
+            const complete = totalCount > 0 && doneCount === totalCount
 
             return (
                 <div className="flex items-center gap-2">
-                    <div className="w-24 bg-gray-200 rounded-full h-2.5">
+                    <div
+                        className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full"
+                        style={{ background: INK.track }}
+                        role="presentation"
+                    >
                         <div
-                            className="bg-blue-600 h-2.5 rounded-full transition-all"
-                            style={{ width: `${progress}%` }}
+                            className="h-full rounded-full transition-[width]"
+                            style={{
+                                width: `${progress}%`,
+                                background: complete ? STATUS.good : SERIES[0],
+                            }}
                         />
                     </div>
-                    <span className="text-sm font-medium text-gray-600">{doneCount}/{totalCount}</span>
+                    <span className="whitespace-nowrap text-xs font-medium tabular-nums text-gray-600">
+                        {doneCount}/{totalCount}
+                    </span>
                 </div>
             )
         },
@@ -110,22 +162,32 @@ export const columns: ColumnDef<Project>[] = [
             const date = row.getValue("due_date") as string
             const project = row.original
 
-            // Calculate progress again for overdue check
             const totalCount = project.videos.length
             const doneCount = project.videos.filter((v) => v.status === 'Done').length
             const progress = totalCount > 0 ? (doneCount / totalCount) * 100 : 0
 
-            const isOverdue = date && new Date(date) < new Date() && progress < 100
+            const due = date
+                ? (date.includes('T') || date.includes(':') ? new Date(date) : new Date(`${date}T00:00:00`))
+                : null
+            const isOverdue = due != null && due < new Date() && progress < 100
+            const daysLate = isOverdue && due ? daysBetween(due, new Date()) : 0
 
             return (
-                <div className={`font-medium ${isOverdue ? 'text-red-600' : 'text-gray-600'}`}>
-                    {formatDate(date)}
-                    {isOverdue && <div className="text-xs text-red-500">OVERDUE</div>}
+                <div className="whitespace-nowrap">
+                    <div className={`text-sm font-medium ${isOverdue ? 'text-[#b32f2f]' : 'text-gray-600'}`}>
+                        {formatDate(date)}
+                    </div>
+                    {/* "OVERDUE" in caps shouted the same volume however late it was. The number of
+                        days is both quieter and more useful for deciding what to chase first. */}
+                    {isOverdue && (
+                        <div className="text-xs text-[#b32f2f]">
+                            {daysLate} {daysLate === 1 ? 'day' : 'days'} late
+                        </div>
+                    )}
                 </div>
             )
         },
     },
-    // Add Actions column for managing the project
     {
         id: "actions",
         cell: ({ row }) => {
@@ -139,7 +201,7 @@ export const columns: ColumnDef<Project>[] = [
             return (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button variant="ghost" className="h-8 w-8 p-0 text-gray-400 hover:text-gray-900">
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -147,7 +209,7 @@ export const columns: ColumnDef<Project>[] = [
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
                             <Link href={`/projects/${project.id}`}>
-                                Edit Project
+                                Open project
                             </Link>
                         </DropdownMenuItem>
                     </DropdownMenuContent>

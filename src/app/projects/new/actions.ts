@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { type LecturerOption } from '@/lib/types';
+import { MAIN_EDITOR_ROLE } from '@/lib/constants';
 
 // Define a specific type for our form state
 type FormState = {
@@ -50,6 +51,30 @@ export async function createProject(prevState: FormState, formData: FormData): P
     return { message: `Database Error: Failed to create project. Check terminal for details.` };
   }
 
+  // Assignments are parsed BEFORE the videos are built, because the main editor has to be
+  // stamped onto each video at insert time.
+  //
+  // Why this matters: analytics credits editing work per video via videos.main_editor_id
+  // (AI_README §8) and ignores project_assignments entirely. This action used to insert the
+  // videos with a null main_editor_id and then write project_assignments directly to the
+  // table — bypassing assignTeamMember(), whose IS NULL back-fill is what normally sets the
+  // column. Every project created through this form therefore produced videos that were
+  // credited to nobody, while the project page still displayed the project-level editor as a
+  // fallback, so nothing looked wrong.
+  const assignmentCount = Number(formData.get('assignment_count') || '0');
+  const assignmentsToInsert: { project_id: number; profile_id: string; role: string }[] = [];
+  for (let i = 0; i < assignmentCount; i++) {
+    const profileId = formData.get(`assignment_${i}_profile_id`) as string;
+    const role = formData.get(`assignment_${i}_role`) as string;
+    if (profileId && role) {
+      assignmentsToInsert.push({ project_id: newProject.id, profile_id: profileId, role });
+    }
+  }
+
+  // First main editor wins, matching addVideoToProject's .limit(1).
+  const mainEditorId =
+    assignmentsToInsert.find(a => a.role === MAIN_EDITOR_ROLE)?.profile_id ?? null;
+
   const videoCount = Number(formData.get('video_count'));
   const videosToInsert = [];
   for (let i = 0; i < videoCount; i++) {
@@ -59,6 +84,7 @@ export async function createProject(prevState: FormState, formData: FormData): P
         project_id: newProject.id,
         title: title,
         status: 'Requested',
+        main_editor_id: mainEditorId,
         position: i // Set initial position based on array index
       });
     }
@@ -73,22 +99,11 @@ export async function createProject(prevState: FormState, formData: FormData): P
   }
 
   // Create initial team assignments if provided
-  const assignmentCount = Number(formData.get('assignment_count') || '0');
-  if (assignmentCount > 0) {
-    const assignmentsToInsert = [];
-    for (let i = 0; i < assignmentCount; i++) {
-      const profileId = formData.get(`assignment_${i}_profile_id`) as string;
-      const role = formData.get(`assignment_${i}_role`) as string;
-      if (profileId && role) {
-        assignmentsToInsert.push({ project_id: newProject.id, profile_id: profileId, role });
-      }
-    }
-    if (assignmentsToInsert.length > 0) {
-      const { error: assignError } = await supabase.from('project_assignments').insert(assignmentsToInsert);
-      if (assignError) {
-        console.error('Error creating assignments:', assignError);
-        // Non-fatal: project was created, just log the issue
-      }
+  if (assignmentsToInsert.length > 0) {
+    const { error: assignError } = await supabase.from('project_assignments').insert(assignmentsToInsert);
+    if (assignError) {
+      console.error('Error creating assignments:', assignError);
+      // Non-fatal: project was created, just log the issue
     }
   }
 

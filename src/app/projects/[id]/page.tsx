@@ -121,6 +121,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             assignments={project.project_assignments}
             profiles={profiles || []}
             workloadData={workloadData || []}
+            videos={project.videos || []}
           />
           <FeedbackManager projectId={project.id} feedbackSubmission={feedbackSubmission} videos={project.videos} />
 
