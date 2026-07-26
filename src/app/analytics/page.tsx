@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AnalyticsFilters from "./AnalyticsFilters";
+import { FilterStatusProvider, StaleContent } from "./FilterStatus";
 import PortfolioBreakdown from "./PortfolioBreakdown";
 import PipelineFunnel, { type PipelineStage } from "./PipelineFunnel";
 import DeadlineRisk, { type AtRiskProject, type RiskBucket } from "./DeadlineRisk";
@@ -19,7 +20,7 @@ import { PIPELINE_STAGES, formatMinutes } from "./chart-theme";
 import { type AnalyticsData, type KeyMetricsData } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { differenceInCalendarDays, endOfDay, format, parseISO, startOfDay, startOfWeek } from 'date-fns';
-import { Gauge, MessageSquareQuote, Scale, Users } from "lucide-react";
+import { Filter, Gauge, MessageSquareQuote, Scale, Users } from "lucide-react";
 
 // Minimal shapes used by this page
 type Named = { id: number | string; name: string; short_name?: string | null };
@@ -602,13 +603,23 @@ export default async function AnalyticsPage(props: {
     { data: lecturers },
     { data: terms },
     { data: editors },
+    { count: unfilteredVideoCount },
   ] = await Promise.all([
     supabase.from("faculties").select("id, name, short_name"),
     supabase.from("prodi").select("id, name"),
     supabase.from("lecturers").select("id, name"),
     supabase.from("terms").select("id, name"),
     supabase.from("profiles").select("id, full_name"),
+    // The "of N" denominator for the scope note. Mirrors the main query's inner join so
+    // the two counts are comparable, and is head-only so it costs a count, not a payload.
+    supabase.from("videos").select("id, projects!inner(id)", { count: "exact", head: true }),
   ]);
+
+  const totalVideoCount = unfilteredVideoCount ?? videos.length;
+  const isFiltered =
+    from != null || to != null ||
+    facultyIds != null || prodiIds != null || lecturerIds != null ||
+    termIds != null || editorIds != null;
 
   const mapToOptions = (items: Mappable[] | null | undefined) =>
     (items ?? []).map((item) => ({ value: item.id.toString(), label: item.full_name || item.name || "" }));
@@ -621,10 +632,33 @@ export default async function AnalyticsPage(props: {
     <div className="space-y-6 p-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1.5">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Analytics</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Analytics</h1>
+            {/* Repeated at the title because the toolbar scrolls out of view on long tabs,
+                and a screenshot of a filtered chart should still say so. */}
+            {isFiltered && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-800">
+                <Filter className="h-3 w-3" strokeWidth={2.5} />
+                Filtered
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-500">
-            {videos.length.toLocaleString()} videos across {projectIdsInScope.length}{" "}
-            {projectIdsInScope.length === 1 ? "project" : "projects"} in scope ·{" "}
+            {isFiltered ? (
+              <>
+                <span className="font-medium text-gray-700">
+                  {videos.length.toLocaleString()} of {totalVideoCount.toLocaleString()} videos
+                </span>{" "}
+                across {projectIdsInScope.length}{" "}
+                {projectIdsInScope.length === 1 ? "project" : "projects"}
+              </>
+            ) : (
+              <>
+                All {videos.length.toLocaleString()} videos across {projectIdsInScope.length}{" "}
+                {projectIdsInScope.length === 1 ? "project" : "projects"}
+              </>
+            )}
+            {" · "}
             {formatMinutes(totalMinutes + Math.floor(totalSeconds / 60))} of finished runtime ·{" "}
             {leaderboardData.length} credited {leaderboardData.length === 1 ? "editor" : "editors"}
           </p>
@@ -637,15 +671,19 @@ export default async function AnalyticsPage(props: {
         </Link>
       </div>
 
-      <AnalyticsFilters
-        faculties={mapToOptions(faculties)}
-        prodi={mapToOptions(prodi)}
-        lecturers={mapToOptions(lecturers)}
-        terms={mapToOptions(terms)}
-        editors={mapToOptions(editors)}
-      />
+      <FilterStatusProvider>
+        <AnalyticsFilters
+          faculties={mapToOptions(faculties)}
+          prodi={mapToOptions(prodi)}
+          lecturers={mapToOptions(lecturers)}
+          terms={mapToOptions(terms)}
+          editors={mapToOptions(editors)}
+          filteredCount={videos.length}
+          totalCount={totalVideoCount}
+        />
 
-      <Tabs defaultValue="overview" className="space-y-6">
+        <StaleContent>
+          <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid h-11 w-full grid-cols-3 rounded-xl bg-gray-100/80 p-1">
           <TabsTrigger value="overview" className={tabTrigger}>Delivery & Flow</TabsTrigger>
           <TabsTrigger value="team" className={tabTrigger}>Team Performance</TabsTrigger>
@@ -755,7 +793,9 @@ export default async function AnalyticsPage(props: {
             )}
           </div>
         </TabsContent>
-      </Tabs>
+          </Tabs>
+        </StaleContent>
+      </FilterStatusProvider>
     </div>
   );
 }

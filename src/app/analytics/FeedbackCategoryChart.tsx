@@ -63,7 +63,9 @@ export default function FeedbackCategoryChart({ data, title, responses }: ChartP
         >
             <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data} layout="vertical" margin={{ top: 8, right: 52, left: 4, bottom: 4 }}>
+                    {/* top: 22 leaves room for the "mean" reference-line label, which recharts
+                        draws above the plot area and will otherwise clip at the container edge. */}
+                    <BarChart data={data} layout="vertical" margin={{ top: 22, right: 52, left: 4, bottom: 4 }}>
                         <CartesianGrid horizontal={false} stroke={INK.grid} strokeWidth={1} />
                         <XAxis type="number" domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} {...AXIS} fontSize={11} />
                         <YAxis dataKey="category" type="category" width={92} {...AXIS} fontSize={12} />

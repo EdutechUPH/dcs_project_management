@@ -89,7 +89,9 @@ export default function StackedWorkloadChart({ data, title }: ChartProps) {
         >
             <div style={{ height: chartHeight }} className="w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart layout="vertical" data={rows} margin={{ top: 8, right: 68, left: 4, bottom: 4 }}>
+                    {/* top: 22 leaves room for the "team avg" reference-line label, which recharts
+                        draws above the plot area and will otherwise clip at the container edge. */}
+                    <BarChart layout="vertical" data={rows} margin={{ top: 22, right: 68, left: 4, bottom: 4 }}>
                         <CartesianGrid horizontal={false} stroke={INK.grid} strokeWidth={1} />
                         <YAxis
                             type="category"

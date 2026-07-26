@@ -51,7 +51,9 @@ export default function SatisfactionTrend({ data, title }: ChartProps) {
         >
             <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 4 }}>
+                    {/* right: 44 leaves room for the "mean" reference-line label, which sits to the
+                        right of the plot area and read as "me…" at the old 16. */}
+                    <ComposedChart data={data} margin={{ top: 12, right: 44, left: 0, bottom: 4 }}>
                         <defs>
                             <linearGradient id="satisfactionWash" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor={SERIES[0]} stopOpacity={0.16} />

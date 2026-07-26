@@ -2,17 +2,18 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { DateRange } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
-import { format } from 'date-fns';
+import { format, startOfYear, subDays } from 'date-fns';
 import { CheckboxFilter } from '@/components/CheckboxFilter';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar as CalendarIcon, FilterX, Download } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, Download, Filter, RotateCcw, X } from 'lucide-react';
 import { cn } from "@/lib/utils";
+import { useReportFilterStatus } from './FilterStatus';
 
 type Option = { value: string; label: string; };
 
@@ -22,183 +23,428 @@ type FilterControlsProps = {
   lecturers: Option[];
   terms: Option[];
   editors: Option[];
+  /** Videos matching the filters currently applied. */
+  filteredCount: number;
+  /** Videos in the database, ignoring all filters — the "of N" half of the scope note. */
+  totalCount: number;
 };
 
-export default function AnalyticsFilters({ faculties, prodi, lecturers, terms, editors }: FilterControlsProps) {
+/** The five dimension filters, in the order they appear. */
+type DimensionKey = 'faculties' | 'prodi' | 'lecturers' | 'terms' | 'editors';
+
+const DIMENSION_LABELS: Record<DimensionKey, string> = {
+  faculties: 'Faculty',
+  prodi: 'Program',
+  lecturers: 'Lecturer',
+  terms: 'Term',
+  editors: 'Editor',
+};
+
+type DatePreset = { label: string; range: () => DateRange };
+
+// Presets before the calendar grid: nobody wants to click twice through a month view
+// to say "last 30 days". The date filter scopes on the project's request date.
+const DATE_PRESETS: DatePreset[] = [
+  { label: 'Last 7 days', range: () => ({ from: subDays(new Date(), 6), to: new Date() }) },
+  { label: 'Last 30 days', range: () => ({ from: subDays(new Date(), 29), to: new Date() }) },
+  { label: 'Last 90 days', range: () => ({ from: subDays(new Date(), 89), to: new Date() }) },
+  { label: 'This year', range: () => ({ from: startOfYear(new Date()), to: new Date() }) },
+];
+
+const fmt = (date: Date) => format(date, 'yyyy-MM-dd');
+
+export default function AnalyticsFilters({
+  faculties,
+  prodi,
+  lecturers,
+  terms,
+  editors,
+  filteredCount,
+  totalCount,
+}: FilterControlsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [dateOpen, setDateOpen] = useState(false);
 
-  // State for all our filters
+  const optionsFor: Record<DimensionKey, Option[]> = useMemo(
+    () => ({ faculties, prodi, lecturers, terms, editors }),
+    [faculties, prodi, lecturers, terms, editors]
+  );
+
+  // ---------------------------------------------------------------------
+  // Draft state. The URL is the applied truth; this is what the user is
+  // composing. The two are compared below to decide whether Apply has work to do.
+  // ---------------------------------------------------------------------
   const [date, setDate] = useState<DateRange | undefined>({
     from: searchParams.get('from') ? new Date(searchParams.get('from')!) : undefined,
     to: searchParams.get('to') ? new Date(searchParams.get('to')!) : undefined,
   });
-  const [selectedFaculties, setSelectedFaculties] = useState<string[]>(searchParams.get('faculties')?.split(',') || []);
-  const [selectedProdi, setSelectedProdi] = useState<string[]>(searchParams.get('prodi')?.split(',') || []);
-  const [selectedLecturers, setSelectedLecturers] = useState<string[]>(searchParams.get('lecturers')?.split(',') || []);
-  const [selectedTerms, setSelectedTerms] = useState<string[]>(searchParams.get('terms')?.split(',') || []);
-  const [selectedEditors, setSelectedEditors] = useState<string[]>(searchParams.get('editors')?.split(',') || []);
+  const [selected, setSelected] = useState<Record<DimensionKey, string[]>>({
+    faculties: searchParams.get('faculties')?.split(',').filter(Boolean) || [],
+    prodi: searchParams.get('prodi')?.split(',').filter(Boolean) || [],
+    lecturers: searchParams.get('lecturers')?.split(',').filter(Boolean) || [],
+    terms: searchParams.get('terms')?.split(',').filter(Boolean) || [],
+    editors: searchParams.get('editors')?.split(',').filter(Boolean) || [],
+  });
   const [groupBy, setGroupBy] = useState(searchParams.get('groupBy') || 'faculty');
 
-  const applyFilters = () => {
-    // Logic duplicated to ensure button click applies exactly what is in state
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('groupBy', groupBy);
-    if (date?.from) params.set('from', format(date.from, 'yyyy-MM-dd')); else params.delete('from');
-    if (date?.to) params.set('to', format(date.to, 'yyyy-MM-dd')); else params.delete('to');
-    if (selectedFaculties.length > 0) params.set('faculties', selectedFaculties.join(',')); else params.delete('faculties');
-    if (selectedProdi.length > 0) params.set('prodi', selectedProdi.join(',')); else params.delete('prodi');
-    if (selectedLecturers.length > 0) params.set('lecturers', selectedLecturers.join(',')); else params.delete('lecturers');
-    if (selectedTerms.length > 0) params.set('terms', selectedTerms.join(',')); else params.delete('terms');
-    if (selectedEditors.length > 0) params.set('editors', selectedEditors.join(',')); else params.delete('editors');
+  const setDimension = (key: DimensionKey, values: string[]) =>
+    setSelected(prev => ({ ...prev, [key]: values }));
 
-    startTransition(() => {
-      router.push(pathname + '?' + params.toString());
+  // ---------------------------------------------------------------------
+  // Navigation
+  // ---------------------------------------------------------------------
+  const buildParams = (draft: { date?: DateRange; selected: Record<DimensionKey, string[]>; groupBy: string }) => {
+    const params = new URLSearchParams();
+    params.set('groupBy', draft.groupBy);
+    if (draft.date?.from) params.set('from', fmt(draft.date.from));
+    if (draft.date?.to) params.set('to', fmt(draft.date.to));
+    (Object.keys(DIMENSION_LABELS) as DimensionKey[]).forEach(key => {
+      const values = draft.selected[key];
+      if (values.length > 0) params.set(key, values.join(','));
     });
+    return params;
+  };
+
+  const currentParams = buildParams({ date, selected, groupBy });
+
+  // Anything the user has changed but not yet applied. Compared against the URL so a
+  // browser Back that restores an older query correctly reads as "no pending changes".
+  const applied = useMemo(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (!params.get('groupBy')) params.set('groupBy', 'faculty');
+    params.sort();
+    return params.toString();
+  }, [searchParams]);
+
+  const draftString = useMemo(() => {
+    const params = new URLSearchParams(currentParams.toString());
+    params.sort();
+    return params.toString();
+  }, [currentParams]);
+
+  const isDirty = applied !== draftString;
+
+  // While a filter panel is open, closing it will apply the change on its own. Knowing that
+  // lets us suppress the "apply" prompt, which would otherwise imply a step that isn't one.
+  // A counter rather than a boolean because moving from one dropdown to the next closes and
+  // opens in the same beat, and the two events can arrive in either order.
+  const [openPanels, setOpenPanels] = useState(0);
+  const willApplyOnClose = openPanels > 0;
+
+  const handlePanelOpenChange = (open: boolean) => {
+    setOpenPanels(count => Math.max(0, count + (open ? 1 : -1)));
+    if (!open) commitOnClose();
+  };
+
+  // Publish to the charts below, which veil themselves while they are out of date.
+  useReportFilterStatus({ isPending, isDirty, willApplyOnClose });
+
+  const push = (params: URLSearchParams) => {
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`);
+    });
+  };
+
+  /** Commit the draft as it stands. */
+  const apply = () => push(currentParams);
+
+  /**
+   * Commit when a dimension dropdown closes. Every other control here already applies on
+   * its own, so leaving these five behind a separate button meant a filter could look
+   * selected while the charts still showed unfiltered data — the one thing this toolbar
+   * must never do. Committing on close (not per tick) keeps it to one query per visit.
+   */
+  const commitOnClose = () => {
+    if (isDirty) apply();
+  };
+
+  /** Edit one dimension AND commit immediately — used by the chips, where a click that
+   *  visibly removes a filter must actually change the numbers. */
+  const applyWith = (patch: Partial<{ date?: DateRange; selected: Record<DimensionKey, string[]>; groupBy: string }>) => {
+    const next = {
+      date: 'date' in patch ? patch.date : date,
+      selected: patch.selected ?? selected,
+      groupBy: patch.groupBy ?? groupBy,
+    };
+    if ('date' in patch) setDate(patch.date);
+    if (patch.selected) setSelected(patch.selected);
+    if (patch.groupBy) setGroupBy(patch.groupBy);
+    push(buildParams(next));
+  };
+
+  const clearAll = () => {
+    setDate(undefined);
+    setSelected({ faculties: [], prodi: [], lecturers: [], terms: [], editors: [] });
+    push(buildParams({ date: undefined, selected: { faculties: [], prodi: [], lecturers: [], terms: [], editors: [] }, groupBy }));
+  };
+
+  // ---------------------------------------------------------------------
+  // Active filter chips — the answer to "why does this number look wrong?"
+  // ---------------------------------------------------------------------
+  type Chip = { id: string; label: string; onRemove: () => void };
+
+  const chips: Chip[] = [];
+
+  if (date?.from || date?.to) {
+    const label =
+      date.from && date.to
+        ? `${format(date.from, 'd MMM yyyy')} – ${format(date.to, 'd MMM yyyy')}`
+        : date.from
+          ? `From ${format(date.from, 'd MMM yyyy')}`
+          : `Until ${format(date.to!, 'd MMM yyyy')}`;
+    chips.push({ id: 'date', label: `Requested ${label}`, onRemove: () => applyWith({ date: undefined }) });
   }
 
-  const handleApplyFilters = () => {
-    applyFilters();
-  };
-
-  const handleClearAll = () => {
-    setDate(undefined);
-    setSelectedFaculties([]);
-    setSelectedProdi([]);
-    setSelectedLecturers([]);
-    setSelectedTerms([]);
-    setSelectedEditors([]);
-    // Keep GroupBy as it is view preference, not filter? Or reset to faculty? User said "Clear Filter", usually implies data narrowing.
-    // Let's keep groupBy.
-
-    // Auto-apply or wait for Apply button?
-    // Better UX to reset local state and user must click Apply? Or auto-apply?
-    // "Clear All" usually implies immediately clearing. Let's startTransition immediately.
-    startTransition(() => {
-      router.push(pathname);
+  (Object.keys(DIMENSION_LABELS) as DimensionKey[]).forEach(key => {
+    selected[key].forEach(value => {
+      const option = optionsFor[key].find(o => o.value === value);
+      chips.push({
+        id: `${key}:${value}`,
+        label: `${DIMENSION_LABELS[key]}: ${option?.label.trim() || value}`,
+        onRemove: () =>
+          applyWith({ selected: { ...selected, [key]: selected[key].filter(v => v !== value) } }),
+      });
     });
+  });
+
+  const activePreset = DATE_PRESETS.find(preset => {
+    if (!date?.from || !date?.to) return false;
+    const range = preset.range();
+    return range.from && range.to && fmt(range.from) === fmt(date.from) && fmt(range.to) === fmt(date.to);
+  });
+
+  const dateLabel = date?.from
+    ? date.to
+      ? `${format(date.from, 'd MMM y')} – ${format(date.to, 'd MMM y')}`
+      : format(date.from, 'd MMM y')
+    : 'All time';
+
+  const exportCsv = () => {
+    const params = buildParams({ date, selected, groupBy });
+    params.delete('groupBy');
+    window.open(`/api/analytics/export?${params.toString()}`, '_blank');
   };
 
-  // Helper to sync local state change with auto-apply? 
-  // User requested "control bar", typically these auto-apply or have a floating bar.
-  // Given the previous design had "Apply", let's keep "Apply" for heavy queries, but maybe visually denote "Unsaved changes"?
-  // For now, sticking to manual "Apply" is safer for performance, but the new design looks like immediate controls.
-  // I'll keep the manual Apply button but make it prominent if dirty? No, simpler: Keep Apply.
+  const hasFilters = chips.length > 0;
+  const hiddenCount = Math.max(0, totalCount - filteredCount);
 
+  // Full-bleed toolbar band rather than a floating card: it pins to the top of the
+  // scroll area on desktop, and a rounded translucent card would let charts show
+  // through its corners as they pass underneath.
+  //
+  // The whole band changes colour once a filter is on. A tinted, permanently visible
+  // bar is what stops someone reading a filtered chart as the full picture — chips
+  // alone are too quiet to carry that, especially after scrolling back up to it.
   return (
-    <div className="mb-6 p-4 border rounded-xl bg-white shadow-sm space-y-4">
-      {/* Control Bar Row */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-
-        {/* Left: Group By & Date */}
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          <div className="w-[180px]">
-            <Select value={groupBy} onValueChange={setGroupBy}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Group by..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="faculty">Group By Faculty</SelectItem>
-                <SelectItem value="prodi">Group By Program</SelectItem>
-                <SelectItem value="lecturer">Group By Lecturer</SelectItem>
-                <SelectItem value="term">Group By Term</SelectItem>
-                <SelectItem value="editor">Group By Editor</SelectItem>
-                <SelectItem value="type">Group By Work Type</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "h-9 justify-start text-left font-normal w-[240px]",
-                  !date && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date?.from ? (
-                  date.to ? (
-                    <>
-                      {format(date.from, "d MMM y")} -{" "}
-                      {format(date.to, "d MMM y")}
-                    </>
-                  ) : (
-                    format(date.from, "d MMM y")
-                  )
-                ) : (
-                  <span>Pick a date range</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={date?.from}
-                selected={date}
-                onSelect={setDate}
-                numberOfMonths={2}
-              />
-              {date && (
-                <div className="p-2 border-t flex justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
+    <div
+      className={cn(
+        "relative z-20 -mx-8 border-b px-8 backdrop-blur md:sticky md:top-0",
+        hasFilters
+          ? "border-blue-200 bg-blue-50/90 supports-[backdrop-filter]:bg-blue-50/75"
+          : "border-gray-200 bg-white/95 supports-[backdrop-filter]:bg-white/85"
+      )}
+    >
+      <div>
+        {/* Row 1 — date range first, then the dimensions, then the view control */}
+        <div className="flex flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <Popover
+              open={dateOpen}
+              onOpenChange={next => {
+                setDateOpen(next);
+                // Same contract as the dimension dropdowns: picking a range and clicking
+                // away applies it. The explicit button below is a shortcut, not the only way.
+                handlePanelOpenChange(next);
+              }}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "h-9 justify-start px-3 text-left text-sm font-normal",
+                    date?.from ? "border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100" : "text-gray-600"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                  {activePreset ? activePreset.label : dateLabel}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <div className="border-b p-1.5">
+                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    Project requested
+                  </p>
+                  {DATE_PRESETS.map(preset => {
+                    const isActive = activePreset?.label === preset.label;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setDate(preset.range())}
+                        className={cn(
+                          "flex w-full items-center justify-between rounded px-2 py-1.5 text-sm transition-colors",
+                          isActive ? "font-medium text-blue-800" : "text-gray-700 hover:bg-gray-100"
+                        )}
+                      >
+                        {preset.label}
+                        {isActive && <Check className="h-4 w-4" strokeWidth={3} />}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
                     onClick={() => setDate(undefined)}
-                    className="text-xs h-7 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className={cn(
+                      "flex w-full items-center justify-between rounded px-2 py-1.5 text-sm transition-colors",
+                      !date?.from && !date?.to ? "font-medium text-blue-800" : "text-gray-700 hover:bg-gray-100"
+                    )}
                   >
-                    Clear Dates
+                    All time
+                    {!date?.from && !date?.to && <Check className="h-4 w-4" strokeWidth={3} />}
+                  </button>
+                </div>
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={date?.from}
+                  selected={date}
+                  onSelect={setDate}
+                  numberOfMonths={2}
+                />
+                <div className="flex items-center justify-between border-t p-2">
+                  <span className="pl-1 text-xs text-gray-500">
+                    {date?.from ? dateLabel : 'No range selected'}
+                  </span>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setDateOpen(false);
+                      applyWith({ date });
+                    }}
+                  >
+                    Apply dates
                   </Button>
                 </div>
-              )}
-            </PopoverContent>
-          </Popover>
+              </PopoverContent>
+            </Popover>
+
+            <span aria-hidden className="hidden h-5 w-px bg-gray-200 lg:block" />
+
+            <CheckboxFilter title="Faculties" options={faculties} selected={selected.faculties} onChange={v => setDimension('faculties', v)} onOpenChange={handlePanelOpenChange} />
+            <CheckboxFilter title="Programs" options={prodi} selected={selected.prodi} onChange={v => setDimension('prodi', v)} onOpenChange={handlePanelOpenChange} />
+            <CheckboxFilter title="Lecturers" options={lecturers} selected={selected.lecturers} onChange={v => setDimension('lecturers', v)} onOpenChange={handlePanelOpenChange} />
+            <CheckboxFilter title="Terms" options={terms} selected={selected.terms} onChange={v => setDimension('terms', v)} onOpenChange={handlePanelOpenChange} />
+            <CheckboxFilter title="Editors" options={editors} selected={selected.editors} onChange={v => setDimension('editors', v)} onOpenChange={handlePanelOpenChange} />
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Grouping changes how the breakdown chart is cut, it does not narrow the
+                data — so it sits apart from the filters and applies on its own. */}
+            <label className="hidden text-xs font-medium text-gray-500 xl:block">Group by</label>
+            <Select value={groupBy} onValueChange={value => applyWith({ groupBy: value })}>
+              <SelectTrigger className="h-9 w-[150px]">
+                <SelectValue placeholder="Group by…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="faculty">Faculty</SelectItem>
+                <SelectItem value="prodi">Program</SelectItem>
+                <SelectItem value="lecturer">Lecturer</SelectItem>
+                <SelectItem value="term">Term</SelectItem>
+                <SelectItem value="editor">Editor</SelectItem>
+                <SelectItem value="type">Work type</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 text-gray-600"
+              onClick={exportCsv}
+              title="Download the current selection as CSV"
+            >
+              <Download className="mr-1.5 h-4 w-4" />
+              Export
+            </Button>
+          </div>
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={handleClearAll} className="h-9 text-gray-500 hover:text-red-600">
-            <FilterX className="mr-2 h-4 w-4" />
-            Clear All
-          </Button>
-          <Button onClick={handleApplyFilters} disabled={isPending} className="h-9">
-            {isPending ? 'Applying...' : 'Apply Filters'}
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 text-green-600 border-green-200 hover:bg-green-50"
-            title="Export CSV"
-            onClick={() => {
-              const exportParams = new URLSearchParams();
-              if (date?.from) exportParams.set('from', format(date.from, 'yyyy-MM-dd'));
-              if (date?.to) exportParams.set('to', format(date.to, 'yyyy-MM-dd'));
-              if (selectedFaculties.length > 0) exportParams.set('faculties', selectedFaculties.join(','));
-              if (selectedProdi.length > 0) exportParams.set('prodi', selectedProdi.join(','));
-              if (selectedLecturers.length > 0) exportParams.set('lecturers', selectedLecturers.join(','));
-              if (selectedTerms.length > 0) exportParams.set('terms', selectedTerms.join(','));
-              if (selectedEditors.length > 0) exportParams.set('editors', selectedEditors.join(','));
-              window.open(`/api/analytics/export?${exportParams.toString()}`, '_blank');
-            }}
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+        {/* Row 2 — states plainly that this is a subset, names the subset, and offers the way out */}
+        {(hasFilters || isDirty) && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-dashed border-blue-200/70 py-2.5">
+            {hasFilters && (
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 py-1 pl-2 pr-2.5 text-xs font-semibold text-white">
+                  <Filter className="h-3 w-3" strokeWidth={2.5} />
+                  Filtered view
+                </span>
 
-      {/* Filter Pills Row */}
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-dashed">
-        <CheckboxFilter title="Faculties" options={faculties} selected={selectedFaculties} onChange={setSelectedFaculties} />
-        <CheckboxFilter title="Programs" options={prodi} selected={selectedProdi} onChange={setSelectedProdi} />
-        <CheckboxFilter title="Lecturers" options={lecturers} selected={selectedLecturers} onChange={setSelectedLecturers} />
-        <CheckboxFilter title="Terms" options={terms} selected={selectedTerms} onChange={setSelectedTerms} />
-        <CheckboxFilter title="Editors" options={editors} selected={selectedEditors} onChange={setSelectedEditors} />
+                <span className="text-xs text-blue-900/80">
+                  <span className="font-semibold">{filteredCount.toLocaleString()}</span> of{" "}
+                  {totalCount.toLocaleString()} videos
+                  {hiddenCount > 0 && ` · ${hiddenCount.toLocaleString()} hidden`}
+                </span>
+
+                <span aria-hidden className="h-4 w-px bg-blue-200" />
+              </>
+            )}
+
+            {chips.map(chip => (
+              <span
+                key={chip.id}
+                className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white py-0.5 pl-2.5 pr-1 text-xs text-blue-900"
+              >
+                <span className="max-w-[220px] truncate">{chip.label}</span>
+                <button
+                  type="button"
+                  onClick={chip.onRemove}
+                  aria-label={`Remove filter ${chip.label}`}
+                  className="rounded-full p-0.5 text-blue-400 transition-colors hover:bg-blue-100 hover:text-blue-800"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+
+            {hasFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearAll}
+                disabled={isPending}
+                className="ml-auto h-7 border-gray-300 bg-white text-xs font-medium text-gray-700 hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+              >
+                <RotateCcw className="mr-1.5 h-3 w-3" />
+                Clear {chips.length === 1 ? 'filter' : 'all filters'}
+              </Button>
+            )}
+
+            {/* Deliberately hidden while a panel is open, because closing it applies the change
+                anyway and a visible Apply button there would teach people that applying is a
+                required step — the very confusion this toolbar was rebuilt to remove. What is
+                left is the one state where nothing else will commit for you: browser Back,
+                which restores an older query while leaving the controls as the user left them.
+                It sits outside the veil so it is always clickable. */}
+            {isDirty && !willApplyOnClose && (
+              <Button
+                size="sm"
+                className="h-7 bg-amber-600 text-xs hover:bg-amber-700"
+                onClick={apply}
+                disabled={isPending}
+              >
+                {isPending ? 'Applying…' : 'Apply change'}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Refetch keeps the frame: a hairline progress rail instead of a layout-shifting spinner */}
+        <div className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden">
+          {isPending && <div className="h-full w-full animate-pulse bg-blue-500" />}
+        </div>
       </div>
     </div>
   );
