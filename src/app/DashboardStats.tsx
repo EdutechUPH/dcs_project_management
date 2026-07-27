@@ -1,7 +1,7 @@
 // src/app/DashboardStats.tsx
 import { Activity, AlertCircle, CheckCircle2, RotateCcw } from "lucide-react";
 import { StatTile } from "@/components/insight/primitives";
-import { SERIES, STATUS } from "@/components/insight/tokens";
+import { INK, SERIES, STATUS } from "@/components/insight/tokens";
 
 interface DashboardStatsProps {
     totalActive: number;
@@ -9,7 +9,7 @@ interface DashboardStatsProps {
     videosInProduction: number;
     overdueProjects: number;
     overdueVideos: number;
-    videosDelivered: number;
+    videosCompleted: number;
     /** Live work whose term has already passed — behind the term it was meant for. */
     behindProjects: number;
     behindVideos: number;
@@ -28,7 +28,7 @@ export function DashboardStats({
     videosInProduction,
     overdueProjects,
     overdueVideos,
-    videosDelivered,
+    videosCompleted,
     behindProjects,
     behindVideos,
     behindFromYear,
@@ -42,9 +42,9 @@ export function DashboardStats({
     // where "Ongoing projects: 6" and "Videos in production: 105" were the same fact split
     // across two cards — the hint under the first already said "105 videos still to
     // deliver". Pairing them removed the duplicate and made room for two figures the row
-    // could not previously answer at all: videos delivered, and the carry-over debt.
+    // could not previously answer at all: videos completed, and the carry-over debt.
     //
-    // Ongoing and Behind are disjoint and add back up to every live project, so the reader
+    // Ongoing and Behind are disjoint and add back up to every ongoing project, so the reader
     // is never double-counting. Overdue deliberately spans both — a late project is late
     // whichever term it was for.
     //
@@ -65,14 +65,14 @@ export function DashboardStats({
                 valueLabel={plural(totalActive, "project")}
                 secondary={{
                     value: videosInProduction.toLocaleString(),
-                    label: `${plural(videosInProduction, "video")} to deliver`,
+                    label: `${plural(videosInProduction, "video")} in production`,
                 }}
                 icon={<Activity className="h-4 w-4" />}
                 accent={SERIES[0]}
-                hint={
+                note={
                     scoped
-                        ? `Live work for ${activeYearName} and for terms still to come`
-                        : "Not yet marked Done, in projects that are still live"
+                        ? `Ongoing work for ${activeYearName}, plus anything already started for terms still to come.`
+                        : "Ongoing projects, with their videos still in production."
                 }
             />
             <StatTile
@@ -81,15 +81,25 @@ export function DashboardStats({
                 valueLabel={plural(behindProjects, "project")}
                 secondary={{
                     value: behindVideos.toLocaleString(),
-                    label: `${plural(behindVideos, "video")} outstanding`,
+                    label: `${plural(behindVideos, "video")} in production`,
                 }}
                 icon={<RotateCcw className="h-4 w-4" />}
-                accent={behindProjects > 0 ? STATUS.warning : STATUS.good}
-                tone={behindProjects > 0 ? "warning" : "good"}
+                // Amber while there is something behind; grey when there is not — never
+                // green. Green is Completed's colour, and a second green chip on the row
+                // made a card about slippage look like a second achievement. Grey reads as
+                // "nothing here", which is what a zero means; the caption says so in words,
+                // so the state never rests on colour alone (AI_README §12).
+                accent={behindProjects > 0 ? STATUS.warning : INK.muted}
+                tone={behindProjects > 0 ? "warning" : "neutral"}
                 hint={
                     behindProjects > 0
-                        ? `Still in production for ${behindFromYear ?? "an earlier year"}, whose terms have already run. Counted here, not hidden — they are live work with real deadlines.`
-                        : "Nothing is still running for a term that has passed"
+                        ? `From ${behindFromYear ?? "an earlier year"}`
+                        : "Nothing past its term"
+                }
+                note={
+                    behindProjects > 0
+                        ? `Still in production for ${behindFromYear ?? "an earlier year"}, whose terms have already run. Counted here rather than hidden — this is ongoing work with real deadlines.`
+                        : undefined
                 }
             />
             <StatTile
@@ -98,15 +108,19 @@ export function DashboardStats({
                 valueLabel={plural(overdueProjects, "project")}
                 secondary={{
                     value: overdueVideos.toLocaleString(),
-                    label: `${plural(overdueVideos, "video")} outstanding`,
+                    label: `${plural(overdueVideos, "video")} in production`,
                 }}
                 icon={<AlertCircle className="h-4 w-4" />}
-                accent={overdueProjects > 0 ? STATUS.critical : STATUS.good}
-                tone={overdueProjects > 0 ? "critical" : "good"}
-                hint={
+                // Same rule as Behind, for the same reason — otherwise a quiet week puts
+                // three green chips in a row and the one that means "finished" stops
+                // standing out.
+                accent={overdueProjects > 0 ? STATUS.critical : INK.muted}
+                tone={overdueProjects > 0 ? "critical" : "neutral"}
+                hint={overdueProjects === 0 ? "All inside their deadlines" : undefined}
+                note={
                     overdueProjects > 0
-                        ? "Past the agreed due date and unfinished, whichever term it is for"
-                        : "Everything live is inside its deadline"
+                        ? "Ongoing projects past their due date with videos still in production, whichever term they are for. The date is the latest agreed one, so a lecturer-requested reschedule does not count as lateness."
+                        : undefined
                 }
             />
             <StatTile
@@ -114,17 +128,25 @@ export function DashboardStats({
                 value={totalCompleted.toLocaleString()}
                 valueLabel={plural(totalCompleted, "project")}
                 secondary={{
-                    value: videosDelivered.toLocaleString(),
-                    label: `${plural(videosDelivered, "video")} delivered`,
+                    value: videosCompleted.toLocaleString(),
+                    label: `${plural(videosCompleted, "video")} completed`,
                 }}
                 icon={<CheckCircle2 className="h-4 w-4" />}
                 accent={STATUS.good}
                 meter={completionRate}
                 tone="good"
-                hint={
+                hint={completionRate == null ? "Nothing completed yet" : undefined}
+                // Beside the bar rather than under it. This is the tallest tile in the row,
+                // so it is the only one where removing a line makes the row shorter.
+                meterLabel={
                     completionRate != null
-                        ? `${completionRate}% of the ${tracked.toLocaleString()} projects tracked here. Videos delivered counts every finished video, including those in projects still running.`
-                        : "Nothing completed yet in this year"
+                        ? `${completionRate}% of ${tracked.toLocaleString()}`
+                        : undefined
+                }
+                note={
+                    completionRate != null
+                        ? `${totalCompleted} of the ${tracked} projects tracked here are complete. The video count includes every completed video, including those inside projects still running — so it will usually exceed the videos in the completed projects alone. "Completed" means the lecturer approved it, which is not the same as "delivered": a video is delivered the moment it first reaches the lecturer, and may sit in review for weeks afterwards.`
+                        : undefined
                 }
             />
         </div>

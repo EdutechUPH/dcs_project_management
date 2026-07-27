@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import DashboardFilters from './DashboardFilters';
-import NeedsAttention, { type OverdueItem, type ReviewItem, type UnassignedItem } from './NeedsAttention';
+import NeedsAttention, { type OverdueItem, type ReviewGroup, type UnassignedItem } from './NeedsAttention';
 import { type Project } from '@/lib/types';
+import { memberOptions } from '@/lib/roles';
 import { DataTable } from './projects/data-table/data-table';
 import { columns } from './projects/data-table/columns';
 import { DashboardStats } from './DashboardStats';
@@ -14,7 +15,6 @@ import {
   getYearScope,
   inActiveYear,
   outOfYearTerm,
-  shouldScopeToYear,
   yearLabel,
 } from '@/lib/academic-year';
 
@@ -36,6 +36,7 @@ type StatsProject = {
   status: string | null;
   faculty_id: number | string | null;
   term_id: number | string | null;
+  lecturer_id: number | string | null;
   videos: StatsVideo[] | null;
   project_assignments: { role: string }[] | null;
   // PostgREST returns a one-to-one embed as an object, but has returned an array here
@@ -68,6 +69,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const facultyIds = toList(resolvedSearchParams.faculty);
   const termIds = toList(resolvedSearchParams.term);
   const memberIds = toList(resolvedSearchParams.teamMember);
+  const lecturerIds = toList(resolvedSearchParams.lecturer);
+
+  // A MISSING `term` means nobody has chosen and the active year applies; a PRESENT but
+  // empty one means the reader cleared it and wants every year. toList() collapses both
+  // to null, so the raw param is what decides.
+  const termParamAbsent = resolvedSearchParams.term === undefined;
 
   // --- STATS QUERY: respects active dropdown filters (faculty, term, team member) ---
   // For team member, first resolve project IDs via the assignments table
@@ -85,7 +92,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // trips for that would be wasteful at this table's size.
   const { data: allStatsData } = await supabase
     .from('projects')
-    .select('id, course_name, due_date, status, faculty_id, term_id, videos(status, main_editor_id, title, delivered_at), project_assignments(role), feedback_submission(submitted_at)');
+    .select('id, course_name, due_date, status, faculty_id, term_id, lecturer_id, videos(status, main_editor_id, title, delivered_at), project_assignments(role), feedback_submission(submitted_at)');
 
   // Function to determine if a project is considered completed
   const isCompleted = (p: StatsProject) => {
@@ -112,27 +119,36 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // because its term had not started yet.
   //
   // The rule that replaced it:
-  //   · LIVE work is always in scope, whatever term it is for. Out-of-year work is
-  //     labelled (see outOfYearTerm), never hidden.
-  //   · FINISHED and parked work is scoped to the active year, because that is a
-  //     reporting question and the term is what a report is about.
+  //   · UNFINISHED work is always in scope, whatever term it is for — ongoing AND parked
+  //     alike. Out-of-year work is labelled (see outOfYearTerm), never hidden.
+  //   · COMPLETED work is scoped to the active year, because that is a reporting question
+  //     and the term is what a report is about.
+  //
+  // Parked work counts as unfinished here, and that is deliberate. An earlier version
+  // scoped it with the completed work, which meant two Pending projects from 1251 dropped
+  // out of the dashboard the moment the year advanced — and the Pending tab is built from
+  // this same scope, so there was no view left that could reach them. A Pending project is
+  // a decision somebody still owes; it does not expire because a year rolled over.
   //
   // An explicit term filter overrides all of it; see shouldScopeToYear.
   const yearScope = await getYearScope(supabase);
-  const scopingToYear = shouldScopeToYear(yearScope, termIds);
+  // Scope only when nobody has expressed a term preference at all. An empty term param
+  // is a preference: "every year".
+  const scopingToYear = yearScope.active != null && termParamAbsent;
 
   /** Live work for a term whose year has already passed — behind its intended term. */
   const isBehind = (p: StatsProject) =>
     scopingToYear && isActiveStatus(p) && fromEarlierYear(p, yearScope);
 
   const inScope = (p: StatsProject) =>
-    !scopingToYear || isActiveStatus(p) || inActiveYear(p, yearScope);
+    !scopingToYear || !isCompleted(p) || inActiveYear(p, yearScope);
 
   const everyProject = trackedProjects.filter(inScope);
 
   const matchesDimensions = (p: StatsProject) =>
     (!facultyIds || facultyIds.includes(String(p.faculty_id))) &&
     (!termIds || termIds.includes(String(p.term_id))) &&
+    (!lecturerIds || lecturerIds.includes(String(p.lecturer_id))) &&
     (statsTeamMemberIds === null || statsTeamMemberIds.includes(p.id));
 
   const allProjects = everyProject.filter(matchesDimensions);
@@ -201,7 +217,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // projects. A live project can be a hundred videos deep with more to come, and that
   // delivered work is real. Pending and Cancelled are excluded so this counts the same
   // universe of work as the completion percentage beside it.
-  const globalDeliveredVideos = allProjects
+  const globalCompletedVideos = allProjects
     .filter(p => !behindIds.has(p.id) && !['Pending', 'Cancelled'].includes(p.status || 'Active'))
     .reduce((acc, p) => acc + (p.videos ?? []).filter(v => v.status === 'Done').length, 0);
 
@@ -223,26 +239,40 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     }))
     .sort((a, b) => b.daysLate - a.daysLate);
 
-  // Every video sitting with a lecturer, whether or not its wait can be measured.
+  // Every video sitting with a lecturer, whether or not its wait can be measured, grouped
+  // by course. Chasing is one conversation per lecturer rather than per video — 20 videos
+  // in review turned out to be 2 courses, and a preview of four video titles from the same
+  // course read as four separate courses.
+  //
   // delivered_at only exists for hand-offs made after delivery tracking was added, so older
-  // ones carry daysWaiting: null — the wait is unknown, but the video is still in the queue
-  // and must be counted. Excluding them made the headline read 0 while videos were plainly
-  // in Review on the project page.
-  const reviewItems: ReviewItem[] = [];
+  // ones contribute no measurable wait — the video is still in the queue and must be
+  // counted. Excluding them made the headline read 0 while videos were plainly in Review.
+  const reviewByProject = new Map<number, ReviewGroup>();
   globalIncomplete.forEach(p => {
     (p.videos ?? []).forEach(v => {
       if (v.status !== 'Review') return;
-      reviewItems.push({
+      const group = reviewByProject.get(p.id) ?? {
         projectId: p.id,
         courseName: p.course_name ?? `Project ${p.id}`,
-        title: v.title ?? 'Untitled video',
-        daysWaiting: v.delivered_at ? daysSince(v.delivered_at) : null,
-      });
+        videoCount: 0,
+        longestWait: null,
+        undatedCount: 0,
+      };
+      group.videoCount++;
+      const waited = v.delivered_at ? daysSince(v.delivered_at) : null;
+      if (waited == null) group.undatedCount++;
+      else group.longestWait = Math.max(group.longestWait ?? 0, waited);
+      reviewByProject.set(p.id, group);
     });
   });
-  // Longest measurable wait first; the unmeasurable ones sort to the end rather than to zero.
-  reviewItems.sort((a, b) => (b.daysWaiting ?? -1) - (a.daysWaiting ?? -1));
-  const reviewUndated = reviewItems.filter(v => v.daysWaiting == null).length;
+
+  // Longest measurable wait first, then the biggest pile. Undated groups sort after dated
+  // ones rather than to zero — unknown is not the same as "just sent".
+  const reviewGroups = [...reviewByProject.values()].sort(
+    (a, b) => (b.longestWait ?? -1) - (a.longestWait ?? -1) || b.videoCount - a.videoCount
+  );
+  const reviewVideoCount = reviewGroups.reduce((sum, g) => sum + g.videoCount, 0);
+  const reviewUndated = reviewGroups.reduce((sum, g) => sum + g.undatedCount, 0);
 
   // A video with no main_editor_id is NOT necessarily unassigned: when the per-video override
   // is empty the project's 'Main Editor / Videographer' assignment stands in, and that is what
@@ -268,7 +298,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // --- MAIN DATA QUERY ---
   let query = supabase
     .from('projects')
-    .select('*, created_at, due_date, lecturers(name), prodi(name), videos(*), project_assignments(*, profiles(full_name)), feedback_submission(submitted_at)', { count: 'exact' });
+    .select('*, created_at, due_date, lecturers(name), prodi(name), videos(*, profiles(full_name)), project_assignments(*, profiles(full_name)), feedback_submission(submitted_at)', { count: 'exact' });
 
   // 1. Text Search
   if (resolvedSearchParams.query) {
@@ -300,6 +330,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     validProjectIds = globalIncomplete.map(p => p.id);
   }
 
+  // The stat cards deliberately do NOT filter this table. Clicking one used to hide every
+  // other project, which is the opposite of what a dashboard is for: the list is the work,
+  // and a summary tile should not be able to take most of it away. The cards summarise;
+  // the tabs and the filter bar are what narrow.
   if (validProjectIds.length > 0) {
     query = query.in('id', validProjectIds);
   } else {
@@ -313,6 +347,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const totalPages = Math.ceil((count || 0) / itemsPerPage);
 
+
   // Tag the rows the table will render, so a project for a term outside the active year
   // explains itself in place rather than looking like a stray.
   const tableRows = ((projects ?? []) as Project[]).map(p => ({
@@ -322,8 +357,23 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   // Fetch filter options
   const { data: faculties } = await supabase.from('faculties').select('id, name');
-  const { data: terms } = await supabase.from('terms').select('id, name');
-  const { data: profiles } = await supabase.from('profiles').select('id, full_name');
+  const { data: terms } = await supabase.from('terms').select('id, name, academic_year_id');
+  const { data: profiles } = await supabase.from('profiles').select('id, full_name, role');
+  const { data: lecturers } = await supabase.from('lecturers').select('id, name');
+
+  // Terms nest under their academic year in the dropdown, so picking a whole year is one
+  // click on its heading rather than knowing which three codes belong to it. The active
+  // year sorts first; the rest run newest to oldest.
+  const yearById = new Map(yearScope.years.map(y => [y.id, y]));
+  const termOptions = (terms ?? []).map(t => {
+    const year = t.academic_year_id != null ? yearById.get(t.academic_year_id) : undefined;
+    return {
+      value: String(t.id),
+      label: t.name,
+      group: year?.name,
+      groupOrder: year ? (year.is_active ? -1 : 1000 - Number(year.code)) : undefined,
+    };
+  });
 
   if (error) {
     console.error("Dashboard fetch error:", error);
@@ -344,7 +394,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               <span className="font-medium text-gray-700">{yearScope.active.name}</span>
             )}
             {scopingToYear && yearScope.active && " · "}
-            {globalIncomplete.length} live · {globalWipVideos} videos in production ·{" "}
+            {globalIncomplete.length} ongoing · {globalWipVideos} videos in production ·{" "}
             {globalComplete.length} completed
             {behindProjects.length > 0 && (
               <>
@@ -365,6 +415,21 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </Link>
       </div>
 
+      {/* Above everything it controls. These filters narrow the four stat cards and the
+          triage panel as well as the table, but sat underneath both — so picking a faculty
+          changed four numbers that were off the top of the screen, with the control that
+          changed them out of sight below. */}
+      <DashboardFilters
+        faculties={(faculties ?? []).map(f => ({ value: String(f.id), label: f.name }))}
+        terms={termOptions}
+        teamMembers={memberOptions(profiles)}
+        lecturers={(lecturers ?? []).map(l => ({ value: String(l.id), label: l.name ?? '' }))}
+        activeYearName={scopingToYear ? yearScope.active?.name ?? null : null}
+        activeYearTermIds={yearScope.activeTermIds.map(String)}
+        filteredCount={count ?? 0}
+        totalCount={unfilteredTotals[statusFilter] ?? 0}
+      />
+
       <DashboardStats
         totalActive={ongoingProjects.length}
         videosInProduction={ongoingVideos}
@@ -374,24 +439,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         overdueProjects={globalOverdue}
         overdueVideos={globalOverdueVideos}
         totalCompleted={globalComplete.length}
-        videosDelivered={globalDeliveredVideos}
+        videosCompleted={globalCompletedVideos}
         activeYearName={scopingToYear ? yearScope.active?.name ?? null : null}
       />
 
       <NeedsAttention
         overdue={overdueItems}
-        inReview={reviewItems}
+        inReview={reviewGroups}
+        reviewVideoCount={reviewVideoCount}
         unassigned={unassignedItems}
         reviewUndated={reviewUndated}
         inheritedEditorVideos={inheritedEditorVideos}
-      />
-
-      <DashboardFilters
-        faculties={(faculties ?? []).map(f => ({ value: String(f.id), label: f.name }))}
-        terms={(terms ?? []).map(t => ({ value: String(t.id), label: t.name }))}
-        teamMembers={(profiles ?? []).map(p => ({ value: String(p.id), label: p.full_name ?? '' }))}
-        filteredCount={count ?? 0}
-        totalCount={unfilteredTotals[statusFilter] ?? 0}
       />
 
       <StatusTabsClient

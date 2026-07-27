@@ -26,28 +26,21 @@ type ChartProps = {
 };
 
 export default function SatisfactionTrend({ data, title }: ChartProps) {
+    // Drives the reference line only. First-to-latest drift used to be spelled out in a
+    // footnote — it is the slope of the line the reader is already looking at.
     const mean = data.reduce((sum, d) => sum + d.score, 0) / (data.length || 1);
-    const latest = data[data.length - 1];
-    const first = data[0];
-    const drift = latest && first ? latest.score - first.score : 0;
 
     return (
         <ChartCard
             title={title}
-            description="Final-product rating per week, from the form the lecturer fills in when a project is finished."
-            footnote={
-                <>
-                    Mean {mean.toFixed(2)} across {data.length} {data.length === 1 ? "week" : "weeks"} with a response
-                    {data.length > 1 && (
-                        <>
-                            {" "}
-                            — {drift === 0 ? "flat" : drift > 0 ? `up ${drift.toFixed(1)}` : `down ${Math.abs(drift).toFixed(1)}`}{" "}
-                            from the first week to the latest
-                        </>
-                    )}
-                    . Weeks with no completed project simply have no point; the line does not interpolate them.
-                </>
-            }
+            description="Final-product rating per week."
+            titleNote="From the feedback form the lecturer fills in once a project is finished, so each point is a whole project rather than a video."
+            // Mean and drift are the shape of the line. What the line cannot say is that
+            // its gaps are absences rather than zeroes.
+            coverage={{
+                label: `${data.length} ${data.length === 1 ? "week" : "weeks"} with a response`,
+                note: "Weeks in which no project was completed have no point at all — the line does not interpolate across them, so a flat stretch means no data rather than steady scores.",
+            }}
         >
             <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">

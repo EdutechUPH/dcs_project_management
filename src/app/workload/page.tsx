@@ -142,7 +142,7 @@ export default async function WorkloadPage({
           <p className="text-sm text-gray-500">
             <span className="font-medium text-gray-700">{scopeName}</span>
             {' · '}
-            {workloadData?.length ?? 0} {workloadData?.length === 1 ? 'person' : 'people'} with active assignments
+            {workloadData?.length ?? 0} {workloadData?.length === 1 ? 'person' : 'people'} with ongoing assignments
             {behindCount > 0 && (
               <>
                 {' · '}
@@ -178,8 +178,8 @@ export default async function WorkloadPage({
         {(!workloadData || workloadData.length === 0) ? (
           <div className="rounded-lg border bg-white p-6 text-center text-gray-500">
             {showingAllYears || yearScope.active == null
-              ? 'No active projects are currently assigned to any team members.'
-              : `Nobody has active assignments in ${scopeName}. Choose "All years" to see work from other years.`}
+              ? 'No ongoing projects are currently assigned to any team members.'
+              : `Nobody has ongoing assignments in ${scopeName}. Choose "All years" to see work from other years.`}
           </div>
         ) : (
           <WorkloadList workloadData={workloadData} />

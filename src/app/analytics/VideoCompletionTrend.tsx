@@ -39,14 +39,26 @@ export default function VideoCompletionTrend({ data, title, excludedCount = 0 }:
         return { ...point, mean: Math.round(mean * 10) / 10 };
     });
 
-    const peak = data.reduce((best, p) => (p.count > best.count ? p : best), data[0]);
     const totalPlotted = data.reduce((sum, p) => sum + p.count, 0);
-    const avgPerWeek = data.length > 0 ? totalPlotted / data.length : 0;
 
+    // The average and the peak used to lead the footnote. Both are on the chart already —
+    // one of them as its own plotted line — so the prose was describing a picture the
+    // reader was looking at, while the fact they could NOT see (that most of the data is
+    // absent) trailed at the end of the paragraph. That fact is now the badge.
     return (
         <ChartCard
             title={title}
-            description="Each finished video is dated by the lecturer's approval — the only per-video completion timestamp the system records."
+            description="Completed videos per week."
+            titleNote="Each finished video is dated by the lecturer's approval — the only per-video completion timestamp the system records. Videos with no approval logged are excluded rather than dated by proxy."
+            coverage={
+                excludedCount > 0
+                    ? {
+                        label: `${totalPlotted} of ${totalPlotted + excludedCount} videos shown`,
+                        note: `${excludedCount} completed ${excludedCount === 1 ? "video has" : "videos have"} no recorded approval date and cannot be placed on a week. Approval logging began in January 2026, so earlier work cannot be dated without inventing a date for it.`,
+                        tone: "warning",
+                    }
+                    : undefined
+            }
             aside={
                 <Legend
                     items={[
@@ -54,21 +66,6 @@ export default function VideoCompletionTrend({ data, title, excludedCount = 0 }:
                         { label: `${WINDOW}-week average`, color: SERIES[1] },
                     ]}
                 />
-            }
-            footnote={
-                <>
-                    Averaging <span className="font-medium text-gray-700">{avgPerWeek.toFixed(1)} videos per week</span>{" "}
-                    across the {data.length} {data.length === 1 ? "week" : "weeks"} plotted
-                    {peak ? `, peaking at ${peak.count} in the week of ${peak.date}` : ""}.
-                    {excludedCount > 0 && (
-                        <>
-                            {" "}
-                            {excludedCount} completed {excludedCount === 1 ? "video has" : "videos have"} no recorded
-                            approval date and {excludedCount === 1 ? "is" : "are"} not shown — approval logging began in
-                            January 2026, so earlier work cannot be dated without inventing a date for it.
-                        </>
-                    )}
-                </>
             }
         >
             <div className="h-[320px] w-full">

@@ -15,7 +15,7 @@ import { Calendar as CalendarIcon, Check, Download, Filter, RotateCcw, X } from 
 import { cn } from "@/lib/utils";
 import { useReportFilterStatus } from './FilterStatus';
 
-type Option = { value: string; label: string; group?: string; groupOrder?: number };
+type Option = { value: string; label: string; group?: string; groupOrder?: number; groupClass?: string };
 
 type FilterControlsProps = {
   faculties: Option[];

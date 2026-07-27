@@ -25,6 +25,14 @@ type OneOption = {
     group?: string;
     /** Optional ordering hint for groups; lower sorts first. Defaults to alphabetical. */
     groupOrder?: number;
+    /**
+     * Tailwind classes for the group heading — background, text and border.
+     *
+     * Used by the member filters to carry the role colour scheme (AI_README §9), so a
+     * name is findable by the colour of the band it sits under rather than by reading
+     * every entry. Omit for a plain grey heading.
+     */
+    groupClass?: string;
 };
 
 type CheckboxFilterProps = {
@@ -67,11 +75,14 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
     // are ordered by `groupOrder` where given (so the active academic year can lead) and
     // alphabetically otherwise; ungrouped options stay in a leading unlabelled bucket.
     const visibleGroups = React.useMemo(() => {
-        const buckets = new Map<string, { name: string; order: number; options: OneOption[] }>();
+        const buckets = new Map<
+            string,
+            { name: string; order: number; className?: string; options: OneOption[] }
+        >();
         for (const option of visible) {
             const name = option.group ?? '';
             const bucket = buckets.get(name)
-                ?? { name, order: option.groupOrder ?? Number.MAX_SAFE_INTEGER, options: [] };
+                ?? { name, order: option.groupOrder ?? Number.MAX_SAFE_INTEGER, className: option.groupClass, options: [] };
             if (option.groupOrder != null) bucket.order = Math.min(bucket.order, option.groupOrder);
             bucket.options.push(option);
             buckets.set(name, bucket);
@@ -176,7 +187,7 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
                             Nothing matches &ldquo;{search.trim()}&rdquo;
                         </p>
                     )}
-                    {visibleGroups.map(({ name, options: groupOptions }) => {
+                    {visibleGroups.map(({ name, className: groupClass, options: groupOptions }) => {
                         const values = groupOptions.map(o => o.value);
                         const allOn = values.every(v => selected.includes(v));
                         const someOn = !allOn && values.some(v => selected.includes(v));
@@ -196,7 +207,15 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
                                                     : Array.from(new Set([...selected, ...values]))
                                             )
                                         }
-                                        className="mt-1 flex w-full items-center gap-2 rounded px-2 py-1 text-left transition-colors hover:bg-gray-100"
+                                        className={cn(
+                                            "mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors",
+                                            // A tinted band when the group carries a theme (roles),
+                                            // plain hover otherwise (academic years) — the colour
+                                            // means "this is a role", not "this is a group".
+                                            groupClass
+                                                ? cn("border-b", groupClass)
+                                                : "hover:bg-gray-100",
+                                        )}
                                     >
                                         <span
                                             className={cn(
@@ -209,7 +228,12 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
                                             {allOn && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
                                             {someOn && <span className="h-1.5 w-1.5 rounded-[1px] bg-blue-600" />}
                                         </span>
-                                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                        <span
+                                            className={cn(
+                                                "text-xs font-semibold tracking-wide",
+                                                groupClass ? "" : "uppercase tracking-wider text-gray-500",
+                                            )}
+                                        >
                                             {name}
                                         </span>
                                     </button>

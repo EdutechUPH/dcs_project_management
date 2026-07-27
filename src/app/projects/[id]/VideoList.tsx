@@ -9,6 +9,7 @@ import { ArrowUp, ArrowDown, Film, AlertCircle, CheckCircle, History as HistoryI
 import VideoEditForm from './VideoEditForm';
 import VideoHistoryModal from './VideoHistoryModal';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import { StatusBadge } from '@/components/insight/StatusBadge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -20,17 +21,9 @@ type VideoListProps = {
   assignments: Assignment[];
 };
 
-const statusColors: { [key: string]: string } = {
-  'Done': 'bg-green-100 text-green-800',
-  'Review': 'bg-yellow-100 text-yellow-800',
-  'Video Editing': 'bg-purple-100 text-purple-800',
-  'Audio Editing': 'bg-pink-100 text-pink-800',
-  'Scheduled for Taping': 'bg-indigo-100 text-indigo-800',
-  'Requested': 'bg-gray-100 text-gray-800',
-  'WIP': 'bg-blue-50 text-blue-600 border border-blue-200',
-  'Ready for Review': 'bg-yellow-50 text-yellow-600 border border-yellow-200',
-  'Revision Requested': 'bg-orange-50 text-orange-600 border border-orange-200',
-};
+// The status palette lives in @/components/insight/StatusBadge — this file used to carry
+// a fourth private copy of it, which is how 'Video Editing' ended up purple here and blue
+// in the projects table.
 
 export default function VideoList({ videos, projectId, profiles, assignments }: VideoListProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -231,9 +224,7 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                       )}
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[video.status] || 'bg-gray-100 text-gray-800'}`}>
-                        {video.status}
-                      </span>
+                      <StatusBadge status={video.status} />
 
                       {video.status === 'Video Editing' && (
                         video.video_link ? (

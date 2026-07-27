@@ -51,11 +51,10 @@ export default function StackedWorkloadChart({ data, title }: ChartProps) {
     }
 
     const grandTotal = rows.reduce((sum, r) => sum + r.__total, 0);
+    // Drives the "team avg" reference line. Concentration — how much of the output the
+    // busiest editor carries — is deliberately not computed here: it has its own tile on
+    // the Team Performance tab, and rows are sorted descending so the top bar is the answer.
     const mean = grandTotal / rows.length;
-    const top = rows[0];
-    // Concentration: how much of the team's output the single busiest editor carries.
-    // A number worth watching — a high share is a bus-factor risk, not a compliment.
-    const topShare = grandTotal > 0 ? (top.__total / grandTotal) * 100 : 0;
 
     // One project type means there is nothing to stack; a legend with a single swatch
     // would just restate the title, so it only appears when there is a real split.
@@ -64,7 +63,8 @@ export default function StackedWorkloadChart({ data, title }: ChartProps) {
     return (
         <ChartCard
             title={title}
-            description="Finished runtime credited to each video's main editor. Translation work is excluded — it produces no new runtime."
+            description="Finished runtime credited to each video's main editor."
+            titleNote="Translation work is excluded — it produces no new runtime, so counting it would credit the same minutes twice."
             aside={
                 isStacked ? (
                     <Legend items={keys.map((k, i) => ({ label: k, color: SERIES[i % SERIES.length] }))} />
@@ -77,15 +77,8 @@ export default function StackedWorkloadChart({ data, title }: ChartProps) {
                     </div>
                 )
             }
-            footnote={
-                <>
-                    Team average <span className="font-medium text-gray-700">{mean.toFixed(0)} minutes</span> per editor
-                    (dashed line).{" "}
-                    <span className="font-medium text-gray-700">{top.name}</span> carries {topShare.toFixed(0)}% of all
-                    finished runtime. Credit follows the per-video main editor, so reassigning one video moves its
-                    minutes with it.
-                </>
-            }
+            // No footnote: the team average is the dashed line, the top editor is the tallest
+            // bar, and the credit rule now lives in titleNote. All three were being narrated.
         >
             <div style={{ height: chartHeight }} className="w-full">
                 <ResponsiveContainer width="100%" height="100%">

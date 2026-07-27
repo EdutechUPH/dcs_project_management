@@ -3,6 +3,7 @@
 import { useActionState, useRef, useEffect, useState } from 'react';
 import { updateVideo } from './actions';
 import { type Video, type Profile } from '@/lib/types';
+import { groupedProfiles } from '@/lib/roles';
 import { Check, Loader2, AlertCircle } from 'lucide-react';
 import SubmitButton from '@/components/SubmitButton';
 import { toast } from 'sonner';
@@ -174,8 +175,19 @@ export default function VideoEditForm({ video, projectId, profiles, projectMainE
                             }}
                         >
                             <option value="">Unassigned</option>
-                            {profiles.map(profile => (
-                                <option key={profile.id} value={profile.id}>{profile.full_name}</option>
+                            {/* Grouped by role and sorted, matching every other member
+                                dropdown. This one was a flat unsorted list, which is a poor
+                                fit for the field that decides who analytics credits (§8). A
+                                native select cannot take the role colours, but the grouping
+                                and ordering are what make a name findable. */}
+                            {groupedProfiles(profiles).map(group => (
+                                <optgroup key={group.label} label={group.label}>
+                                    {group.profiles.map(profile => (
+                                        <option key={profile.id} value={profile.id}>
+                                            {profile.full_name}
+                                        </option>
+                                    ))}
+                                </optgroup>
                             ))}
                         </select>
                         {/* Says plainly where the credit lands, since the field looks the same whether

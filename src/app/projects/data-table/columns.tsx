@@ -5,6 +5,7 @@ import { Project } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { MoreHorizontal } from "lucide-react"
 import { OutOfYearPill } from "@/components/insight/OutOfYearPill"
+import { StatusBadge } from "@/components/insight/StatusBadge"
 import Link from "next/link"
 import {
     DropdownMenu,
@@ -29,30 +30,6 @@ const formatDate = (dateString: string) => {
 const daysBetween = (from: Date, to: Date) =>
     Math.round((to.getTime() - from.getTime()) / 86_400_000);
 
-/**
- * One colour per status, covering the whole project_status enum.
- *
- * The previous version was `status === 'Done' ? green : blue`, which painted Pending and
- * Cancelled in the same "active" blue as work in flight — the label said one thing and the
- * colour said another. Anything unrecognised falls through to grey rather than to blue, so a
- * new enum value can never masquerade as in-progress.
- */
-const STATUS_STYLES: Record<string, { color: string; background: string }> = {
-    // 'Active' is what live project rows actually carry — it is not in the project_status enum
-    // documented in AI_README §4, but it is the most common value in the table, so it must not
-    // fall through to the neutral grey.
-    'Active': { color: '#1c5cab', background: '#e8f1fc' },
-    'Done': { color: '#0a7d0a', background: '#e9f7e9' },
-    'Review': { color: '#8a5a00', background: '#fdf3dd' },
-    'Video Editing': { color: '#1c5cab', background: '#e8f1fc' },
-    'Audio Editing': { color: '#1c5cab', background: '#e8f1fc' },
-    'Scheduled for Taping': { color: '#4a3aa7', background: '#eceafa' },
-    'Requested': { color: '#52514e', background: '#f1f0ec' },
-    'Pending': { color: '#8a5a00', background: '#faf1e2' },
-    'Cancelled': { color: '#6b6a66', background: '#eeedea' },
-};
-
-const NEUTRAL_STATUS = { color: INK.secondary, background: INK.track };
 
 export const columns: ColumnDef<Project>[] = [
     {
@@ -85,16 +62,7 @@ export const columns: ColumnDef<Project>[] = [
         id: "status",
         header: "Status",
         cell: ({ row }) => {
-            const status = row.original.status || 'Active';
-            const style = STATUS_STYLES[status] ?? NEUTRAL_STATUS;
-            return (
-                <span
-                    className="inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium"
-                    style={{ color: style.color, background: style.background }}
-                >
-                    {status}
-                </span>
-            )
+            return <StatusBadge status={row.original.status || 'Active'} />
         }
     },
     {

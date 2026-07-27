@@ -24,7 +24,8 @@ export default function SoundEngineerTable({ data }: Props) {
     return (
         <ChartCard
             title="Sound engineer coverage"
-            description="Sound engineers have no per-video assignment, so they are credited for every completed video in the projects they are assigned to."
+            description="Completed videos and runtime credited to each sound engineer."
+            titleNote="Sound engineers have no per-video assignment, so they are credited for every completed video in the projects they are assigned to."
             footnote="Because credit is project-wide, these minutes overlap with the editor scorecard rather than adding to it — the same video is counted for both roles."
             className="h-full"
         >
@@ -32,9 +33,9 @@ export default function SoundEngineerTable({ data }: Props) {
                 <TableHeader>
                     <TableRow className="hover:bg-transparent">
                         <TableHead className="text-xs uppercase tracking-wide text-gray-500">Engineer</TableHead>
-                        <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">Done</TableHead>
+                        <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">Completed</TableHead>
                         <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">
-                            Active
+                            In production
                         </TableHead>
                         <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">
                             Runtime

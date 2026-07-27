@@ -84,7 +84,8 @@ export default function OnTimeDeliveryTable({ data, deadlineChanges }: Props) {
     return (
         <ChartCard
             title="On-time delivery"
-            description="Per-video punctuality, credited to the video's main editor. A video is on time if it reached the lecturer on or before its deadline — the video's own due date where one is set, otherwise the project's."
+            description="Per-video punctuality, credited to the video's main editor."
+            titleNote="A video is on time if it reached the lecturer on or before its deadline — the video's own due date where one is set, otherwise the project's. Delivery means the first hand-off; later revision rounds do not reset it."
             aside={
                 teamRate !== null ? (
                     <div className="text-right">
@@ -98,22 +99,22 @@ export default function OnTimeDeliveryTable({ data, deadlineChanges }: Props) {
                     </div>
                 ) : undefined
             }
+            coverage={
+                totals.untracked > 0
+                    ? {
+                        label: `${totals.untracked} not tracked`,
+                        note: "Delivered videos with no recorded delivery date (handed over before tracking started) or no deadline set. They are excluded from the rate rather than assumed on time — the reason this table shows a rate at all rather than a misleading 11%.",
+                        tone: "warning",
+                    }
+                    : undefined
+            }
+            // Deadline changes survive as a footnote because they are neither visible in the
+            // table nor an exclusion: they are the reason a rate can look good while dates
+            // moved, and the rule that makes that legitimate is in titleNote.
             footnote={
-                <>
-                    {totals.untracked > 0 && (
-                        <>
-                            <span className="font-medium text-gray-700">Not tracked</span> counts delivered videos with
-                            no recorded delivery date (delivered before tracking started) or no deadline set. They are
-                            excluded from the rate rather than assumed on time.{" "}
-                        </>
-                    )}
-                    <span className="font-medium text-gray-700">Deadline changes in scope:</span>{" "}
-                    {deadlineChanges === 0
-                        ? "none recorded."
-                        : `${deadlineChanges} ${deadlineChanges === 1 ? "deadline was" : "deadlines were"} moved after the project was created.`}{" "}
-                    Punctuality is measured against the most recently agreed deadline, so a reschedule the lecturer
-                    asked for stays visible without counting as team lateness.
-                </>
+                deadlineChanges > 0
+                    ? `${deadlineChanges} ${deadlineChanges === 1 ? "deadline was" : "deadlines were"} moved after the project was created. Punctuality is measured against the most recent one, so a lecturer-requested reschedule stays visible without counting as team lateness.`
+                    : undefined
             }
         >
             <Table>

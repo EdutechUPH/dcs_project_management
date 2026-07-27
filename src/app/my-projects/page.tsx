@@ -32,7 +32,7 @@ export default async function MyProjectsPage() {
   const { data: projects, error } = await supabase
     .from('projects')
     .select(`
-      *, created_at, due_date, lecturers(name), prodi(name), videos(*), 
+      *, created_at, due_date, lecturers(name), prodi(name), videos(*, profiles(full_name)), 
       project_assignments(*, profiles(full_name)), 
       feedback_submission(submitted_at)
     `)

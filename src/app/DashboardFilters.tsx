@@ -9,12 +9,20 @@ import { Button } from '@/components/ui/button';
 import { Filter, RotateCcw, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type Option = { value: string; label: string };
+type Option = { value: string; label: string; group?: string; groupOrder?: number; groupClass?: string };
 
 type DashboardFiltersProps = {
     faculties: Option[];
     terms: Option[];
     teamMembers: Option[];
+    lecturers: Option[];
+    /**
+     * Name of the active academic year, when it is scoping this view. Shown as a chip so
+     * the default is visible and removable rather than applied behind the reader.
+     */
+    activeYearName: string | null;
+    /** Term ids the active year owns — what the chip removes when clicked. */
+    activeYearTermIds: string[];
     /** Projects matching the filters currently applied. */
     filteredCount: number;
     /** Projects in this status tab ignoring the dimension filters and search. */
@@ -22,11 +30,12 @@ type DashboardFiltersProps = {
 };
 
 /** The three dimension filters, in the order they appear. Keys are the URL params. */
-type DimensionKey = 'faculty' | 'term' | 'teamMember';
+type DimensionKey = 'faculty' | 'term' | 'teamMember' | 'lecturer';
 
 const DIMENSION_LABELS: Record<DimensionKey, string> = {
     faculty: 'Faculty',
     term: 'Term',
+    lecturer: 'Lecturer',
     teamMember: 'Member',
 };
 
@@ -34,6 +43,9 @@ export default function DashboardFilters({
     faculties,
     terms,
     teamMembers,
+    lecturers,
+    activeYearName,
+    activeYearTermIds,
     filteredCount,
     totalCount,
 }: DashboardFiltersProps) {
@@ -43,22 +55,32 @@ export default function DashboardFilters({
     const [isPending, startTransition] = useTransition();
 
     const optionsFor: Record<DimensionKey, Option[]> = useMemo(
-        () => ({ faculty: faculties, term: terms, teamMember: teamMembers }),
-        [faculties, terms, teamMembers]
+        () => ({ faculty: faculties, term: terms, teamMember: teamMembers, lecturer: lecturers }),
+        [faculties, terms, teamMembers, lecturers]
     );
 
     // Draft state; the URL stays the applied truth. Values are comma-separated in the URL,
     // so a bookmarked single-value link from before multi-select still parses correctly.
     const [selected, setSelected] = useState<Record<DimensionKey, string[]>>({
         faculty: searchParams.get('faculty')?.split(',').filter(Boolean) || [],
-        term: searchParams.get('term')?.split(',').filter(Boolean) || [],
+        // Seeded with the active year's terms when the param is absent. Without this the
+        // draft would start empty and the first unrelated change — picking a faculty —
+        // would write term='' and quietly drop the year scope. `??` not `||`, so a
+        // deliberately-cleared empty string survives.
+        term: (searchParams.get('term') ?? activeYearTermIds.join(',')).split(',').filter(Boolean),
         teamMember: searchParams.get('teamMember')?.split(',').filter(Boolean) || [],
+        lecturer: searchParams.get('lecturer')?.split(',').filter(Boolean) || [],
     });
 
     const buildParams = (draft: Record<DimensionKey, string[]>, query?: string | null) => {
         const params = new URLSearchParams(searchParams.toString());
         (Object.keys(DIMENSION_LABELS) as DimensionKey[]).forEach(key => {
             if (draft[key].length > 0) params.set(key, draft[key].join(','));
+            // `term` is always written, empty included. A MISSING term param means "nobody
+            // has chosen, so apply the active year"; a PRESENT-but-empty one means "the
+            // reader cleared it, show every year". Deleting the key would collapse the two,
+            // and clearing the year chip would silently re-apply it on the next navigation.
+            else if (key === 'term') params.set('term', '');
             else params.delete(key);
         });
 
@@ -82,6 +104,9 @@ export default function DashboardFilters({
     const applied = useMemo(() => {
         const params = new URLSearchParams(searchParams.toString());
         params.delete('page');
+        // The server applies the active year to a missing `term`, so spell it out here too
+        // — otherwise a first visit looks dirty and the toolbar offers to apply nothing.
+        if (!params.has('term')) params.set('term', '');
         params.sort();
         return params.toString();
     }, [searchParams]);
@@ -114,16 +139,37 @@ export default function DashboardFilters({
     const activeQuery = searchParams.get('query') || '';
 
     const clearAll = () => {
-        const empty: Record<DimensionKey, string[]> = { faculty: [], term: [], teamMember: [] };
+        const empty: Record<DimensionKey, string[]> = {
+            faculty: [], term: [], teamMember: [], lecturer: [],
+        };
         setSelected(empty);
         push(buildParams(empty, ''));
     };
+
+    // True when the term selection is exactly the active year. Compared by value rather
+    // than by "is the param absent", so it still reads as the year after an unrelated
+    // filter has written the terms out explicitly.
+    const yearIsDefault =
+        activeYearName != null &&
+        activeYearTermIds.length > 0 &&
+        selected.term.length === activeYearTermIds.length &&
+        activeYearTermIds.every(id => selected.term.includes(id));
 
     // ---------------------------------------------------------------------
     // Chips — the answer to "why is this list shorter than I expected?"
     // ---------------------------------------------------------------------
     type Chip = { id: string; label: string; onRemove: () => void };
     const chips: Chip[] = [];
+
+    if (yearIsDefault) {
+        chips.push({
+            id: 'academic-year',
+            label: `Academic year: ${activeYearName}`,
+            // Writes term='' explicitly. Completed work from every year comes back;
+            // unfinished work was never hidden by the year in the first place.
+            onRemove: () => applyWith({ ...selected, term: [] }),
+        });
+    }
 
     if (activeQuery) {
         chips.push({
@@ -134,6 +180,11 @@ export default function DashboardFilters({
     }
 
     (Object.keys(DIMENSION_LABELS) as DimensionKey[]).forEach(key => {
+        // The whole year is already one chip above; three more reading "Term: 1251",
+        // "Term: 1252", "Term: 1253" describe the same scope in pieces the reader has to
+        // reassemble, and removing one leaves a partial year nobody asked for.
+        if (key === 'term' && yearIsDefault) return;
+
         selected[key].forEach(value => {
             const option = optionsFor[key].find(o => o.value === value);
             chips.push({
@@ -181,6 +232,13 @@ export default function DashboardFilters({
                     options={terms}
                     selected={selected.term}
                     onChange={v => setDimension('term', v)}
+                    onOpenChange={open => { if (!open) commitOnClose(); }}
+                />
+                <CheckboxFilter
+                    title="Lecturers"
+                    options={lecturers}
+                    selected={selected.lecturer}
+                    onChange={v => setDimension('lecturer', v)}
                     onOpenChange={open => { if (!open) commitOnClose(); }}
                 />
                 <CheckboxFilter

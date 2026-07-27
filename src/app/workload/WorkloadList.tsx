@@ -5,23 +5,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, Calendar, Timer } from 'lucide-react';
 import { OutOfYearPill } from '@/components/insight/OutOfYearPill';
+import { StatusBadge } from '@/components/insight/StatusBadge';
 import React from 'react';
 import { type WorkloadProfile, type Video } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-
-const statusColors: { [key: string]: string } = {
-  'Done': 'bg-green-100 text-green-800 hover:bg-green-100',
-  'Review': 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
-  'Video Editing': 'bg-purple-100 text-purple-800 hover:bg-purple-100',
-  'Audio Editing': 'bg-pink-100 text-pink-800 hover:bg-pink-100',
-  'Scheduled for Taping': 'bg-indigo-100 text-indigo-800 hover:bg-indigo-100',
-  'Requested': 'bg-gray-100 text-gray-800 hover:bg-gray-100',
-  'Ready for Review': 'bg-blue-100 text-blue-800 hover:bg-blue-100',
-  'Revision Requested': 'bg-orange-100 text-orange-800 hover:bg-orange-100',
-};
 
 function getInitials(name: string) {
   return name
@@ -80,7 +70,7 @@ export default function WorkloadList({ workloadData }: { workloadData: WorkloadP
               </CardHeader>
               <CardContent className={`flex-grow space-y-4 pt-4 ${theme.bg}`}>
                 <div className={`text-sm font-medium bg-white/60 p-2 rounded-md text-center shadow-sm border border-white/40 ${theme.text}`}>
-                  {profile.ongoing_projects.length} Ongoing Project(s) • {totalVideos} Video(s)
+                  {profile.ongoing_projects.length} Ongoing project(s) • {totalVideos} Video(s)
                 </div>
 
               <div className="space-y-2">
@@ -135,12 +125,7 @@ export default function WorkloadList({ workloadData }: { workloadData: WorkloadP
                             {project.videos.map((video: Video) => (
                               <div key={video.id} className="flex justify-between items-start text-xs gap-2">
                                 <span className="text-gray-600 truncate leading-relaxed" title={video.title}>- {video.title}</span>
-                                <Badge
-                                  variant="outline"
-                                  className={`shrink-0 text-[10px] h-5 px-1.5 font-normal border-0 ${statusColors[video.status] || 'bg-gray-100 text-gray-800'}`}
-                                >
-                                  {video.status}
-                                </Badge>
+                                <StatusBadge status={video.status} className="shrink-0 text-[10px]" />
                               </div>
                             ))}
                           </div>

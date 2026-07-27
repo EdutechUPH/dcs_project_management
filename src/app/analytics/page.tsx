@@ -16,9 +16,10 @@ import SoundEngineerTable from "./SoundEngineerTable";
 import OnTimeDeliveryTable, { type OnTimeEntry } from "./OnTimeDeliveryTable";
 import RevisionStats from "./RevisionStats";
 import { SectionHeading, StatTile, EmptyState } from "./ui";
-import { PIPELINE_STAGES, formatMinutes } from "./chart-theme";
+import { PIPELINE_STAGES, SERIES, formatMinutes } from "./chart-theme";
 import { type AnalyticsData, type KeyMetricsData } from "@/lib/types";
 import { getYearScope } from "@/lib/academic-year";
+import { memberOptions } from "@/lib/roles";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { differenceInCalendarDays, endOfDay, format, parseISO, startOfDay, startOfWeek } from 'date-fns';
 import { Filter, Gauge, MessageSquareQuote, Scale, Users } from "lucide-react";
@@ -222,7 +223,7 @@ export default async function AnalyticsPage(props: {
     v.projects?.status !== 'Cancelled'
   ).length;
 
-  // Shared definition of "in flight": unfinished, and in a project that is neither
+  // Shared definition of "in production": not yet completed, and in a project that is neither
   // parked nor abandoned. Used by the pipeline, the risk buckets and every workload count.
   const isVideoActive = (v: VideoRow) => {
     if (v.status === 'Done') return false;
@@ -631,7 +632,7 @@ export default async function AnalyticsPage(props: {
     supabase.from("prodi").select("id, name"),
     supabase.from("lecturers").select("id, name"),
     supabase.from("terms").select("id, name, academic_year_id"),
-    supabase.from("profiles").select("id, full_name"),
+    supabase.from("profiles").select("id, full_name, role"),
     // The "of N" denominator for the scope note. Mirrors the main query's inner join so
     // the two counts are comparable, and is head-only so it costs a count, not a payload.
     supabase.from("videos").select("id, projects!inner(id)", { count: "exact", head: true }),
@@ -726,7 +727,7 @@ export default async function AnalyticsPage(props: {
           prodi={mapToOptions(prodi)}
           lecturers={mapToOptions(lecturers)}
           terms={termOptions}
-          editors={mapToOptions(editors)}
+          editors={memberOptions(editors)}
           defaultTermIds={defaultTermIds}
           activeYearName={yearScope.active?.name ?? null}
           filteredCount={videos.length}
@@ -774,21 +775,31 @@ export default async function AnalyticsPage(props: {
               label="Active assignments"
               value={String(totalActiveAssigned)}
               icon={<Users className="h-4 w-4" />}
-              hint={`Held by ${activeEditors} ${activeEditors === 1 ? "editor" : "editors"}${activeEditors > 0 ? `, ${(totalActiveAssigned / activeEditors).toFixed(1)} each on average` : ""}.`}
+              accent={SERIES[0]}
+              hint={
+                activeEditors > 0
+                  ? `${(totalActiveAssigned / activeEditors).toFixed(1)} each across ${activeEditors} ${activeEditors === 1 ? "editor" : "editors"}`
+                  : "Nobody currently assigned"
+              }
+              note="Unfinished videos named to an editor, in projects that are neither Pending nor Cancelled. A video relying on the project's main editor rather than naming its own is not counted."
             />
             <StatTile
-              label="Runtime delivered"
+              label="Runtime produced"
               value={formatMinutes(teamMinutes)}
               icon={<Gauge className="h-4 w-4" />}
-              hint={`Across ${leaderboardData.length} credited ${leaderboardData.length === 1 ? "editor" : "editors"}.`}
+              accent={SERIES[2]}
+              hint={`Across ${leaderboardData.length} credited ${leaderboardData.length === 1 ? "editor" : "editors"}`}
+              note="Finished runtime credited per video to the editor named on it. Sound engineers are credited separately and their minutes overlap these rather than adding to them."
             />
             <StatTile
               label="Busiest editor's share"
               value={topEditorShare == null ? "—" : `${topEditorShare.toFixed(0)}%`}
               tone={topEditorShare == null ? "neutral" : topEditorShare >= 50 ? "warning" : "good"}
               icon={<Scale className="h-4 w-4" />}
+              accent={SERIES[6]}
               meter={topEditorShare}
-              hint="Of all finished runtime. A high share means the schedule leans on one person."
+              hint="Of all finished runtime"
+              note="The top editor's share of the team's finished runtime. A high share is a delivery risk — the schedule depends on one person — rather than a compliment."
             />
           </div>
 
@@ -820,7 +831,7 @@ export default async function AnalyticsPage(props: {
 
           <SectionHeading
             title="Lecturer feedback"
-            description="From the form the lecturer fills in once a whole project is finished — project-level, not per video."
+            description="From the form the lecturer fills in once a project is finished."
           />
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <FeedbackCategoryChart

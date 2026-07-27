@@ -38,23 +38,19 @@ export default function EditorLeaderboard({ data }: LeaderboardProps) {
     return (
         <ChartCard
             title="Editor scorecard"
-            description="Credit follows the main editor set on each individual video, not the project assignment."
-            footnote={
-                <>
-                    <span className="font-medium text-gray-700">Share</span> is this editor&rsquo;s portion of all
-                    finished runtime in scope. <span className="font-medium text-gray-700">Active</span> counts
-                    unfinished videos in projects that are neither Pending nor Cancelled.
-                </>
-            }
+            description="Videos and finished runtime credited to each editor."
+            // Column definitions moved into titleNote rather than repeated under a table
+            // whose headers already name them.
+            titleNote="Credit follows the main editor set on each individual video, not the project assignment — so a per-video override moves the credit with it. Share is the editor’s portion of all completed runtime in scope; In production counts videos not yet completed, in projects that are neither Pending nor Cancelled."
         >
             <Table>
                 <TableHeader>
                     <TableRow className="hover:bg-transparent">
                         <TableHead className="w-[44px] text-xs uppercase tracking-wide text-gray-500">#</TableHead>
                         <TableHead className="text-xs uppercase tracking-wide text-gray-500">Editor</TableHead>
-                        <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">Done</TableHead>
+                        <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">Completed</TableHead>
                         <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">
-                            Active
+                            In production
                         </TableHead>
                         <TableHead className="text-right text-xs uppercase tracking-wide text-gray-500">
                             Runtime

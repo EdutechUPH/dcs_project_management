@@ -50,7 +50,7 @@ export default function PortfolioBreakdown({ data, groupLabel }: Props) {
 
     if (rows.length === 0) {
         return (
-            <ChartCard title={`Delivery by ${groupLabel}`} description="Finished versus in-flight videos.">
+            <ChartCard title={`Delivery by ${groupLabel}`} description="Completed versus in-production videos.">
                 <EmptyState icon={<BarChart3 className="h-8 w-8" />} title="No videos in scope">
                     Widen the filters to see the breakdown.
                 </EmptyState>
@@ -61,26 +61,25 @@ export default function PortfolioBreakdown({ data, groupLabel }: Props) {
     return (
         <ChartCard
             title={`Delivery by ${groupLabel}`}
-            description="Every video in scope, split by whether it is finished or still in flight. Sorted by total volume."
+            description="Every video in scope, split by completed or still in production."
+            titleNote="Sorted by total volume, so the largest groups lead regardless of how complete they are."
             aside={
                 <Legend
                     items={[
                         { label: "Completed", color: SERIES[0] },
-                        { label: "In flight", color: SERIES[1] },
+                        { label: "In production", color: SERIES[1] },
                     ]}
                 />
             }
-            footnote={
-                totalAll > 0 ? (
-                    <>
-                        <span className="font-medium text-gray-700">
-                            {((totalCompleted / totalAll) * 100).toFixed(0)}% complete
-                        </span>{" "}
-                        overall — {totalCompleted} of {totalAll} videos across {rows.length}{" "}
-                        {rows.length === 1 ? groupLabel : `${groupLabel}s`}. In-flight excludes videos in Pending or
-                        Cancelled projects.
-                    </>
-                ) : undefined
+            // The completion percentage is the ratio of the two stacks, visible in every bar.
+            // The exclusion is not visible anywhere, so that is what the badge carries.
+            coverage={
+                totalAll > 0
+                    ? {
+                        label: `${totalCompleted} of ${totalAll} videos complete`,
+                        note: "In production excludes videos in Pending or Cancelled projects — parked work is not in production, and counting it would make every group look further behind than it is.",
+                    }
+                    : undefined
             }
         >
             <div style={{ height }} className="w-full">
@@ -116,7 +115,7 @@ export default function PortfolioBreakdown({ data, groupLabel }: Props) {
                         />
                         <Bar
                             dataKey="active_count"
-                            name="In flight"
+                            name="In production"
                             stackId="videos"
                             fill={SERIES[1]}
                             maxBarSize={24}
@@ -125,7 +124,7 @@ export default function PortfolioBreakdown({ data, groupLabel }: Props) {
                             radius={[0, 4, 4, 0]}
                         >
                             {rows.map(row => (
-                                // Square the cap when there is no in-flight segment to round.
+                                // Square the cap when there is no in-production segment to round.
                                 <Cell key={row.category} fill={SERIES[1]} radius={row.active_count > 0 ? 4 : 0} />
                             ))}
                             <LabelList

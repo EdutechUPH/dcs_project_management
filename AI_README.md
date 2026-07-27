@@ -350,3 +350,69 @@ consequences are spelled out in a confirmation modal rather than left as page fu
 
 `getYearScope()` returns `NO_YEAR_SCOPE` if the tables are missing, so every consumer falls
 back to its pre-feature all-time behaviour instead of throwing.
+
+## 14. Where a sentence goes on a card (added July 2026)
+
+`ChartCard` and `StatTile` each offer several slots for words. They are not
+interchangeable, and mixing them is how the analytics cards ended up with two-sentence
+descriptions that nobody read twice:
+
+| Slot | Holds | Register |
+|---|---|---|
+| `title` | What the card is | Two or three words |
+| `titleNote` (ⓘ) | How the figure is derived, what it excludes, what scope applies | One or two sentences, static |
+| `description` | What the chart shows, so the reader can read it | One clause, no caveats |
+| `footnote` | What *this* data says — counts, averages, exclusions | Dynamic, changes with the filters |
+| `hint` (StatTile) | Caption under the figures | Five words or fewer |
+| `note` (StatTile, ⓘ) | Same job as `titleNote` | One or two sentences |
+
+The test for `titleNote` versus `description`: a description **introduces** the card, a
+note **qualifies** it. "Unfinished videos by how close their deadline is" introduces;
+"the deadline is the video's own due date where one is set, otherwise the project's"
+qualifies. The second is true forever, needs saying once, and costs a line of the card
+every day it stays visible.
+
+Both ⓘ slots render `InfoNote` from `src/components/insight/primitives.tsx` — a native
+`title` attribute, so it works in server components with no JavaScript, and carries
+`tabIndex`/`aria-label` so it is reachable without a mouse. Do not hand-roll another one;
+there were three copies before it was extracted.
+
+**Deleting a caveat is not the alternative to hiding it.** These sentences exist because
+figures here genuinely do not reconcile at a glance — "videos delivered" counts videos
+inside projects that are still running, sound-engineer minutes overlap the editor
+scorecard rather than adding to it. Someone will eventually try to make two numbers agree;
+the ⓘ is what stops them concluding the app is wrong.
+
+## 15. Glossary — one word per concept (added July 2026)
+
+Before this was fixed there were **ten** phrases in the UI for "a video that isn't
+finished": in flight, in the pipeline, outstanding, unfinished, still to deliver, videos
+to deliver, videos in production, not yet marked Done, and an `Active` column head. Use
+the left column; the right column is what it replaced.
+
+| Concept | Say | Not |
+|---|---|---|
+| Video not yet finished | **in production** | in flight, in the pipeline, outstanding, unfinished, still to deliver, Active |
+| Video finished (`status = 'Done'`) | **completed** | delivered, finished, done, approved |
+| First hand-off to the lecturer (`videos.delivered_at`) | **delivered** | hand-off, handed over, reached the lecturer |
+| Video sitting with a lecturer (`status = 'Review'`) | **in review** | waiting on lecturer, with the lecturer |
+| Project currently running | **ongoing** | live, active |
+| Project Pending or Cancelled | **parked** | (spelled out each time) |
+
+### ⚠️ "Delivered" and "completed" are different populations
+
+This is the distinction the whole glossary exists to protect, and the dashboard got it
+wrong: the Completed card said *"262 videos delivered"* while counting `status = 'Done'`.
+
+- **Delivered** = the first hand-off, when status became `Review`. Stamped in
+  `videos.delivered_at`. It is what on-time delivery measures (§11).
+- **Completed** = the lecturer approved it, `status = 'Done'`.
+
+A video is delivered *and then* sits in review, sometimes for weeks, before it is
+completed — the 20 videos in review are delivered but not completed. Using one word for
+both makes the on-time rate irreconcilable with the dashboard, and the two figures cannot
+be compared by anyone who has not read the code.
+
+**"Active" is retired as a UI word.** It was simultaneously a `projects.status` value, a
+column head meaning videos in production, and a synonym for ongoing. It survives only in
+code (`isActiveStatus`) and as the literal status value stored in the database.

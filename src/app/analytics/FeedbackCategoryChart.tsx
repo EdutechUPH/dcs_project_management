@@ -44,22 +44,18 @@ export default function FeedbackCategoryChart({ data, title, responses }: ChartP
     }
 
     const overall = scored.reduce((sum, d) => sum + d.score, 0) / scored.length;
-    const best = scored.reduce((a, b) => (b.score > a.score ? b : a));
-    const worst = scored.reduce((a, b) => (b.score < a.score ? b : a));
 
     return (
         <ChartCard
             title={title}
-            description={`Average lecturer rating out of 5, across ${responses} completed ${responses === 1 ? "project" : "projects"} that returned the form.`}
-            footnote={
-                <>
-                    Strongest: <span className="font-medium text-gray-700">{best.fullLabel}</span> at{" "}
-                    {best.score.toFixed(2)}. Weakest:{" "}
-                    <span className="font-medium text-gray-700">{worst.fullLabel}</span> at {worst.score.toFixed(2)}.
-                    The dashed line is the overall mean of {overall.toFixed(2)} — a category below it is where the next
-                    improvement is worth the most.
-                </>
-            }
+            description="Average lecturer rating per category, out of 5."
+            // Strongest and weakest are the longest and shortest bars; the reader can see
+            // them. What is kept is the dashed line's meaning, which the chart cannot say.
+            titleNote={`The form is project-level, submitted once when a whole project is done. The dashed line is the overall mean across categories — a category below it is where the next improvement is worth the most.`}
+            coverage={{
+                label: `${responses} ${responses === 1 ? "response" : "responses"}`,
+                note: `Averaged across the ${responses} completed ${responses === 1 ? "project" : "projects"} that returned the feedback form. Projects that never returned one contribute nothing rather than counting as neutral.`,
+            }}
         >
             <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">

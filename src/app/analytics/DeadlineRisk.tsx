@@ -39,12 +39,11 @@ const BUCKET_COLOR: Record<RiskBucket["key"], string> = {
 export default function DeadlineRisk({ buckets, atRisk }: Props) {
     const total = buckets.reduce((sum, b) => sum + b.count, 0);
     const overdue = buckets.find(b => b.key === "overdue")?.count ?? 0;
-    const dueSoon = buckets.find(b => b.key === "week")?.count ?? 0;
 
     if (total === 0) {
         return (
             <ChartCard title="Deadline risk" description="Unfinished videos by how close their deadline is.">
-                <EmptyState icon={<ShieldCheck className="h-8 w-8" />} title="Nothing in flight">
+                <EmptyState icon={<ShieldCheck className="h-8 w-8" />} title="Nothing in production">
                     Every video in scope is finished, or sits in a Pending or Cancelled project.
                 </EmptyState>
             </ChartCard>
@@ -54,7 +53,8 @@ export default function DeadlineRisk({ buckets, atRisk }: Props) {
     return (
         <ChartCard
             title="Deadline risk"
-            description="Unfinished videos by how close their deadline is — the video's own due date where one is set, otherwise the project's."
+            description="Unfinished videos by how close their deadline is."
+            titleNote="The deadline is the video's own due date where one is set, otherwise the project's — the same rule the on-time table uses, so the two cards can never disagree. A video counts as overdue while it is unfinished and its deadline has passed, regardless of who is holding it up."
             aside={
                 <div className="text-right">
                     <p
@@ -66,11 +66,9 @@ export default function DeadlineRisk({ buckets, atRisk }: Props) {
                     <p className="mt-1 text-xs text-gray-500">past deadline</p>
                 </div>
             }
-            footnote={
-                overdue + dueSoon > 0
-                    ? `${overdue + dueSoon} unfinished ${overdue + dueSoon === 1 ? "video needs" : "videos need"} attention this week. A video counts as overdue while it is unfinished and its deadline has passed, regardless of who is holding it up.`
-                    : "Nothing in scope is past its deadline."
-            }
+            // No footnote: the aside already shows the overdue figure at 2xl, and the
+            // buckets beside it show what is due soon. Restating both in prose underneath
+            // said nothing the reader had not just read.
         >
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
                 {/* Buckets — a stacked severity band plus a labelled breakdown */}
@@ -112,7 +110,7 @@ export default function DeadlineRisk({ buckets, atRisk }: Props) {
                     </p>
                     {atRisk.length === 0 ? (
                         <div className="flex h-full min-h-[7rem] items-center rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-4 py-6 text-sm text-gray-500">
-                            No project in scope has unfinished videos past its deadline.
+                            No project in scope has videos in production past its deadline.
                         </div>
                     ) : (
                         <ul className="divide-y divide-gray-100">
@@ -132,7 +130,7 @@ export default function DeadlineRisk({ buckets, atRisk }: Props) {
                                             {p.courseName}
                                         </Link>
                                         <p className="text-xs text-gray-500">
-                                            {p.remaining} unfinished {p.remaining === 1 ? "video" : "videos"}
+                                            {p.remaining} in production {p.remaining === 1 ? "video" : "videos"}
                                             {p.dueDate ? ` · due ${p.dueDate}` : ""}
                                         </p>
                                     </div>

@@ -12,7 +12,7 @@ export type PipelineStage = {
 
 type Props = {
     data: PipelineStage[];
-    /** Videos sitting in a Pending or Cancelled project — parked, not in flight. */
+    /** Videos sitting in a Pending or Cancelled project — parked, not in production. */
     parked: number;
 };
 
@@ -60,9 +60,12 @@ export default function PipelineFunnel({ data, parked }: Props) {
                     <p className="mt-1 text-xs text-gray-500">videos in scope</p>
                 </div>
             }
-            footnote={
+            coverage={
                 parked > 0
-                    ? `${parked} further ${parked === 1 ? "video sits" : "videos sit"} in Pending or Cancelled projects and ${parked === 1 ? "is" : "are"} excluded — parked work is not in the pipeline.`
+                    ? {
+                        label: `${parked} parked, not shown`,
+                        note: `${parked} further ${parked === 1 ? "video sits" : "videos sit"} in Pending or Cancelled projects and ${parked === 1 ? "is" : "are"} excluded — parked work is not in the pipeline, and folding it into Requested would overstate the queue.`,
+                    }
                     : undefined
             }
         >
