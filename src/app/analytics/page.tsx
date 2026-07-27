@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import AnalyticsFilters from "./AnalyticsFilters";
-import { FilterStatusProvider, StaleContent } from "./FilterStatus";
+import { FilterStatusProvider, StaleBanner, StaleContent } from "@/components/insight/FilterStatus";
 import PortfolioBreakdown from "./PortfolioBreakdown";
 import PipelineFunnel, { type PipelineStage } from "./PipelineFunnel";
 import DeadlineRisk, { type AtRiskProject, type RiskBucket } from "./DeadlineRisk";
@@ -728,6 +728,8 @@ export default async function AnalyticsPage(props: {
       </div>
 
       <FilterStatusProvider>
+        {/* One banner per page; the veil below may be applied to as many regions as needed. */}
+        <StaleBanner top="top-28" />
         <AnalyticsFilters
           faculties={mapToOptions(faculties)}
           prodi={mapToOptions(prodi)}

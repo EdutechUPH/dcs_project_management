@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar as CalendarIcon, Check, Download, Filter, RotateCcw, X } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { useReportFilterStatus } from './FilterStatus';
+import { useReportFilterStatus } from '@/components/insight/FilterStatus';
 
 type Option = { value: string; label: string; group?: string; groupOrder?: number; groupClass?: string };
 

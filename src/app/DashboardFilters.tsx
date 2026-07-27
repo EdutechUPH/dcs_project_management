@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { CheckboxFilter } from '@/components/CheckboxFilter';
+import { useReportFilterStatus } from '@/components/insight/FilterStatus';
 import { Button } from '@/components/ui/button';
 import { Filter, RotateCcw, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -21,8 +22,6 @@ type DashboardFiltersProps = {
      * the default is visible and removable rather than applied behind the reader.
      */
     activeYearName: string | null;
-    /** Term ids the active year owns — what the chip removes when clicked. */
-    activeYearTermIds: string[];
     /** Projects matching the filters currently applied. */
     filteredCount: number;
     /** Projects in this status tab ignoring the dimension filters and search. */
@@ -45,7 +44,6 @@ export default function DashboardFilters({
     teamMembers,
     lecturers,
     activeYearName,
-    activeYearTermIds,
     filteredCount,
     totalCount,
 }: DashboardFiltersProps) {
@@ -63,24 +61,40 @@ export default function DashboardFilters({
     // so a bookmarked single-value link from before multi-select still parses correctly.
     const [selected, setSelected] = useState<Record<DimensionKey, string[]>>({
         faculty: searchParams.get('faculty')?.split(',').filter(Boolean) || [],
-        // Seeded with the active year's terms when the param is absent. Without this the
-        // draft would start empty and the first unrelated change — picking a faculty —
-        // would write term='' and quietly drop the year scope. `??` not `||`, so a
-        // deliberately-cleared empty string survives.
-        term: (searchParams.get('term') ?? activeYearTermIds.join(',')).split(',').filter(Boolean),
+        // NOT seeded with the active year's terms. The server does not apply a term filter
+        // when the param is absent — the year narrows completed work only (§13) — so a
+        // draft that started with three terms selected was claiming a filter the query was
+        // not running. Worse, the first unrelated change committed those three terms for
+        // real, and ongoing work from other years vanished from a dashboard whose whole
+        // point is that it must not be strict.
+        term: searchParams.get('term')?.split(',').filter(Boolean) || [],
         teamMember: searchParams.get('teamMember')?.split(',').filter(Boolean) || [],
         lecturer: searchParams.get('lecturer')?.split(',').filter(Boolean) || [],
     });
 
-    const buildParams = (draft: Record<DimensionKey, string[]>, query?: string | null) => {
+    /**
+     * Whether the reader has expressed any term preference at all.
+     *
+     * This is the absent-versus-empty distinction the server reads (§13), tracked on the
+     * client so an unrelated change cannot collapse it: a MISSING `term` means "nobody has
+     * chosen, apply the active year", a PRESENT-but-empty one means "the reader cleared it,
+     * show every year". Writing `term=''` unconditionally would turn the first into the
+     * second the moment somebody picked a faculty.
+     */
+    const [termTouched, setTermTouched] = useState(searchParams.has('term'));
+
+    const buildParams = (
+        draft: Record<DimensionKey, string[]>,
+        query?: string | null,
+        touched: boolean = termTouched,
+    ) => {
         const params = new URLSearchParams(searchParams.toString());
         (Object.keys(DIMENSION_LABELS) as DimensionKey[]).forEach(key => {
             if (draft[key].length > 0) params.set(key, draft[key].join(','));
-            // `term` is always written, empty included. A MISSING term param means "nobody
-            // has chosen, so apply the active year"; a PRESENT-but-empty one means "the
-            // reader cleared it, show every year". Deleting the key would collapse the two,
-            // and clearing the year chip would silently re-apply it on the next navigation.
-            else if (key === 'term') params.set('term', '');
+            else if (key === 'term') {
+                if (touched) params.set('term', '');
+                else params.delete('term');
+            }
             else params.delete(key);
         });
 
@@ -101,12 +115,14 @@ export default function DashboardFilters({
         });
     };
 
+    // The applied truth, normalised the same way `buildParams` writes it so the two can be
+    // compared as strings. Nothing is spelled out here that the draft does not also spell
+    // out: forcing `term=''` in only one of the two made a first visit compare "" against
+    // the seeded year and report itself permanently dirty — which, once the toolbar started
+    // publishing that flag, veiled the whole dashboard on load with no way to clear it.
     const applied = useMemo(() => {
         const params = new URLSearchParams(searchParams.toString());
         params.delete('page');
-        // The server applies the active year to a missing `term`, so spell it out here too
-        // — otherwise a first visit looks dirty and the toolbar offers to apply nothing.
-        if (!params.has('term')) params.set('term', '');
         params.sort();
         return params.toString();
     }, [searchParams]);
@@ -116,20 +132,39 @@ export default function DashboardFilters({
         params.sort();
         return params.toString();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selected, searchParams]);
+    }, [selected, searchParams, termTouched]);
+
+    const isDirty = applied !== draftString;
 
     /** Commit when a dropdown closes — the same contract as the analytics toolbar, so a
      *  selection can never sit there looking applied while the table shows something else. */
     const commitOnClose = () => {
-        if (applied !== draftString) push(buildParams(selected));
+        if (isDirty) push(buildParams(selected));
     };
+
+    // A counter rather than a boolean because moving from one dropdown straight to the next
+    // closes and opens in the same beat, and the two events can arrive in either order.
+    const [openPanels, setOpenPanels] = useState(0);
+    const willApplyOnClose = openPanels > 0;
+
+    const handlePanelOpenChange = (open: boolean) => {
+        setOpenPanels(count => Math.max(0, count + (open ? 1 : -1)));
+        if (!open) commitOnClose();
+    };
+
+    // Publish to the cards, triage panel and table below, which veil themselves while they
+    // are showing something the controls no longer describe.
+    useReportFilterStatus({ isPending, isDirty, willApplyOnClose });
 
     const setDimension = (key: DimensionKey, values: string[]) =>
         setSelected(prev => ({ ...prev, [key]: values }));
 
-    const applyWith = (next: Record<DimensionKey, string[]>) => {
+    const applyWith = (next: Record<DimensionKey, string[]>, touched?: boolean) => {
         setSelected(next);
-        push(buildParams(next));
+        if (touched !== undefined) setTermTouched(touched);
+        // `touched` is passed through rather than read back from state: a setState in the
+        // same tick has not landed yet, and the params must be built from the new value.
+        push(buildParams(next, undefined, touched));
     };
 
     const handleSearch = useDebouncedCallback((term: string) => {
@@ -143,31 +178,38 @@ export default function DashboardFilters({
             faculty: [], term: [], teamMember: [], lecturer: [],
         };
         setSelected(empty);
-        push(buildParams(empty, ''));
+        setTermTouched(true);
+        // "Clear all filters" includes the academic year, which is listed as a chip beside
+        // the others — leaving it applied would make the button visibly not do what it says.
+        push(buildParams(empty, '', true));
     };
 
-    // True when the term selection is exactly the active year. Compared by value rather
-    // than by "is the param absent", so it still reads as the year after an unrelated
-    // filter has written the terms out explicitly.
-    const yearIsDefault =
-        activeYearName != null &&
-        activeYearTermIds.length > 0 &&
-        selected.term.length === activeYearTermIds.length &&
-        activeYearTermIds.every(id => selected.term.includes(id));
+    // The year is the default whenever the SERVER says it is scoping — `activeYearName` is
+    // passed as null otherwise. Comparing term ids by value would be wrong now that the
+    // draft is no longer seeded with them: no terms selected is precisely the state in
+    // which the year applies.
+    const yearIsDefault = activeYearName != null && selected.term.length === 0;
 
     // ---------------------------------------------------------------------
     // Chips — the answer to "why is this list shorter than I expected?"
     // ---------------------------------------------------------------------
-    type Chip = { id: string; label: string; onRemove: () => void };
+    type Chip = { id: string; label: string; title?: string; onRemove: () => void };
     const chips: Chip[] = [];
 
     if (yearIsDefault) {
         chips.push({
             id: 'academic-year',
             label: `Academic year: ${activeYearName}`,
-            // Writes term='' explicitly. Completed work from every year comes back;
-            // unfinished work was never hidden by the year in the first place.
-            onRemove: () => applyWith({ ...selected, term: [] }),
+            // Says what it actually does. The year narrows COMPLETED work only, so on the
+            // Ongoing tab it hides nothing and the count beside it reads "6 of 6" — which
+            // looks like a broken filter unless the rule is stated somewhere.
+            title:
+                'Scopes completed work to this academic year. Ongoing, pending and overdue '
+                + 'projects are shown from every year, so nothing live is hidden.',
+            // Passing `true` writes term='' explicitly: the reader has now expressed a
+            // preference, and without the flag the next unrelated change would drop the
+            // param again and silently re-apply the year.
+            onRemove: () => applyWith({ ...selected, term: [] }, true),
         });
     }
 
@@ -225,28 +267,31 @@ export default function DashboardFilters({
                     options={faculties}
                     selected={selected.faculty}
                     onChange={v => setDimension('faculty', v)}
-                    onOpenChange={open => { if (!open) commitOnClose(); }}
+                    onOpenChange={handlePanelOpenChange}
                 />
                 <CheckboxFilter
                     title="Terms"
                     options={terms}
                     selected={selected.term}
-                    onChange={v => setDimension('term', v)}
-                    onOpenChange={open => { if (!open) commitOnClose(); }}
+                    // Touching this dropdown at all is a term preference, including ticking
+                    // and unticking back to nothing — that means "every year", not "put the
+                    // default back".
+                    onChange={v => { setDimension('term', v); setTermTouched(true); }}
+                    onOpenChange={handlePanelOpenChange}
                 />
                 <CheckboxFilter
                     title="Lecturers"
                     options={lecturers}
                     selected={selected.lecturer}
                     onChange={v => setDimension('lecturer', v)}
-                    onOpenChange={open => { if (!open) commitOnClose(); }}
+                    onOpenChange={handlePanelOpenChange}
                 />
                 <CheckboxFilter
                     title="Members"
                     options={teamMembers}
                     selected={selected.teamMember}
                     onChange={v => setDimension('teamMember', v)}
-                    onOpenChange={open => { if (!open) commitOnClose(); }}
+                    onOpenChange={handlePanelOpenChange}
                 />
             </div>
 
@@ -269,6 +314,7 @@ export default function DashboardFilters({
                     {chips.map(chip => (
                         <span
                             key={chip.id}
+                            title={chip.title}
                             className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white py-0.5 pl-2.5 pr-1 text-xs text-blue-900"
                         >
                             <span className="max-w-[220px] truncate">{chip.label}</span>

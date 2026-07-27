@@ -8,6 +8,7 @@ import { DataTable } from './projects/data-table/data-table';
 import { columns } from './projects/data-table/columns';
 import { DashboardStats } from './DashboardStats';
 import { Pagination } from '@/components/Pagination';
+import { FilterStatusProvider, StaleBanner, StaleContent } from '@/components/insight/FilterStatus';
 import StatusTabsClient from './StatusTabsClient';
 import { Plus } from 'lucide-react';
 import {
@@ -381,12 +382,22 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   }
 
   return (
+    <FilterStatusProvider>
     <div className="space-y-6 p-8">
+      {/* One per page. The filter bar here is not sticky, so the caption sits nearer the
+          top than the analytics one, which has to clear a sticky toolbar. */}
+      <StaleBanner top="top-20" />
+
       {/* Title leads, then the numbers. The old order opened with four cards and only said
           what the page was underneath them. */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1.5">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">Projects</h1>
+          {/* Veiled separately from the block below because it sits ABOVE the filter bar:
+              these counts move with the filters just as the cards do, and leaving them sharp
+              while everything else blurs would make them look like the one reliable figure
+              on the page at the exact moment they are not. */}
+          <StaleContent>
           {/* The scope is stated, never implied. A reader who does not know an academic
               year is being applied would otherwise read these figures as all-time. */}
           <p className="text-sm text-gray-500">
@@ -405,6 +416,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               </>
             )}
           </p>
+          </StaleContent>
         </div>
         <Link
           href="/projects/new"
@@ -425,11 +437,15 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         teamMembers={memberOptions(profiles)}
         lecturers={(lecturers ?? []).map(l => ({ value: String(l.id), label: l.name ?? '' }))}
         activeYearName={scopingToYear ? yearScope.active?.name ?? null : null}
-        activeYearTermIds={yearScope.activeTermIds.map(String)}
         filteredCount={count ?? 0}
         totalCount={unfilteredTotals[statusFilter] ?? 0}
       />
 
+      {/* Everything the filters control. The toolbar itself stays outside the veil so it is
+          always readable and always clickable — the way out of a stale view must never be
+          behind the blur that announces it. */}
+      <StaleContent>
+      <div className="space-y-6">
       <DashboardStats
         totalActive={ongoingProjects.length}
         videosInProduction={ongoingVideos}
@@ -471,6 +487,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           />
         </div>
       </StatusTabsClient>
+      </div>
+      </StaleContent>
     </div>
+    </FilterStatusProvider>
   );
 }

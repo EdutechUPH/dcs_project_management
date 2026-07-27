@@ -416,3 +416,60 @@ be compared by anyone who has not read the code.
 **"Active" is retired as a UI word.** It was simultaneously a `projects.status` value, a
 column head meaning videos in production, and a synonym for ongoing. It survives only in
 code (`isActiveStatus`) and as the literal status value stored in the database.
+
+---
+
+## 16. Reports (`/reports`, added July 2026)
+
+Two printed documents built from the same data, scoped by term. The browser's own print
+dialog turns them into PDFs — no headless Chrome, which would need `@sparticuz/chromium`
+on Vercel and would rasterise text that is worth keeping selectable.
+
+### The modules
+
+| File | Holds |
+|---|---|
+| `src/lib/reports/metrics.ts` | Every figure either report can state. The single implementation of §8/§9/§11 for reporting. `/analytics` was migrated onto it, so the two can no longer disagree. |
+| `src/app/reports/parts.tsx` | The printed vocabulary: `Masthead`, `Figure`, `SectionRule`, `ProjectBars`, `FacultySplit`, `CoverageRow`, `Rating`. |
+| `src/app/reports/MemberReport.tsx` | One person's sheet. |
+| `src/app/reports/TeamReport.tsx` | Three sheets: delivery, people, quality. The default view. |
+
+### Rules a change here must not break
+
+1. **Never sum editing credit and project-role credit.** They describe the same videos
+   from two angles (§8). The sound engineer alone is credited with more videos than the
+   whole editing total, so any total that adds them is nonsense. Both reports keep them in
+   separate sections and say so on the page.
+2. **`Main Editor / Videographer` is not a project-role section.** It exists in
+   `project_assignments` but only seeds the per-video default; the credit is per-video and
+   already reported. Listing it double-counts.
+3. **State the denominator.** A percentage on paper has no tooltip. "Share of team editing"
+   names its population, its size, and what an even split would be.
+4. **Never present an unrecorded field as a measured zero.** Subtitles are a tick box, so
+   the report says "marked as having" and explains that an empty row cannot distinguish
+   "not done" from "not recorded". `CoverageRow` takes `neutral` for rows where a low
+   number is the correct state, such as videos with their own deadline.
+5. **Lecturer ratings are a property of the project, never of a person.** The form is
+   submitted once per project and scores the whole team.
+
+### Print
+
+`globals.css` carries the whole print contract. Three parts, all load-bearing:
+
+- **Unwinding the app shell.** `layout.tsx` is `h-screen overflow-hidden` around an
+  `overflow-y-auto` column. On paper that clips the document to one viewport and prints
+  the scrollbar track. The `app-shell` / `app-scroll` hooks exist only so `@media print`
+  can return them to block flow at natural height. Do not remove those class names.
+- **Breaking.** `.report-page + .report-page` starts a new sheet. `.report-block` is
+  anything that must not be split across a fold; `.report-row` is one row of a list that
+  may otherwise span a fold; `.report-keep-with-next` glues a heading to its content.
+- **Colour.** Backgrounds are stripped by default, so `print-color-adjust: exact` is
+  forced. `StaleContent` also disables its blur under print, or a refetch in progress
+  would be committed permanently to the PDF.
+
+### Colour meanings on a printed sheet
+
+`SERIES[0]` is *completed* and `SERIES[1]` is *in production* for the whole page, so
+categorical colours (faculties) start at `SERIES[2]`. A faculty wearing blue would make
+one legend contradict another three centimetres below it. `buildFacultyColours` assigns
+one map per sheet, biggest first, never cycling the palette.

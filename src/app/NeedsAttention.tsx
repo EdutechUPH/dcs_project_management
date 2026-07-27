@@ -7,7 +7,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Hourglass, UserX } from "lucide-react";
-import { ChartCard, InfoNote } from "@/components/insight/primitives";
+import { InfoNote } from "@/components/insight/primitives";
+import { Card, CardContent } from "@/components/ui/card";
 import { OutOfYearPill, type OutOfYearTerm } from "@/components/insight/OutOfYearPill";
 import { STATUS } from "@/components/insight/tokens";
 import { cn } from "@/lib/utils";
@@ -219,64 +220,81 @@ export default function NeedsAttention({
     }));
 
     return (
-        <ChartCard
-            title="Needs attention"
-            titleNote="Ongoing projects only. Completed, pending and cancelled work is excluded."
-            aside={
-                nothingToDo ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: STATUS.good }}>
-                        <CheckCircle2 className="h-4 w-4" />
-                        All clear
-                    </span>
-                ) : undefined
-            }
-        >
-            {/* Hairline dividers, not just gaps. Three columns of very unequal length
-                previously floated in one space with nothing marking where one ended. */}
-            <div className="grid gap-5 sm:grid-cols-3 sm:gap-0">
-                <Column
-                    icon={<AlertTriangle className="h-4 w-4" />}
-                    title="Overdue"
-                    count={overdue.length}
-                    countUnit="project"
-                    tone={STATUS.critical}
-                    empty="Nothing past its deadline"
-                    rows={overdueRows}
-                    className="sm:pr-6"
-                />
+        // Not `ChartCard`: its header is a full-width band above the content, and this card
+        // is three short columns under a title that was costing more height than the rows it
+        // named. The title becomes the first column instead — same information, one band of
+        // vertical space saved on the densest part of the dashboard.
+        <Card className="border-gray-200/80 shadow-sm">
+            <CardContent className="py-5">
+                {/* Hairline dividers, not just gaps. Columns of very unequal length otherwise
+                    float in one space with nothing marking where one ends. */}
+                <div className="grid gap-5 sm:grid-cols-[11rem_repeat(3,minmax(0,1fr))] sm:gap-0">
+                    {/* The card's name, as the first column. It carries no tint or panel —
+                        the three data columns must look exactly as they did. What separates
+                        it is type: large, dark and sentence case against their small, grey,
+                        letterspaced capitals. */}
+                    <div className="sm:pr-6">
+                        <div className="flex items-center gap-1.5">
+                            <h3 className="text-lg font-semibold leading-tight tracking-tight text-gray-900">
+                                Needs attention
+                            </h3>
+                            <InfoNote note="Ongoing projects only. Completed, pending and cancelled work is excluded." />
+                        </div>
+                        {nothingToDo && (
+                            <span
+                                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium"
+                                style={{ color: STATUS.good }}
+                            >
+                                <CheckCircle2 className="h-4 w-4" />
+                                All clear
+                            </span>
+                        )}
+                    </div>
 
-                <Column
-                    icon={<Hourglass className="h-4 w-4" />}
-                    title="Waiting on lecturer review"
-                    count={reviewVideoCount}
-                    countUnit="video"
-                    tone={STATUS.warning}
-                    empty="No videos in review"
-                    rows={reviewRows}
-                    className="sm:border-l sm:border-gray-200 sm:px-6"
-                    note={
-                        reviewUndated > 0
-                            ? `Videos handed to a lecturer and not yet approved or sent back, grouped by course — the number is videos, the rows are courses. "Sent date unknown" means the hand-off happened before the app started recording those dates, so the wait cannot be measured; ${reviewUndated} ${reviewUndated === 1 ? "video is" : "videos are"} in that state and still counted here.`
-                            : "Videos handed to a lecturer and not yet approved or sent back, grouped by course — the number is videos, the rows are courses."
-                    }
-                />
+                    <Column
+                        icon={<AlertTriangle className="h-4 w-4" />}
+                        title="Overdue"
+                        count={overdue.length}
+                        countUnit="project"
+                        tone={STATUS.critical}
+                        empty="Nothing past its deadline"
+                        rows={overdueRows}
+                        className="sm:border-l sm:border-gray-200 sm:px-6"
+                    />
 
-                <Column
-                    icon={<UserX className="h-4 w-4" />}
-                    title="No main editor"
-                    count={unassigned.reduce((sum, u) => sum + u.count, 0)}
-                    countUnit="video"
-                    tone={STATUS.serious}
-                    empty="Every video in production has an editor"
-                    rows={unassignedRows}
-                    className="sm:border-l sm:border-gray-200 sm:pl-6"
-                    note={
-                        inheritedEditorVideos > 0
-                            ? `Separately, ${inheritedEditorVideos} ${inheritedEditorVideos === 1 ? "video uses" : "videos use"} the project's main editor rather than naming one per video. Nothing is unassigned, but analytics credits editing per video, so that work currently counts towards nobody.`
-                            : undefined
-                    }
-                />
-            </div>
-        </ChartCard>
+                    <Column
+                        icon={<Hourglass className="h-4 w-4" />}
+                        title="Waiting on lecturer review"
+                        count={reviewVideoCount}
+                        countUnit="video"
+                        tone={STATUS.warning}
+                        empty="No videos in review"
+                        rows={reviewRows}
+                        className="sm:border-l sm:border-gray-200 sm:px-6"
+                        note={
+                            reviewUndated > 0
+                                ? `Videos handed to a lecturer and not yet approved or sent back, grouped by course — the number is videos, the rows are courses. "Sent date unknown" means the hand-off happened before the app started recording those dates, so the wait cannot be measured; ${reviewUndated} ${reviewUndated === 1 ? "video is" : "videos are"} in that state and still counted here.`
+                                : "Videos handed to a lecturer and not yet approved or sent back, grouped by course — the number is videos, the rows are courses."
+                        }
+                    />
+
+                    <Column
+                        icon={<UserX className="h-4 w-4" />}
+                        title="No main editor"
+                        count={unassigned.reduce((sum, u) => sum + u.count, 0)}
+                        countUnit="video"
+                        tone={STATUS.serious}
+                        empty="Every video in production has an editor"
+                        rows={unassignedRows}
+                        className="sm:border-l sm:border-gray-200 sm:pl-6"
+                        note={
+                            inheritedEditorVideos > 0
+                                ? `Separately, ${inheritedEditorVideos} ${inheritedEditorVideos === 1 ? "video uses" : "videos use"} the project's main editor rather than naming one per video. Nothing is unassigned, but analytics credits editing per video, so that work currently counts towards nobody.`
+                                : undefined
+                        }
+                    />
+                </div>
+            </CardContent>
+        </Card>
     );
 }

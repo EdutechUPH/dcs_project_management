@@ -13,7 +13,9 @@ import { createClient } from '@/lib/supabase/server';
 import { getYearScope } from '@/lib/academic-year';
 import { editorCredit, type MetricProject } from '@/lib/reports/metrics';
 import MemberReport, { type ReportMember, type TeamTotals } from './MemberReport';
+import TeamReport from './TeamReport';
 import ReportControls from './ReportControls';
+import { FilterStatusProvider, StaleBanner, StaleContent } from '@/components/insight/FilterStatus';
 
 export const revalidate = 0;
 
@@ -85,9 +87,14 @@ export default async function ReportsPage({
             projectRoles: [...(projectRolesByMember.get(p.id) ?? [])],
         }));
 
-    // Absent means "everyone with work" rather than "nobody" — printing the whole team is
-    // the common case, and picking one person is the exception.
+    // The team report is what the page opens on: it is the document that describes the
+    // whole year, and the one most often wanted. Individual sheets are a step inward from
+    // it. Picking a person implies that step, so it switches view without a second click.
     const selectedMemberId = resolved.member ?? null;
+    const view = resolved.view === 'members' || selectedMemberId ? 'members' : 'team';
+
+    // Absent means "everyone with work" rather than "nobody" — printing every sheet at once
+    // is the common case, and picking one person is the exception.
     const shown = selectedMemberId
         ? members.filter(m => m.id === selectedMemberId)
         : members;
@@ -98,32 +105,32 @@ export default async function ReportsPage({
     const team: TeamTotals = [...editorIds].reduce<TeamTotals>((acc, id) => {
         const credit = editorCredit(projects, id);
         return {
+            ...acc,
             completedVideos: acc.completedVideos + credit.completedVideos,
             minutes: acc.minutes + credit.minutesCompleted,
         };
-    }, { completedVideos: 0, minutes: 0 });
+    }, { completedVideos: 0, minutes: 0, editors: editorIds.size });
 
     const generatedAt = new Date().toLocaleDateString('en-GB', {
         day: '2-digit', month: 'long', year: 'numeric',
     });
     const termNames = selectedTerms.map(t => t.name);
 
+    const sheetCount = view === 'team' ? (projects.length > 0 ? 3 : 0) : shown.length;
+
     return (
+        <FilterStatusProvider>
         <div className="min-h-screen bg-gray-100 print:min-h-0 print:bg-white">
+            <StaleBanner top="top-20" />
+
             <div className="p-8 print:hidden">
                 <div className="mx-auto max-w-5xl">
                     {/* No back link: this is a sidebar destination now, so navigation belongs
                         to the sidebar rather than a one-way link to wherever it used to live. */}
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900">Reports</h1>
-                    <p className="mt-1.5 text-sm text-gray-500">
-                        A sheet per team member — a second page where somebody has a lot of
-                        projects. Print and choose &ldquo;Save as PDF&rdquo;: the text stays
-                        selectable and searchable in the file. Turn off &ldquo;Headers and
-                        footers&rdquo; in the dialog, or the browser stamps its own URL and date
-                        on every sheet.
-                    </p>
 
                     <ReportControls
+                        view={view}
                         terms={(terms ?? []).map(t => ({
                             id: t.id,
                             name: t.name,
@@ -132,33 +139,52 @@ export default async function ReportsPage({
                         selectedTermIds={selectedTermIds}
                         members={members}
                         selectedMemberId={selectedMemberId}
-                        sheetCount={shown.length}
+                        sheetCount={sheetCount}
                     />
                 </div>
             </div>
 
-            <div className="space-y-8 pb-12 print:space-y-0 print:pb-0">
-                {selectedTermIds.length === 0 ? (
-                    <Empty>Choose at least one term to build a report.</Empty>
-                ) : shown.length === 0 ? (
-                    <Empty>
-                        Nobody has work recorded in{' '}
-                        {termNames.length === 1 ? `term ${termNames[0]}` : 'the selected terms'}.
-                    </Empty>
-                ) : (
-                    shown.map(member => (
-                        <MemberReport
-                            key={member.id}
-                            member={member}
-                            projects={projects}
-                            termNames={termNames}
-                            generatedAt={generatedAt}
-                            team={team}
-                        />
-                    ))
-                )}
-            </div>
+            {/* The sheets are the print target, so the veil has to leave no trace on paper —
+                `StaleContent` forces the blur off under @media print for exactly this. */}
+            <StaleContent>
+                <div className="space-y-8 pb-12 print:space-y-0 print:pb-0">
+                    {selectedTermIds.length === 0 ? (
+                        <Empty>Choose at least one term to build a report.</Empty>
+                    ) : view === 'team' ? (
+                        projects.length === 0 ? (
+                            <Empty>
+                                No projects in{' '}
+                                {termNames.length === 1 ? `term ${termNames[0]}` : 'the selected terms'}.
+                            </Empty>
+                        ) : (
+                            <TeamReport
+                                projects={projects}
+                                members={members}
+                                termNames={termNames}
+                                generatedAt={generatedAt}
+                            />
+                        )
+                    ) : shown.length === 0 ? (
+                        <Empty>
+                            Nobody has work recorded in{' '}
+                            {termNames.length === 1 ? `term ${termNames[0]}` : 'the selected terms'}.
+                        </Empty>
+                    ) : (
+                        shown.map(member => (
+                            <MemberReport
+                                key={member.id}
+                                member={member}
+                                projects={projects}
+                                termNames={termNames}
+                                generatedAt={generatedAt}
+                                team={team}
+                            />
+                        ))
+                    )}
+                </div>
+            </StaleContent>
         </div>
+        </FilterStatusProvider>
     );
 }
 
