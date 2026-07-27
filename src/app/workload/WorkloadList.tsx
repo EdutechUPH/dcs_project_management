@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, Calendar, Timer } from 'lucide-react';
+import { OutOfYearPill } from '@/components/insight/OutOfYearPill';
 import React from 'react';
 import { type WorkloadProfile, type Video } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -99,7 +100,13 @@ export default function WorkloadList({ workloadData }: { workloadData: WorkloadP
                         <div className="flex justify-between items-start gap-2">
                           <div className="flex-1 space-y-1">
                             <p className="font-semibold text-sm leading-tight text-gray-800">{project.course_name}</p>
-                            <p className="text-xs text-muted-foreground">as {assignment.role}</p>
+                            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                              <span>as {assignment.role}</span>
+                              {/* Whoever is balancing the team needs to see whether this
+                                  person's load is work slipping from a past term or a head
+                                  start on a future one — the two call for opposite responses. */}
+                              {project.outOfYearTerm && <OutOfYearPill value={project.outOfYearTerm} />}
+                            </p>
 
                             <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1">
                               <div className="flex items-center gap-1 bg-gray-100 px-1.5 py-0.5 rounded">

@@ -14,6 +14,17 @@ import { cn } from "@/lib/utils";
 type OneOption = {
     value: string;
     label: string;
+    /**
+     * Optional heading this option sits under — used to nest terms inside their academic
+     * year. When any option carries one, the list renders grouped and each heading gets a
+     * one-click toggle for its whole group, which is what makes "show me 2026/2027" a
+     * single action rather than three tick-boxes the reader has to know belong together.
+     *
+     * Options with no group are listed first, ungrouped.
+     */
+    group?: string;
+    /** Optional ordering hint for groups; lower sorts first. Defaults to alphabetical. */
+    groupOrder?: number;
 };
 
 type CheckboxFilterProps = {
@@ -51,6 +62,26 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
     }, [sorted, search]);
 
     const showSearch = options.length > searchThreshold;
+
+    // Bucket the visible options by group, preserving the sorted order within each. Groups
+    // are ordered by `groupOrder` where given (so the active academic year can lead) and
+    // alphabetically otherwise; ungrouped options stay in a leading unlabelled bucket.
+    const visibleGroups = React.useMemo(() => {
+        const buckets = new Map<string, { name: string; order: number; options: OneOption[] }>();
+        for (const option of visible) {
+            const name = option.group ?? '';
+            const bucket = buckets.get(name)
+                ?? { name, order: option.groupOrder ?? Number.MAX_SAFE_INTEGER, options: [] };
+            if (option.groupOrder != null) bucket.order = Math.min(bucket.order, option.groupOrder);
+            bucket.options.push(option);
+            buckets.set(name, bucket);
+        }
+        return [...buckets.values()].sort((a, b) => {
+            if (a.name === '') return -1;
+            if (b.name === '') return 1;
+            return a.order - b.order || a.name.localeCompare(b.name);
+        });
+    }, [visible]);
 
     // The trigger names the actual selection where it fits. "Lecturers · Dr Sari" tells
     // you what is filtered without opening anything; "(1)" makes you go look.
@@ -145,38 +176,81 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
                             Nothing matches &ldquo;{search.trim()}&rdquo;
                         </p>
                     )}
-                    {visible.map(option => {
-                        const isSelected = selected.includes(option.value);
+                    {visibleGroups.map(({ name, options: groupOptions }) => {
+                        const values = groupOptions.map(o => o.value);
+                        const allOn = values.every(v => selected.includes(v));
+                        const someOn = !allOn && values.some(v => selected.includes(v));
+
                         return (
-                            <button
-                                key={option.value}
-                                type="button"
-                                role="option"
-                                aria-selected={isSelected}
-                                onClick={() => toggle(option.value)}
-                                className={cn(
-                                    "flex w-full items-center gap-2.5 rounded px-2 py-1.5 text-left transition-colors",
-                                    isSelected ? "bg-blue-50/70" : "hover:bg-gray-100"
+                            <div key={name || '__ungrouped'} className="pb-1">
+                                {name && (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            // Toggling a heading is all-or-nothing for its members, and
+                                            // a partial selection turns fully on rather than off — the
+                                            // reader clicking "2026/2027" wants that year, not a diff.
+                                            onChange(
+                                                allOn
+                                                    ? selected.filter(v => !values.includes(v))
+                                                    : Array.from(new Set([...selected, ...values]))
+                                            )
+                                        }
+                                        className="mt-1 flex w-full items-center gap-2 rounded px-2 py-1 text-left transition-colors hover:bg-gray-100"
+                                    >
+                                        <span
+                                            className={cn(
+                                                "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all",
+                                                allOn ? "border-blue-600 bg-blue-600"
+                                                    : someOn ? "border-blue-600 bg-white"
+                                                        : "border-gray-300 bg-white"
+                                            )}
+                                        >
+                                            {allOn && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                                            {someOn && <span className="h-1.5 w-1.5 rounded-[1px] bg-blue-600" />}
+                                        </span>
+                                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                                            {name}
+                                        </span>
+                                    </button>
                                 )}
-                            >
-                                <span
-                                    className={cn(
-                                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all",
-                                        isSelected ? "border-blue-600 bg-blue-600" : "border-gray-300 bg-white"
-                                    )}
-                                >
-                                    {isSelected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-                                </span>
-                                <span
-                                    className={cn(
-                                        "truncate text-sm",
-                                        isSelected ? "font-medium text-blue-900" : "text-gray-700"
-                                    )}
-                                    title={option.label.trim()}
-                                >
-                                    {option.label.trim()}
-                                </span>
-                            </button>
+
+                                {groupOptions.map(option => {
+                                    const isSelected = selected.includes(option.value);
+                                    return (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={isSelected}
+                                            onClick={() => toggle(option.value)}
+                                            className={cn(
+                                                "flex w-full items-center gap-2.5 rounded py-1.5 text-left transition-colors",
+                                                name ? "pl-6 pr-2" : "px-2",
+                                                isSelected ? "bg-blue-50/70" : "hover:bg-gray-100"
+                                            )}
+                                        >
+                                            <span
+                                                className={cn(
+                                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all",
+                                                    isSelected ? "border-blue-600 bg-blue-600" : "border-gray-300 bg-white"
+                                                )}
+                                            >
+                                                {isSelected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                                            </span>
+                                            <span
+                                                className={cn(
+                                                    "truncate text-sm",
+                                                    isSelected ? "font-medium text-blue-900" : "text-gray-700"
+                                                )}
+                                                title={option.label.trim()}
+                                            >
+                                                {option.label.trim()}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         );
                     })}
                 </div>

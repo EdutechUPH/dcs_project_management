@@ -281,3 +281,72 @@ Rules that were deliberate, not stylistic preference:
 - **Production pipeline**: videos grouped by `status` in `PIPELINE_STAGES` order. Videos in Pending/Cancelled projects are counted separately as "parked" — folding them into `Requested` would overstate the queue. Unrecognised statuses are appended rather than dropped, so a new enum value can never vanish silently.
 - **Deadline risk**: unfinished, non-parked videos bucketed by `differenceInCalendarDays(deadline, today)` where deadline is `videos.due_date ?? projects.due_date` — the **same rule the on-time table uses**, so the two cards can never disagree. This is a *snapshot of remaining risk* and is unrelated to `delivered_at`; it works on historical rows where punctuality does not.
 - **Busiest editor's share**: the top editor's finished runtime as a percentage of the team's. High is a delivery risk (schedule depends on one person), not a compliment.
+
+## 13. Academic years and term scoping (added July 2026)
+
+`db_schema_academic_years.sql` adds a year layer above terms. Run it in the Supabase SQL
+Editor if it hasn't been applied; it is idempotent.
+
+| Column / table | Purpose |
+|---|---|
+| `academic_years` | `name` ('2025/2026'), `code` ('125' — the term-name prefix it owns), `is_active` |
+| `terms.academic_year_id` | Which year a term belongs to |
+| Partial unique index `academic_years_one_active` | Enforces **at most one active year** in the database, not in application code |
+
+### What a term actually means ⚠️
+
+**`projects.term_id` is the term the COURSE is for — not when the work happens.** Getting
+this backwards is the single most expensive mistake available here, and it was made once
+already. The two come apart in *both* directions, and the live data shows both:
+
+- A 1251 course still in production a year later (`Basic Adolescence Health`, 46 videos, due 2026-12-30).
+- A 1261 course recorded during the 25-26 year (`Pengantar Hukum Indonesia`, entered 2026-04-08).
+
+The first version of this feature scoped live work to *the active year plus backwards
+carry-over only*. That silently hid three live 1261 projects — 45 videos in flight —
+because their term had not started yet. **Never gate live work by year.**
+
+Note also that `projects.created_at` is **data-entry time, not request time**: most rows
+were entered in a bulk backfill during Jan–Feb 2026, including 1251 projects whose due
+dates are in August 2025. Do not read it as a commitment date.
+
+### The scoping rule
+
+| Work | Rule | Why |
+|---|---|---|
+| **Live** (not completed, not Pending/Cancelled) | **Always in scope**, whatever term it is for | Work in flight is work in flight; hiding it sends people more |
+| **Completed / parked** | Scoped to the active year | That is a reporting question, and the term is what a report is about |
+
+Out-of-year live work is **labelled, never hidden** — `yearRelation()` in
+`src/lib/academic-year.ts` returns `behind` (its term has passed) or `ahead` (its term has
+not started), rendered by `OutOfYearPill`. The asymmetry is deliberate: `behind` is amber
+because something is slipping; `ahead` is grey because recording early is good practice and
+colouring it would train people to ignore the colour.
+
+Only `behind` gets its own dashboard tile. `ahead` sits inside Ongoing — it is ordinary
+production, just early.
+
+### Per-page differences (intentional)
+
+- **Dashboard and workload** are operational: every live project, whatever its term.
+- **Analytics** is strict — a year means exactly its terms, because a report describes a
+  cohort. The two pages can therefore report different live counts for the same year. Both
+  state their scope in words.
+
+Analytics implements the year as a **shortcut that selects its terms** rather than a second
+scoping mechanism: the term dropdown nests terms under year headings, and a heading toggles
+its group. One consequence to preserve: a **missing** `terms` param means "not chosen yet →
+active year", while a **present-but-empty** one means "cleared → all years". `buildParams`
+therefore always writes `terms`, empty included; without that, changing an unrelated filter
+would silently snap the scope back to the active year.
+
+### Switching the active year
+
+`setActiveAcademicYear()` is two writes — stand the incumbent down, then promote the
+successor — because the partial unique index permits only one `true`. If the second write
+fails, **no** year is active, which degrades to unscoped all-time figures and says so. That
+is the right way round: two active years has no defined meaning. Admin-only, and the
+consequences are spelled out in a confirmation modal rather than left as page furniture.
+
+`getYearScope()` returns `NO_YEAR_SCOPE` if the tables are missing, so every consumer falls
+back to its pre-feature all-time behaviour instead of throwing.

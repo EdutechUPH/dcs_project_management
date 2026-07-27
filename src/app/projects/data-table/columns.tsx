@@ -4,6 +4,7 @@ import { ColumnDef } from "@tanstack/react-table"
 import { Project } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { MoreHorizontal } from "lucide-react"
+import { OutOfYearPill } from "@/components/insight/OutOfYearPill"
 import Link from "next/link"
 import {
     DropdownMenu,
@@ -70,7 +71,12 @@ export const columns: ColumnDef<Project>[] = [
                     >
                         {project.course_name}
                     </Link>
-                    <div className="truncate text-sm text-gray-500">{project.lecturers?.name}</div>
+                    <div className="flex items-center gap-1.5 truncate text-sm text-gray-500">
+                        <span className="truncate">{project.lecturers?.name}</span>
+                        {/* Only present when the term sits outside the active year, so the
+                            pill marks the exception rather than decorating every row. */}
+                        {project.outOfYearTerm && <OutOfYearPill value={project.outOfYearTerm} />}
+                    </div>
                 </div>
             )
         },

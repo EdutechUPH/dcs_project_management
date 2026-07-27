@@ -18,6 +18,7 @@ import RevisionStats from "./RevisionStats";
 import { SectionHeading, StatTile, EmptyState } from "./ui";
 import { PIPELINE_STAGES, formatMinutes } from "./chart-theme";
 import { type AnalyticsData, type KeyMetricsData } from "@/lib/types";
+import { getYearScope } from "@/lib/academic-year";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { differenceInCalendarDays, endOfDay, format, parseISO, startOfDay, startOfWeek } from 'date-fns';
 import { Filter, Gauge, MessageSquareQuote, Scale, Users } from "lucide-react";
@@ -107,8 +108,29 @@ export default async function AnalyticsPage(props: {
   const facultyIds = toArray(searchParams.faculties);
   const prodiIds = toArray(searchParams.prodi);
   const lecturerIds = toArray(searchParams.lecturers);
-  const termIds = toArray(searchParams.terms);
   const editorIds = toArray(searchParams.editors);
+
+  // --- Academic year default ---
+  // The year is not a separate scope here; it is a shortcut that selects its terms. That
+  // keeps one mental model — everything on this page is a term filter — and makes the
+  // override the obvious thing: change the filter.
+  //
+  // Note this is STRICTER than the dashboard, which additionally keeps still-running work
+  // from earlier years visible as carry-over. Analytics reports on a cohort, so 2026/2027
+  // means exactly the projects commissioned in 2026/2027. The two pages can therefore
+  // report different live counts for the same year, which is correct but worth stating —
+  // the scope note under the title does.
+  const yearScope = await getYearScope(supabase);
+  const defaultTermIds = yearScope.activeTermIds.map(String);
+
+  // Absent means "not chosen yet" → default to the active year. Present-but-empty means
+  // the user cleared it → every year. toArray() collapses both to null, so the raw param
+  // is tested first.
+  const termsParam = searchParams.terms;
+  const termIds = termsParam === undefined && defaultTermIds.length > 0
+    ? defaultTermIds
+    : toArray(termsParam);
+  const usingYearDefault = termsParam === undefined && defaultTermIds.length > 0;
 
   // --- Main Query ---
   let query = supabase
@@ -608,7 +630,7 @@ export default async function AnalyticsPage(props: {
     supabase.from("faculties").select("id, name, short_name"),
     supabase.from("prodi").select("id, name"),
     supabase.from("lecturers").select("id, name"),
-    supabase.from("terms").select("id, name"),
+    supabase.from("terms").select("id, name, academic_year_id"),
     supabase.from("profiles").select("id, full_name"),
     // The "of N" denominator for the scope note. Mirrors the main query's inner join so
     // the two counts are comparable, and is head-only so it costs a count, not a payload.
@@ -616,13 +638,34 @@ export default async function AnalyticsPage(props: {
   ]);
 
   const totalVideoCount = unfilteredVideoCount ?? videos.length;
+  // The active-year default is a scope, not a user filter: flagging it as "Filtered" would
+  // cry wolf on every first visit and devalue the badge where it matters. The scope note
+  // below names the year instead.
   const isFiltered =
     from != null || to != null ||
     facultyIds != null || prodiIds != null || lecturerIds != null ||
-    termIds != null || editorIds != null;
+    (termIds != null && !usingYearDefault) || editorIds != null;
 
   const mapToOptions = (items: Mappable[] | null | undefined) =>
     (items ?? []).map((item) => ({ value: item.id.toString(), label: item.full_name || item.name || "" }));
+
+  // Terms nest under their academic year in the dropdown, so picking a whole year is one
+  // click on its heading. The active year sorts first — it is the one being reported on.
+  const yearById = new Map(yearScope.years.map(y => [y.id, y]));
+  const termOptions = ((terms ?? []) as { id: number; name: string; academic_year_id: number | null }[])
+    .map(term => {
+      const year = term.academic_year_id != null ? yearById.get(term.academic_year_id) : undefined;
+      return {
+        value: String(term.id),
+        label: term.name,
+        group: year?.name,
+        // Descending code order puts the newest year at the top, and the active year
+        // ahead of everything regardless of age.
+        groupOrder: year
+          ? (year.is_active ? -1 : 1000 - Number(year.code))
+          : undefined,
+      };
+    });
 
   const groupLabel = GROUP_LABELS[groupBy] ?? groupBy;
   const tabTrigger =
@@ -644,6 +687,12 @@ export default async function AnalyticsPage(props: {
             )}
           </div>
           <p className="text-sm text-gray-500">
+            {usingYearDefault && yearScope.active && (
+              <>
+                <span className="font-medium text-gray-700">{yearScope.active.name}</span>
+                {" · "}
+              </>
+            )}
             {isFiltered ? (
               <>
                 <span className="font-medium text-gray-700">
@@ -676,8 +725,10 @@ export default async function AnalyticsPage(props: {
           faculties={mapToOptions(faculties)}
           prodi={mapToOptions(prodi)}
           lecturers={mapToOptions(lecturers)}
-          terms={mapToOptions(terms)}
+          terms={termOptions}
           editors={mapToOptions(editors)}
+          defaultTermIds={defaultTermIds}
+          activeYearName={yearScope.active?.name ?? null}
           filteredCount={videos.length}
           totalCount={totalVideoCount}
         />

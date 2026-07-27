@@ -5,11 +5,20 @@
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Hourglass, UserX } from "lucide-react";
 import { ChartCard } from "@/components/insight/primitives";
+import { OutOfYearPill, type OutOfYearTerm } from "@/components/insight/OutOfYearPill";
 import { STATUS } from "@/components/insight/tokens";
 
-export type OverdueItem = { projectId: number; courseName: string; daysLate: number; remaining: number };
+export type OverdueItem = {
+    projectId: number;
+    courseName: string;
+    daysLate: number;
+    remaining: number;
+    /** Set only when the project's term sits outside the active academic year. */
+    outOfYearTerm: OutOfYearTerm | null;
+};
 export type ReviewItem = { projectId: number; courseName: string; title: string; daysWaiting: number | null };
 export type UnassignedItem = { projectId: number; courseName: string; count: number };
+
 
 type Props = {
     overdue: OverdueItem[];
@@ -128,6 +137,9 @@ export default function NeedsAttention({
                             className={rowClass}
                         >
                             <span className="font-medium">{item.courseName}</span>
+                            {item.outOfYearTerm && (
+                                <OutOfYearPill value={item.outOfYearTerm} className="ml-1.5" />
+                            )}
                             <span className="text-gray-500">
                                 {" "}— {item.daysLate}d late,{" "}
                                 {item.remaining === 0 ? "all videos done" : `${item.remaining} left`}

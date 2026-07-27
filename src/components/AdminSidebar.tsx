@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const navLinks = [
+  // Terms live inside this screen; they have no page of their own so that one can never
+  // be created without a year.
+  { href: '/admin/academic-years', label: 'Academic Years & Terms' },
   { href: '/admin/faculties', label: 'Faculties' },
   { href: '/admin/prodi', label: 'Study Programs' },
   { href: '/admin/lecturers', label: 'Lecturers' },
   { href: '/admin/users', label: 'Manage Users' },
-  { href: '/admin/terms', label: 'Terms' },
 ];
 
 export default function AdminSidebar() {

@@ -15,7 +15,7 @@ import { Calendar as CalendarIcon, Check, Download, Filter, RotateCcw, X } from 
 import { cn } from "@/lib/utils";
 import { useReportFilterStatus } from './FilterStatus';
 
-type Option = { value: string; label: string; };
+type Option = { value: string; label: string; group?: string; groupOrder?: number };
 
 type FilterControlsProps = {
   faculties: Option[];
@@ -23,6 +23,18 @@ type FilterControlsProps = {
   lecturers: Option[];
   terms: Option[];
   editors: Option[];
+  /**
+   * Terms of the active academic year, applied when the URL carries no `terms` at all.
+   *
+   * The distinction that makes this work: a MISSING `terms` param means "nobody has
+   * chosen yet, so show the active year", while a PRESENT-but-empty one means "the user
+   * cleared it, so show every year". Because the draft is seeded from this default,
+   * every subsequent navigation writes `terms` explicitly and the two states never blur
+   * — otherwise changing an unrelated filter would silently snap the scope back.
+   */
+  defaultTermIds: string[];
+  /** Name of the active year, for saying which default is in force. */
+  activeYearName: string | null;
   /** Videos matching the filters currently applied. */
   filteredCount: number;
   /** Videos in the database, ignoring all filters — the "of N" half of the scope note. */
@@ -59,6 +71,8 @@ export default function AnalyticsFilters({
   lecturers,
   terms,
   editors,
+  defaultTermIds,
+  activeYearName,
   filteredCount,
   totalCount,
 }: FilterControlsProps) {
@@ -85,7 +99,10 @@ export default function AnalyticsFilters({
     faculties: searchParams.get('faculties')?.split(',').filter(Boolean) || [],
     prodi: searchParams.get('prodi')?.split(',').filter(Boolean) || [],
     lecturers: searchParams.get('lecturers')?.split(',').filter(Boolean) || [],
-    terms: searchParams.get('terms')?.split(',').filter(Boolean) || [],
+    // null (absent) falls back to the active year; '' (present, empty) is a deliberate
+    // "all years" and must survive. `?? ` rather than `||` for exactly that reason.
+    terms: (searchParams.get('terms') ?? defaultTermIds.join(','))
+      .split(',').filter(Boolean),
     editors: searchParams.get('editors')?.split(',').filter(Boolean) || [],
   });
   const [groupBy, setGroupBy] = useState(searchParams.get('groupBy') || 'faculty');
@@ -104,6 +121,9 @@ export default function AnalyticsFilters({
     (Object.keys(DIMENSION_LABELS) as DimensionKey[]).forEach(key => {
       const values = draft.selected[key];
       if (values.length > 0) params.set(key, values.join(','));
+      // `terms` is always written, empty included, so that clearing it reads as "all
+      // years" rather than reverting to the active-year default on the next navigation.
+      else if (key === 'terms') params.set('terms', '');
     });
     return params;
   };
@@ -115,9 +135,13 @@ export default function AnalyticsFilters({
   const applied = useMemo(() => {
     const params = new URLSearchParams(searchParams.toString());
     if (!params.get('groupBy')) params.set('groupBy', 'faculty');
+    // The server applies the active-year default to a missing `terms`, so spell it out
+    // here too — otherwise a first visit looks dirty and prompts an Apply that would
+    // change nothing.
+    if (!params.has('terms')) params.set('terms', defaultTermIds.join(','));
     params.sort();
     return params.toString();
-  }, [searchParams]);
+  }, [searchParams, defaultTermIds]);
 
   const draftString = useMemo(() => {
     const params = new URLSearchParams(currentParams.toString());
@@ -198,7 +222,24 @@ export default function AnalyticsFilters({
     chips.push({ id: 'date', label: `Requested ${label}`, onRemove: () => applyWith({ date: undefined }) });
   }
 
+  // When the term selection is exactly the active year, say so in one chip. Three chips
+  // reading "Term: 1261", "Term: 1262", "Term: 1263" describe the same scope in a way the
+  // reader has to reassemble, and removing one of them silently produces a partial year.
+  const termsAreActiveYear =
+    activeYearName != null &&
+    defaultTermIds.length > 0 &&
+    selected.terms.length === defaultTermIds.length &&
+    defaultTermIds.every(id => selected.terms.includes(id));
+
   (Object.keys(DIMENSION_LABELS) as DimensionKey[]).forEach(key => {
+    if (key === 'terms' && termsAreActiveYear) {
+      chips.push({
+        id: 'terms:active-year',
+        label: `Academic year: ${activeYearName}`,
+        onRemove: () => applyWith({ selected: { ...selected, terms: [] } }),
+      });
+      return;
+    }
     selected[key].forEach(value => {
       const option = optionsFor[key].find(o => o.value === value);
       chips.push({

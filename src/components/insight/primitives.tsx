@@ -149,12 +149,31 @@ export type StatTileProps = {
     value: string;
     /** Small unit rendered after the value at text weight, e.g. "/5". */
     unit?: string;
+    /** Noun under the figure — "projects", "videos". Only needed when `secondary` is set. */
+    valueLabel?: string;
+    /**
+     * A second figure of equal standing, shown beside the first behind a hairline.
+     *
+     * For a state that is counted in two units at once — projects AND the videos inside
+     * them. Both are the answer, so neither is demoted to a `hint`: a row of tiles where
+     * one card says "6" and another says "105" invites the reader to compare two numbers
+     * that were never comparable. Paired, each card is one state read two ways.
+     *
+     * The secondary never wears `tone`. One alarm-coloured figure per card is a signal;
+     * two is just a red card.
+     */
+    secondary?: { value: string; label: string };
     hint?: string;
     icon?: React.ReactNode;
     /**
-     * Hex colour for the icon chip and the card's top rule. Gives a row of tiles distinct
-     * identities so they can be told apart at a glance, without implying the FIGURE means
-     * something good or bad — that stays the job of `tone`. Omit for the plain treatment.
+     * Hex colour for the icon chip. Gives a row of tiles distinct identities so they can be
+     * told apart at a glance, without implying the FIGURE means something good or bad — that
+     * stays the job of `tone`. Omit for the plain treatment.
+     *
+     * Deliberately bounded to the chip. This used to also paint a 3px rule across the top of
+     * the card; that read as decoration stretched across the whole tile and is a tell of
+     * generated dashboards. Contained behind the icon, the same colour still separates four
+     * tiles at a glance without competing with the figure.
      */
     accent?: string;
     tone?: Tone;
@@ -169,6 +188,8 @@ export function StatTile({
     label,
     value,
     unit,
+    valueLabel,
+    secondary,
     hint,
     icon,
     accent,
@@ -178,12 +199,7 @@ export function StatTile({
     hero = false,
 }: StatTileProps) {
     return (
-        <Card className="relative overflow-hidden border-gray-200/80 shadow-sm transition-shadow hover:shadow-md">
-            {/* A 3px rule in the accent colour. Enough to tell four tiles apart in a row;
-                not enough to compete with the figure for attention. */}
-            {accent && (
-                <span aria-hidden className="absolute inset-x-0 top-0 h-[3px]" style={{ background: accent }} />
-            )}
+        <Card className="border-gray-200/80 shadow-sm transition-shadow hover:shadow-md">
             <CardContent className="p-5">
                 <div className="flex items-start justify-between gap-3">
                     <p className="text-xs font-medium uppercase tracking-[0.06em] text-gray-500">{label}</p>
@@ -202,17 +218,33 @@ export function StatTile({
                     )}
                 </div>
 
-                <div className="mt-2 flex items-end gap-1.5">
-                    <span
-                        className={cn(
-                            "font-semibold leading-none tracking-tight",
-                            hero ? "text-[2.75rem]" : "text-[1.75rem]",
-                            TONE_TEXT[tone]
-                        )}
-                    >
-                        {value}
-                    </span>
-                    {unit && <span className="pb-1 text-sm font-normal text-gray-500">{unit}</span>}
+                <div className="mt-2 flex items-start gap-5">
+                    <div className="min-w-0">
+                        <div className="flex items-end gap-1.5">
+                            <span
+                                className={cn(
+                                    "font-semibold leading-none tracking-tight",
+                                    hero ? "text-[2.75rem]" : "text-[1.75rem]",
+                                    TONE_TEXT[tone]
+                                )}
+                            >
+                                {value}
+                            </span>
+                            {unit && <span className="pb-1 text-sm font-normal text-gray-500">{unit}</span>}
+                        </div>
+                        {valueLabel && <p className="mt-1.5 text-xs text-gray-500">{valueLabel}</p>}
+                    </div>
+
+                    {secondary && (
+                        // Hairline rather than a middle dot: the two figures count different
+                        // things, so they need separating, not joining into one reading.
+                        <div className="min-w-0 border-l border-gray-200 pl-5">
+                            <span className="text-[1.75rem] font-semibold leading-none tracking-tight text-gray-900">
+                                {secondary.value}
+                            </span>
+                            <p className="mt-1.5 text-xs text-gray-500">{secondary.label}</p>
+                        </div>
+                    )}
                 </div>
 
                 {meter != null && (

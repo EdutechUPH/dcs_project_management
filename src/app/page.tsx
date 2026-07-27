@@ -9,6 +9,14 @@ import { DashboardStats } from './DashboardStats';
 import { Pagination } from '@/components/Pagination';
 import StatusTabsClient from './StatusTabsClient';
 import { Plus } from 'lucide-react';
+import {
+  fromEarlierYear,
+  getYearScope,
+  inActiveYear,
+  outOfYearTerm,
+  shouldScopeToYear,
+  yearLabel,
+} from '@/lib/academic-year';
 
 export const revalidate = 0;
 
@@ -92,7 +100,35 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     return !['Pending', 'Cancelled'].includes(p.status || 'Active');
   };
 
-  const everyProject = (allStatsData ?? []) as StatsProject[];
+  const trackedProjects = (allStatsData ?? []) as StatsProject[];
+
+  // --- ACADEMIC YEAR SCOPE ---
+  //
+  // A project's term says which term the COURSE is for, not when the work happens. Those
+  // come apart in both directions: a 1251 course can still be in production a year later,
+  // and a 1262 course is often recorded during 1252. So the year cannot gate what counts
+  // as live work — an earlier version of this scoped live projects to the active year
+  // plus backwards carry-over only, which silently hid a project people were working on
+  // because its term had not started yet.
+  //
+  // The rule that replaced it:
+  //   · LIVE work is always in scope, whatever term it is for. Out-of-year work is
+  //     labelled (see outOfYearTerm), never hidden.
+  //   · FINISHED and parked work is scoped to the active year, because that is a
+  //     reporting question and the term is what a report is about.
+  //
+  // An explicit term filter overrides all of it; see shouldScopeToYear.
+  const yearScope = await getYearScope(supabase);
+  const scopingToYear = shouldScopeToYear(yearScope, termIds);
+
+  /** Live work for a term whose year has already passed — behind its intended term. */
+  const isBehind = (p: StatsProject) =>
+    scopingToYear && isActiveStatus(p) && fromEarlierYear(p, yearScope);
+
+  const inScope = (p: StatsProject) =>
+    !scopingToYear || isActiveStatus(p) || inActiveYear(p, yearScope);
+
+  const everyProject = trackedProjects.filter(inScope);
 
   const matchesDimensions = (p: StatsProject) =>
     (!facultyIds || facultyIds.includes(String(p.faculty_id))) &&
@@ -101,7 +137,35 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const allProjects = everyProject.filter(matchesDimensions);
 
+  // Work running behind its intended term is counted separately from the rest of the
+  // queue, so neither number quietly absorbs the other. Work recorded AHEAD of its term
+  // is not split out — it is ordinary production, just early, and it stays in Ongoing
+  // with a quiet pill rather than being treated as an anomaly.
+  const behindProjects = allProjects.filter(isBehind);
+  const behindVideos = behindProjects.reduce((acc, p) =>
+    acc + (p.videos ?? []).filter(v => v.status !== 'Done').length, 0
+  );
+  const behindIds = new Set(behindProjects.map(p => p.id));
+
+  // Which year(s) the debt is from. Usually one, but nothing stops work surviving two
+  // year-ends, so the label degrades to a count rather than naming the wrong year.
+  const behindYears = [
+    ...new Set(behindProjects.map(p => yearLabel(p, yearScope)).filter(Boolean)),
+  ] as string[];
+  const previousYearName =
+    behindYears.length === 1 ? behindYears[0]
+      : behindYears.length > 1 ? `${behindYears.length} earlier years`
+        : null;
+
+  // Every live project in scope, carry-over included. The status TABS read from this, so
+  // a carried-over project is still reachable under "Ongoing" — it is live work, and
+  // giving it its own card must not make it unclickable everywhere else.
   const globalIncomplete = allProjects.filter(p => isActiveStatus(p));
+
+  // The cards split that total in two: this year's commitment, and last year's debt.
+  // Disjoint by construction, so the two figures add back up to globalIncomplete.
+  const ongoingProjects = globalIncomplete.filter(p => !behindIds.has(p.id));
+
   const globalComplete = allProjects.filter(p => isCompleted(p));
   const globalPending = allProjects.filter(p => !isCompleted(p) && p.status === 'Pending');
   const globalCancelled = allProjects.filter(p => !isCompleted(p) && p.status === 'Cancelled');
@@ -114,13 +178,32 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     cancelled: everyProject.filter(p => !isCompleted(p) && p.status === 'Cancelled').length,
   };
 
-  const globalOverdue = globalIncomplete.filter(p =>
+  const overdueProjects = globalIncomplete.filter(p =>
     p.due_date && new Date(p.due_date) < new Date()
-  ).length;
+  );
+  const globalOverdue = overdueProjects.length;
 
-  const globalWipVideos = globalIncomplete.reduce((acc, p) =>
+  // The videos actually at stake behind the overdue count. A project one video short of
+  // done and a project with 46 outstanding are both "1 overdue" without this.
+  const globalOverdueVideos = overdueProjects.reduce((acc, p) =>
     acc + (p.videos ?? []).filter(v => v.status !== 'Done').length, 0
   );
+
+  const undeliveredVideos = (projects: StatsProject[]) =>
+    projects.reduce((acc, p) => acc + (p.videos ?? []).filter(v => v.status !== 'Done').length, 0);
+
+  // Videos still owed across everything live, carry-over included — the true size of the
+  // production queue. The Ongoing card shows only this year's share of it.
+  const globalWipVideos = undeliveredVideos(globalIncomplete);
+  const ongoingVideos = undeliveredVideos(ongoingProjects);
+
+  // Videos finished inside the scope, deliberately NOT limited to videos in completed
+  // projects. A live project can be a hundred videos deep with more to come, and that
+  // delivered work is real. Pending and Cancelled are excluded so this counts the same
+  // universe of work as the completion percentage beside it.
+  const globalDeliveredVideos = allProjects
+    .filter(p => !behindIds.has(p.id) && !['Pending', 'Cancelled'].includes(p.status || 'Active'))
+    .reduce((acc, p) => acc + (p.videos ?? []).filter(v => v.status === 'Done').length, 0);
 
   // --- NEEDS ATTENTION: triage lists, live projects only ---
   const now = new Date();
@@ -133,6 +216,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       courseName: p.course_name ?? `Project ${p.id}`,
       daysLate: daysSince(p.due_date!),
       remaining: (p.videos ?? []).filter(v => v.status !== 'Done').length,
+      // Present only when the term sits outside the active year, so the pill appears
+      // where it informs. Overdue and out-of-year are independent facts: a project can be
+      // late for a term that has not even started.
+      outOfYearTerm: scopingToYear ? outOfYearTerm(p, yearScope) : null,
     }))
     .sort((a, b) => b.daysLate - a.daysLate);
 
@@ -226,6 +313,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const totalPages = Math.ceil((count || 0) / itemsPerPage);
 
+  // Tag the rows the table will render, so a project for a term outside the active year
+  // explains itself in place rather than looking like a stray.
+  const tableRows = ((projects ?? []) as Project[]).map(p => ({
+    ...p,
+    outOfYearTerm: scopingToYear ? outOfYearTerm({ term_id: p.term_id }, yearScope) : null,
+  }));
+
   // Fetch filter options
   const { data: faculties } = await supabase.from('faculties').select('id, name');
   const { data: terms } = await supabase.from('terms').select('id, name');
@@ -243,9 +337,23 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1.5">
           <h1 className="text-3xl font-bold tracking-tight text-gray-900">Projects</h1>
+          {/* The scope is stated, never implied. A reader who does not know an academic
+              year is being applied would otherwise read these figures as all-time. */}
           <p className="text-sm text-gray-500">
+            {scopingToYear && yearScope.active && (
+              <span className="font-medium text-gray-700">{yearScope.active.name}</span>
+            )}
+            {scopingToYear && yearScope.active && " · "}
             {globalIncomplete.length} live · {globalWipVideos} videos in production ·{" "}
             {globalComplete.length} completed
+            {behindProjects.length > 0 && (
+              <>
+                {" · "}
+                <span className="text-amber-700">
+                  including {behindProjects.length} behind their term
+                </span>
+              </>
+            )}
           </p>
         </div>
         <Link
@@ -258,10 +366,16 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       </div>
 
       <DashboardStats
-        totalActive={globalIncomplete.length}
-        videosInProduction={globalWipVideos}
+        totalActive={ongoingProjects.length}
+        videosInProduction={ongoingVideos}
+        behindProjects={behindProjects.length}
+        behindVideos={behindVideos}
+        behindFromYear={behindProjects.length > 0 ? previousYearName : null}
         overdueProjects={globalOverdue}
+        overdueVideos={globalOverdueVideos}
         totalCompleted={globalComplete.length}
+        videosDelivered={globalDeliveredVideos}
+        activeYearName={scopingToYear ? yearScope.active?.name ?? null : null}
       />
 
       <NeedsAttention
@@ -289,7 +403,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           cancelled: globalCancelled.length,
         }}
       >
-        <DataTable columns={columns} data={projects as Project[]} />
+        <DataTable columns={columns} data={tableRows} />
         <div className="mt-8">
           <Pagination
             currentPage={currentPage}

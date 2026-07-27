@@ -80,6 +80,18 @@ export interface Project {
   feedback_submission: FeedbackSubmission | null;
   status?: string;
   project_folder_url?: string | null;
+  /**
+   * Set when this project's term sits outside the active academic year — either behind
+   * it (the term has passed) or ahead of it (the term has not started). Null or absent
+   * for current-year work, so the pill marks the exception rather than every row.
+   *
+   * Attached by the page building the row rather than read from the database, because
+   * "outside the active year" is only meaningful relative to whichever year is active.
+   * It rides on the row because `columns` is a client-module reference passed from a
+   * server component: the server cannot call a factory to close over the set, but it
+   * can put plain data on each row.
+   */
+  outOfYearTerm?: { term: string; direction: 'behind' | 'ahead' } | null;
 }
 
 
