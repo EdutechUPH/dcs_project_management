@@ -8,6 +8,7 @@ import {
     LayoutDashboard,
     FolderOpen,
     BarChart3,
+    FileText,
     Settings,
     LogOut,
     PlusCircle,
@@ -30,6 +31,14 @@ const sidebarItems = [
         title: "Analytics",
         href: "/analytics",
         icon: BarChart3,
+    },
+    {
+        // Next to Analytics because they read the same numbers, but its own destination
+        // rather than a tab inside it: analytics is for exploring, this produces a document
+        // every member needs their own copy of.
+        title: "Reports",
+        href: "/reports",
+        icon: FileText,
     },
     {
         title: "Team Workload",
@@ -78,7 +87,9 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
 
     return (
         <div className={cn(
-            "flex-col h-screen w-64 bg-gray-900 text-white border-r flex",
+            // `print:hidden` because /reports prints the page it is on: without this the
+            // navigation eats a third of every sheet of paper.
+            "flex-col h-screen w-64 bg-gray-900 text-white border-r flex print:hidden",
             mobile ? "w-full border-none" : "hidden md:flex"
         )}>
             <div className="p-6">

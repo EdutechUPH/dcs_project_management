@@ -74,6 +74,22 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    /*
+     * Runs on PAGE requests only.
+     *
+     * Every request that reaches this middleware costs a `getUser()` — a network call to
+     * the Supabase Auth server — plus a `profiles` query. The previous matcher excluded
+     * only `_next/static`, `_next/image` and the favicon, which let two expensive things
+     * through:
+     *
+     *   · `/_next/webpack-hmr`, the dev hot-reload channel, which POLLS CONTINUOUSLY.
+     *     Every poll was a fresh auth round trip, which is what exhausted the auth rate
+     *     limit and started bouncing real page loads to /login with a 429.
+     *   · every file in /public — each image on a page cost its own auth call.
+     *
+     * Excluding all of `_next` and anything with a static file extension leaves the
+     * middleware doing what it is for: guarding pages.
+     */
+    '/((?!_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|otf|css|js|map)$).*)',
   ],
 };

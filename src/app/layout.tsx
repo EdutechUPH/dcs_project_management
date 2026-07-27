@@ -24,14 +24,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="flex h-screen overflow-hidden bg-white relative">
+        {/* `app-shell` / `app-scroll` are print hooks, not styling. The shell is a fixed-
+            height flex layout with its own scroll container — right for a screen, but on
+            paper it clips the document to one viewport and prints the scrollbar track with
+            it. globals.css unwinds both under @media print. */}
+        <div className="app-shell flex h-screen overflow-hidden bg-white relative">
           <MobileSidebar /> {/* Add Mobile Sidebar Trigger/Sheet */}
           <Sidebar /> {/* Desktop Sidebar (hidden on mobile) */}
-          <div className="flex-1 flex flex-col overflow-y-auto h-full w-full"> {/* Ensure full width */}
+          <div className="app-scroll flex-1 flex flex-col overflow-y-auto h-full w-full"> {/* Ensure full width */}
             <main className="flex-1 bg-white pt-14 md:pt-0">{children}</main> {/* Add padding top for mobile menu trigger space */}
           </div>
         </div>
-        <Toaster />
+        <div className="print:hidden">
+          <Toaster />
+        </div>
       </body>
     </html>
   );

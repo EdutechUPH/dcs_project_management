@@ -19,9 +19,15 @@ import { SectionHeading, StatTile, EmptyState } from "./ui";
 import { PIPELINE_STAGES, SERIES, formatMinutes } from "./chart-theme";
 import { type AnalyticsData, type KeyMetricsData } from "@/lib/types";
 import { getYearScope } from "@/lib/academic-year";
+import {
+  isProjectParked,
+  isVideoInProduction,
+  punctuality,
+  runtimeMinutes,
+} from "@/lib/reports/metrics";
 import { memberOptions } from "@/lib/roles";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { differenceInCalendarDays, endOfDay, format, parseISO, startOfDay, startOfWeek } from 'date-fns';
+import { differenceInCalendarDays, format, parseISO, startOfDay, startOfWeek } from 'date-fns';
 import { Filter, Gauge, MessageSquareQuote, Scale, Users } from "lucide-react";
 
 // Minimal shapes used by this page
@@ -223,14 +229,15 @@ export default async function AnalyticsPage(props: {
     v.projects?.status !== 'Cancelled'
   ).length;
 
-  // Shared definition of "in production": not yet completed, and in a project that is neither
-  // parked nor abandoned. Used by the pipeline, the risk buckets and every workload count.
-  const isVideoActive = (v: VideoRow) => {
-    if (v.status === 'Done') return false;
-    const pStatus = v.projects?.status;
-    if (pStatus === 'Pending' || pStatus === 'Cancelled') return false;
-    return true;
-  };
+  // "In production" now comes from the shared rule module rather than a local copy, so a
+  // report and this page can never disagree about what counts. The rule itself is
+  // unchanged: not yet completed, in a project that is neither parked nor finished.
+  //
+  // The shapes differ — this page holds VIDEO rows with a nested project, the reports hold
+  // PROJECT rows with nested videos — which is why the rules take (video, project) rather
+  // than either container.
+  const isVideoActive = (v: VideoRow) =>
+    v.projects ? isVideoInProduction(v, v.projects) : v.status !== 'Done';
 
   const activeVideos = videos.filter(isVideoActive);
 
@@ -290,7 +297,7 @@ export default async function AnalyticsPage(props: {
   // Pending or Cancelled projects are reported separately — they are not in flight and
   // counting them as "Requested" would overstate the queue.
   const parkedVideos = videos.filter(
-    v => v.status !== 'Done' && (v.projects?.status === 'Pending' || v.projects?.status === 'Cancelled')
+    v => v.status !== 'Done' && v.projects != null && isProjectParked(v.projects)
   ).length;
 
   const pipelineCounts = new Map<string, number>();
@@ -382,7 +389,7 @@ export default async function AnalyticsPage(props: {
     if (v.status === 'Done') {
       leaderboardMap[editorId].completedVideos += 1;
       if (v.projects?.project_type !== 'Translation') {
-        const minutes = (v.duration_minutes || 0) + (v.duration_seconds || 0) / 60;
+        const minutes = runtimeMinutes(v);
         leaderboardMap[editorId].minutesProduced += minutes;
       }
     } else if (isVideoActive(v)) {
@@ -417,7 +424,7 @@ export default async function AnalyticsPage(props: {
 
     if (v.status === 'Done' && v.projects?.project_type !== 'Translation') {
       soundEngineerMap[engineerId].completedVideos += 1;
-      soundEngineerMap[engineerId].minutesProduced += (v.duration_minutes || 0) + (v.duration_seconds || 0) / 60;
+      soundEngineerMap[engineerId].minutesProduced += runtimeMinutes(v);
     } else if (isVideoActive(v)) {
       soundEngineerMap[engineerId].activeVideos += 1;
     }
@@ -453,19 +460,18 @@ export default async function AnalyticsPage(props: {
     }
     const entry = onTimeMap[editorId];
 
-    const deadline = v.due_date ?? v.projects?.due_date ?? null;
-    if (v.delivered_at == null || deadline == null) {
+    // The shared rule: not tracked when there is no delivery date or no deadline, and a
+    // deadline counts as met through the end of that day. This comparison used to live
+    // here; it now lives in the metrics module so the report uses the identical one.
+    const verdict = v.projects ? punctuality(v, v.projects) : 'not-tracked';
+    if (verdict === 'not-tracked') {
       entry.untracked += 1;
       return;
     }
 
-    // A deadline counts as met through the end of that day.
     entry.measured += 1;
-    if (parseISO(v.delivered_at).getTime() <= endOfDay(parseISO(deadline)).getTime()) {
-      entry.onTime += 1;
-    } else {
-      entry.late += 1;
-    }
+    if (verdict === 'on-time') entry.onTime += 1;
+    else entry.late += 1;
   });
 
   const onTimeData = Object.values(onTimeMap);
@@ -584,7 +590,7 @@ export default async function AnalyticsPage(props: {
     const type = video.projects?.project_type || "Editing";
     if (type === 'Translation') return acc;
     if (editorName === 'Unassigned') return acc;
-    const minutes = (video.duration_minutes || 0) + (video.duration_seconds || 0) / 60;
+    const minutes = runtimeMinutes(video);
     if (!acc[editorName]) acc[editorName] = { name: editorName };
     if (!acc[editorName][type]) acc[editorName][type] = 0;
     acc[editorName][type] = (acc[editorName][type] as number) + Math.round(minutes * 100) / 100;

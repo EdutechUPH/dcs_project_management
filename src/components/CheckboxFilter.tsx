@@ -49,9 +49,31 @@ type CheckboxFilterProps = {
     onOpenChange?: (open: boolean) => void;
     /** Show the search box above this many options. */
     searchThreshold?: number;
+    /**
+     * `single` turns the same dropdown into a one-of picker: radio marks instead of tick
+     * boxes, no group toggles, and the panel closes on choose. Kept as a mode of this
+     * component rather than a second one so the grouping, role colours, search and sorting
+     * stay identical whichever kind of choice a filter is — the shape of the control should
+     * follow the question, and nothing else about it should change.
+     *
+     * An empty `selected` still means "no restriction"; `Clear` is how you get back to it.
+     */
+    mode?: 'multi' | 'single';
+    /** What an empty selection means, shown on the trigger. Defaults to `title`. */
+    emptyLabel?: string;
 };
 
-export function CheckboxFilter({ title, options, selected, onChange, onOpenChange, searchThreshold = 8 }: CheckboxFilterProps) {
+export function CheckboxFilter({
+    title,
+    options,
+    selected,
+    onChange,
+    onOpenChange,
+    searchThreshold = 8,
+    mode = 'multi',
+    emptyLabel,
+}: CheckboxFilterProps) {
+    const isSingle = mode === 'single';
     const [open, setOpen] = React.useState(false);
     const [search, setSearch] = React.useState('');
 
@@ -97,15 +119,24 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
     // The trigger names the actual selection where it fits. "Lecturers · Dr Sari" tells
     // you what is filtered without opening anything; "(1)" makes you go look.
     const triggerLabel = React.useMemo(() => {
-        if (selected.length === 0) return title;
+        if (selected.length === 0) return emptyLabel ?? title;
         if (selected.length === 1) {
             const match = options.find(o => o.value === selected[0]);
             if (match) return `${title} · ${match.label.trim()}`;
         }
         return `${title} · ${selected.length} selected`;
-    }, [selected, options, title]);
+    }, [selected, options, title, emptyLabel]);
 
-    const toggle = (value: string) => {
+    const choose = (value: string) => {
+        if (isSingle) {
+            // Always replaces. Clicking the current choice again is a no-op rather than a
+            // deselect: in a one-of picker that reads as an accident, and `Clear` is the
+            // deliberate way back to no restriction.
+            onChange([value]);
+            setOpen(false);
+            onOpenChange?.(false);
+            return;
+        }
         onChange(selected.includes(value) ? selected.filter(s => s !== value) : [...selected, value]);
     };
 
@@ -136,7 +167,7 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
                 <div className="flex items-center justify-between border-b bg-gray-50/60 px-3 py-2">
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-600">{title}</h4>
                     <div className="flex items-center gap-1">
-                        {visible.length > 0 && (
+                        {!isSingle && visible.length > 0 && (
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -157,7 +188,13 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
                                 variant="ghost"
                                 size="sm"
                                 className="h-6 px-2 text-xs text-gray-500 hover:bg-red-50 hover:text-red-600"
-                                onClick={() => onChange([])}
+                                onClick={() => {
+                                    onChange([]);
+                                    if (isSingle) {
+                                        setOpen(false);
+                                        onOpenChange?.(false);
+                                    }
+                                }}
                             >
                                 Clear
                             </Button>
@@ -194,7 +231,27 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
 
                         return (
                             <div key={name || '__ungrouped'} className="pb-1">
-                                {name && (
+                                {/* In single mode a heading is a label, not a control — there is
+                                    nothing sensible for "select this whole group" to mean when
+                                    only one option can be chosen. */}
+                                {name && isSingle && (
+                                    <div
+                                        className={cn(
+                                            "mt-1 rounded px-2 py-1.5",
+                                            groupClass ? cn("border-b", groupClass) : "",
+                                        )}
+                                    >
+                                        <span
+                                            className={cn(
+                                                "text-xs font-semibold tracking-wide",
+                                                groupClass ? "" : "uppercase tracking-wider text-gray-500",
+                                            )}
+                                        >
+                                            {name}
+                                        </span>
+                                    </div>
+                                )}
+                                {name && !isSingle && (
                                     <button
                                         type="button"
                                         onClick={() =>
@@ -247,20 +304,31 @@ export function CheckboxFilter({ title, options, selected, onChange, onOpenChang
                                             type="button"
                                             role="option"
                                             aria-selected={isSelected}
-                                            onClick={() => toggle(option.value)}
+                                            onClick={() => choose(option.value)}
                                             className={cn(
                                                 "flex w-full items-center gap-2.5 rounded py-1.5 text-left transition-colors",
                                                 name ? "pl-6 pr-2" : "px-2",
                                                 isSelected ? "bg-blue-50/70" : "hover:bg-gray-100"
                                             )}
                                         >
+                                            {/* A round mark for one-of, a square for many-of. The
+                                                shape is the only reliable signal of how many answers
+                                                a list will take. */}
                                             <span
                                                 className={cn(
-                                                    "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all",
-                                                    isSelected ? "border-blue-600 bg-blue-600" : "border-gray-300 bg-white"
+                                                    "flex h-4 w-4 shrink-0 items-center justify-center border transition-all",
+                                                    isSingle ? "rounded-full" : "rounded",
+                                                    isSelected ? "border-blue-600" : "border-gray-300 bg-white",
+                                                    isSelected && !isSingle && "bg-blue-600",
+                                                    isSelected && isSingle && "bg-white",
                                                 )}
                                             >
-                                                {isSelected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                                                {isSelected && !isSingle && (
+                                                    <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                                                )}
+                                                {isSelected && isSingle && (
+                                                    <span className="h-2 w-2 rounded-full bg-blue-600" />
+                                                )}
                                             </span>
                                             <span
                                                 className={cn(

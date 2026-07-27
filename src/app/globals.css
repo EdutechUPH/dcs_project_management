@@ -149,3 +149,112 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Print — the report pages at /reports are designed to become a PDF via the
+   browser's own "Save as PDF". No headless browser: it would need
+   @sparticuz/chromium to run on Vercel, and rasterising would cost the
+   selectable, searchable text that makes a report useful after it is filed.
+   --------------------------------------------------------------------------- */
+
+@page {
+  size: A4;
+  /* Generous enough that a printer's unprintable edge never clips a border. */
+  margin: 14mm;
+}
+
+/* One A4 sheet. On screen it is shown at the same proportions so the preview is
+   honest about where the page will end. */
+.report-page {
+  width: 210mm;
+  min-height: 297mm;
+  margin-inline: auto;
+  background: #fff;
+}
+
+@media print {
+  /* Browsers strip backgrounds by default, which would take every status pill,
+     meter and tinted chip with them. */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ---------------------------------------------------------------------------
+     Unwind the app shell.
+
+     The layout is `h-screen overflow-hidden` around a `overflow-y-auto` column —
+     a scrolling app frame, which is the right thing on a screen and the wrong
+     thing on paper. Left alone the printer is handed a one-viewport-tall box with
+     its own scrollbar, so it prints the first screenful, draws the scroll track
+     down the right edge, and shrinks the lot to fit the sheet.
+
+     Everything here just returns the document to normal flow at its natural
+     height. `!important` throughout because these are undoing utility classes of
+     equal specificity that happen to be declared later.
+     --------------------------------------------------------------------------- */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .app-shell,
+  .app-scroll,
+  .app-shell main {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    /* Space reserved for the floating mobile menu button, which is now hidden. */
+    padding-top: 0 !important;
+  }
+
+  /* The sheet supplies its own margin and padding via @page; a second one would
+     compound. `display: block` matters as much as the rest: on screen the sheet is
+     a flex column so the footer can sit at the foot of a short page, but flex
+     containers fragment unreliably across printed pages — children lose their
+     break-inside rules and can be sliced. Block layout paginates predictably. */
+  .report-page {
+    display: block !important;
+    width: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Each sheet after the first starts on a new page. Applied to the element
+     rather than between them, so an empty section cannot leave a blank sheet. */
+  .report-page + .report-page {
+    break-before: page;
+  }
+
+  /* Nothing that reads as a unit may be split across a fold. A box that is half on
+     one page and half on the next reads as a printing fault, so it moves whole to
+     the next page instead. */
+  .report-block,
+  table,
+  tr {
+    break-inside: avoid;
+  }
+
+  /* A heading must never be the last thing on a page with its content overleaf. */
+  .report-keep-with-next {
+    break-after: avoid;
+  }
+
+  /* One row of a repeating list. The list itself may span a fold — that is just a
+     table continuing — but a single row may not be cut in half. */
+  .report-row {
+    break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+}
