@@ -273,14 +273,6 @@ export default function MemberReport({ member, projects, termNames, generatedAt,
                                             total={record.videos}
                                         />
                                     )}
-                                    {/* Grey, not red — most videos correctly inherit their
-                                        project's deadline. */}
-                                    <CoverageRow
-                                        label="Videos with their own deadline"
-                                        have={record.withOwnDeadline}
-                                        total={record.videos}
-                                        neutral
-                                    />
                                 </ul>
                             </section>
                         </>

@@ -69,13 +69,14 @@ const sheet = 'report-page flex flex-col p-[13mm] text-[10pt] text-gray-900 shad
  * that calls sheet 2 something other than the heading at the top of it is how a reader
  * loses track of which page they are holding.
  */
-const SHEET_TITLES = [
+const BASE_SHEETS = [
     'Digital Content Specialist Report',
     'Contributors',
     'How it was received',
 ] as const;
 
-const footer = (index: number) => `Sheet ${index + 1} of ${SHEET_TITLES.length} · ${SHEET_TITLES[index]}`;
+const footer = (index: number) =>
+    `Sheet ${index + 1} of ${BASE_SHEETS.length} · ${BASE_SHEETS[index]}`;
 
 export default function TeamReport({ projects, members, termNames, generatedAt }: Props) {
     // -----------------------------------------------------------------------
@@ -169,7 +170,7 @@ export default function TeamReport({ projects, members, termNames, generatedAt }
             <article className={sheet}>
                 <Masthead
                     kicker="Team report"
-                    title={SHEET_TITLES[0]}
+                    title={BASE_SHEETS[0]}
                     chip={`${projects.length} projects`}
                     terms={termNames}
                     generatedAt={generatedAt}
@@ -251,7 +252,7 @@ export default function TeamReport({ projects, members, termNames, generatedAt }
             <article className={sheet}>
                 <Masthead
                     kicker="Team report · People"
-                    title={SHEET_TITLES[1]}
+                    title={BASE_SHEETS[1]}
                     chip={`${contributorCount} people`}
                     terms={termNames}
                     generatedAt={generatedAt}
@@ -342,7 +343,7 @@ export default function TeamReport({ projects, members, termNames, generatedAt }
             <article className={sheet}>
                 <Masthead
                     kicker="Team report · Quality"
-                    title={SHEET_TITLES[2]}
+                    title={BASE_SHEETS[2]}
                     chip={`${ratedProjects} of ${projects.length} rated`}
                     terms={termNames}
                     generatedAt={generatedAt}
@@ -364,15 +365,29 @@ export default function TeamReport({ projects, members, termNames, generatedAt }
                                     label="final product"
                                     lead
                                 />
-                                <Figure value={String(scores.responses)} label="lecturers responded" />
                                 <Figure
-                                    value={`${((scores.responses / Math.max(1, projects.length)) * 100).toFixed(0)}%`}
+                                    value={scores.recommendation != null ? scores.recommendation.toFixed(1) : '—'}
+                                    label="would recommend us"
+                                    lead
+                                />
+                                {/* A count, not a percentage. Standing in a row of scores out
+                                    of five, "68%" reads as a fourth score — and a bad one. */}
+                                <Figure
+                                    value={String(scores.responses)}
                                     label={`of ${projects.length} projects rated`}
                                 />
                             </section>
 
                             <section>
-                                <SectionTitle keepWithNext>Score by category</SectionTitle>
+                                <div className="flex items-baseline justify-between">
+                                    <SectionTitle keepWithNext>Score by category</SectionTitle>
+                                    {scores.flaggedImprovement > 0 && (
+                                        <span className="text-[8pt] text-gray-500">
+                                            {scores.flaggedImprovement} of {scores.responses} said something
+                                            needs improving
+                                        </span>
+                                    )}
+                                </div>
                                 <ul className="mt-3 space-y-2.5">
                                     {scores.categories.map(c => (
                                         <RatingRow key={c.label} {...c} />
@@ -425,15 +440,11 @@ export default function TeamReport({ projects, members, termNames, generatedAt }
                                 have={tracker.withDeliveryDate}
                                 total={tracker.videos}
                             />
-                            {/* `neutral` keeps this one grey rather than red: most videos correctly
-                                inherit their project's deadline, so colouring a low number as a
-                                failure would teach the reader to distrust the rows that are. */}
-                            <CoverageRow
-                                label="Videos with their own deadline"
-                                have={tracker.withOwnDeadline}
-                                total={tracker.videos}
-                                neutral
-                            />
+                            {/* No "videos with their own deadline" row. A video's deadline is
+                                its own `due_date` if it has one and the project's otherwise
+                                (AI_README §11), so the blank is the normal case and an override
+                                is the exception. Counting it as completeness would mark a
+                                perfectly-kept record as 0% complete. */}
                         </ul>
                     </section>
                 </div>

@@ -61,6 +61,10 @@ export interface FeedbackRow {
     rating_communication?: number | null;
     rating_quality?: number | null;
     rating_timeliness?: number | null;
+    /** "I would recommend this video production service to my colleagues." */
+    rating_recommendation?: number | null;
+    /** "Are there any service aspects that you think need improvement?" — a Yes/No. */
+    needs_improvement?: boolean | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +341,6 @@ export interface TrackerCompleteness {
     withEditor: number;
     withDuration: number;
     withDeliveryDate: number;
-    withOwnDeadline: number;
 }
 
 /**
@@ -359,7 +362,7 @@ export function trackerCompleteness(projects: MetricProject[]): TrackerCompleten
  * figure computed a second way would be the first thing anyone disputed.
  */
 export function videoCompleteness(videos: MetricVideo[]): TrackerCompleteness {
-    let withEditor = 0, withDuration = 0, withDeliveryDate = 0, withOwnDeadline = 0;
+    let withEditor = 0, withDuration = 0, withDeliveryDate = 0;
 
     for (const video of videos) {
         if (video.main_editor_id) withEditor++;
@@ -367,10 +370,12 @@ export function videoCompleteness(videos: MetricVideo[]): TrackerCompleteness {
         // read as having no duration recorded at all.
         if (video.duration_minutes || video.duration_seconds) withDuration++;
         if (video.delivered_at) withDeliveryDate++;
-        if (video.due_date) withOwnDeadline++;
     }
 
-    return { videos: videos.length, withEditor, withDuration, withDeliveryDate, withOwnDeadline };
+    // `videos.due_date` is deliberately not counted. It is an OVERRIDE of the project's
+    // deadline (§11), not a field anyone is expected to fill, so an empty one is the record
+    // being correct rather than incomplete.
+    return { videos: videos.length, withEditor, withDuration, withDeliveryDate };
 }
 
 // ---------------------------------------------------------------------------
@@ -381,17 +386,6 @@ export interface SatisfactionCategory {
     label: string;
     /** Mean of the ratings given. Null when nobody rated it — never a zero score. */
     score: number | null;
-    /**
-     * How many forms actually rated THIS category.
-     *
-     * Not the same as `responses`: a lecturer can submit the form and leave a category
-     * blank, and a 5.0 from one rating means something very different from a 5.0 from
-     * fifteen. Reported per row so the reader can tell those apart.
-     */
-    count: number;
-    /** The spread behind the mean. Null when nothing was rated. */
-    lowest: number | null;
-    highest: number | null;
 }
 
 export interface SatisfactionSummary {
@@ -401,6 +395,8 @@ export interface SatisfactionSummary {
     projects: number;
     /** Null when nothing has been rated — never rendered as a zero score. */
     finalProduct: number | null;
+    /** "I would recommend this service to my colleagues." */
+    recommendation: number | null;
     /**
      * Mean of the category means, weighting each category equally.
      *
@@ -408,11 +404,16 @@ export interface SatisfactionSummary {
      * category lecturers happen to fill in most often.
      */
     overall: number | null;
+    /** Lecturers who answered "yes" to the needs-improvement question. */
+    flaggedImprovement: number;
     categories: SatisfactionCategory[];
 }
 
 export function satisfaction(projects: MetricProject[]): SatisfactionSummary {
-    const rows = projects.map(firstFeedback).filter((f): f is FeedbackRow => Boolean(f?.submitted_at));
+    const rated = projects
+        .map(project => ({ project, feedback: firstFeedback(project) }))
+        .filter((r): r is { project: MetricProject; feedback: FeedbackRow } =>
+            Boolean(r.feedback?.submitted_at));
 
     const summarise = (
         label: string,
@@ -420,13 +421,13 @@ export function satisfaction(projects: MetricProject[]): SatisfactionSummary {
     ): SatisfactionCategory => {
         // `> 0` filters out both nulls and the zeroes an unanswered question can store,
         // which would otherwise drag a mean down as though the lecturer had scored it.
-        const values = rows.map(pick).filter((v): v is number => typeof v === 'number' && v > 0);
+        const values = rated
+            .map(r => pick(r.feedback))
+            .filter((v): v is number => typeof v === 'number' && v > 0);
+
         return {
             label,
             score: values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null,
-            count: values.length,
-            lowest: values.length > 0 ? Math.min(...values) : null,
-            highest: values.length > 0 ? Math.max(...values) : null,
         };
     };
 
@@ -436,15 +437,20 @@ export function satisfaction(projects: MetricProject[]): SatisfactionSummary {
         summarise('Quality', f => f.rating_quality),
         summarise('Timeliness', f => f.rating_timeliness),
         summarise('Final product', f => f.rating_final_product),
+        summarise('Would recommend', f => f.rating_recommendation),
     ];
 
     const scored = categories.map(c => c.score).filter((s): s is number => s != null);
+    const find = (label: string) => categories.find(c => c.label === label)?.score ?? null;
 
     return {
-        responses: rows.length,
+        responses: rated.length,
         projects: projects.length,
-        finalProduct: categories.find(c => c.label === 'Final product')?.score ?? null,
+        finalProduct: find('Final product'),
+        recommendation: find('Would recommend'),
         overall: scored.length > 0 ? scored.reduce((a, b) => a + b, 0) / scored.length : null,
+        flaggedImprovement: rated.filter(r => r.feedback.needs_improvement).length,
         categories,
     };
 }
+

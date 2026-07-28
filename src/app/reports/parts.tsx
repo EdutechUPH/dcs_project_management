@@ -334,25 +334,16 @@ export function CoverageRow({
     label,
     have,
     total,
-    neutral = false,
 }: {
     label: string;
     have: number;
     total: number;
-    /**
-     * Report the proportion without judging it. For rows where a low number is the expected
-     * state rather than a shortfall — most videos correctly inherit their project's deadline
-     * instead of carrying their own — colouring it as a failure teaches the reader to
-     * distrust the rows that ARE failures.
-     */
-    neutral?: boolean;
 }) {
     const pct = total > 0 ? (have / total) * 100 : 0;
     // Amber below three quarters: a gap this size stops being an exception and starts
-    // being the reason a figure elsewhere is wrong.
-    const colour = neutral
-        ? INK.muted
-        : pct >= 90 ? DONE_COLOUR : pct >= 75 ? SERIES[3] : IN_PRODUCTION_COLOUR;
+    // being the reason a figure elsewhere is wrong. Every row here is a field somebody is
+    // expected to fill, so a low number always means a shortfall — nothing needs exempting.
+    const colour = pct >= 90 ? DONE_COLOUR : pct >= 75 ? SERIES[3] : IN_PRODUCTION_COLOUR;
 
     return (
         <li className="report-row grid grid-cols-[1fr_auto] items-center gap-x-4">
@@ -388,27 +379,14 @@ export function CoverageRow({
 export function RatingRow({
     label,
     score,
-    count,
-    lowest,
-    highest,
 }: {
     label: string;
     score: number | null;
-    count: number;
-    lowest: number | null;
-    highest: number | null;
 }) {
     return (
         <li className="report-row grid grid-cols-[1fr_auto] items-center gap-x-4">
             <div className="min-w-0">
                 <p className="truncate text-[9.5pt] leading-snug">{label}</p>
-                <p className="truncate text-[7.5pt] leading-snug text-gray-500">
-                    {count === 0
-                        ? 'not rated'
-                        : lowest === highest
-                            ? `${count} ${count === 1 ? 'rating' : 'ratings'}, all ${lowest?.toFixed(0)}`
-                            : `${count} ratings, ${lowest?.toFixed(0)}–${highest?.toFixed(0)}`}
-                </p>
             </div>
             <div className="flex items-center gap-2.5">
                 <div className="h-3 w-[52mm] overflow-hidden rounded-sm bg-gray-100">
