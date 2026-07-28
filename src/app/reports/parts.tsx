@@ -334,13 +334,11 @@ export function CoverageRow({
     label,
     have,
     total,
-    note,
     neutral = false,
 }: {
     label: string;
     have: number;
     total: number;
-    note?: string;
     /**
      * Report the proportion without judging it. For rows where a low number is the expected
      * state rather than a shortfall — most videos correctly inherit their project's deadline
@@ -360,14 +358,70 @@ export function CoverageRow({
         <li className="report-row grid grid-cols-[1fr_auto] items-center gap-x-4">
             <div className="min-w-0">
                 <p className="truncate text-[9pt] leading-snug">{label}</p>
-                {note && <p className="truncate text-[7.5pt] leading-snug text-gray-500">{note}</p>}
             </div>
             <div className="flex items-center gap-2.5">
                 <div className="h-3 w-[40mm] overflow-hidden rounded-sm bg-gray-100">
                     <div style={{ width: `${pct}%`, height: '100%', background: colour }} />
                 </div>
-                <span className="w-16 text-right text-[8.5pt] font-semibold tabular-nums">
+                {/* Percentage leads and the fraction follows it. The percentage is what gets
+                    compared — against the other rows, against last term, against another
+                    person — and a fraction with a different denominator on every line cannot
+                    be compared at a glance. The fraction stays because a percentage with no
+                    denominator hides whether it is 1 of 2 or 130 of 260. */}
+                <span className="w-9 text-right text-[9pt] font-bold tabular-nums">
+                    {pct.toFixed(0)}%
+                </span>
+                <span className="w-14 text-right text-[7.5pt] tabular-nums text-gray-500">
                     {have}/{total}
+                </span>
+            </div>
+        </li>
+    );
+}
+
+/**
+ * One lecturer rating as a full-width row: label, bar, score, and the evidence behind it.
+ *
+ * The horizontal five-across grid gave every category the same 30mm of bar, which made a
+ * 4.5 and a 4.9 look alike. Across the page, the same difference is visible.
+ */
+export function RatingRow({
+    label,
+    score,
+    count,
+    lowest,
+    highest,
+}: {
+    label: string;
+    score: number | null;
+    count: number;
+    lowest: number | null;
+    highest: number | null;
+}) {
+    return (
+        <li className="report-row grid grid-cols-[1fr_auto] items-center gap-x-4">
+            <div className="min-w-0">
+                <p className="truncate text-[9.5pt] leading-snug">{label}</p>
+                <p className="truncate text-[7.5pt] leading-snug text-gray-500">
+                    {count === 0
+                        ? 'not rated'
+                        : lowest === highest
+                            ? `${count} ${count === 1 ? 'rating' : 'ratings'}, all ${lowest?.toFixed(0)}`
+                            : `${count} ratings, ${lowest?.toFixed(0)}–${highest?.toFixed(0)}`}
+                </p>
+            </div>
+            <div className="flex items-center gap-2.5">
+                <div className="h-3 w-[52mm] overflow-hidden rounded-sm bg-gray-100">
+                    <div
+                        style={{
+                            width: `${((score ?? 0) / 5) * 100}%`,
+                            height: '100%',
+                            background: DONE_COLOUR,
+                        }}
+                    />
+                </div>
+                <span className="w-12 text-right text-[11pt] font-bold leading-none tabular-nums">
+                    {score != null ? score.toFixed(1) : '—'}
                 </span>
             </div>
         </li>

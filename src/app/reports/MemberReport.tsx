@@ -12,11 +12,14 @@ import {
     editorCredit,
     projectRoleCredit,
     satisfaction,
+    videoCompleteness,
     type MetricProject,
+    type MetricVideo,
 } from '@/lib/reports/metrics';
 import { roleTheme } from '@/lib/roles';
 import { formatMinutes } from '@/components/insight/tokens';
 import {
+    CoverageRow,
     FacultySplit,
     Figure,
     Footer,
@@ -121,6 +124,24 @@ export default function MemberReport({ member, projects, termNames, generatedAt,
         facultyColour,
     );
 
+    /**
+     * The videos this person's record is graded on.
+     *
+     * An editor is graded on the videos they are credited with — the rows they are the one
+     * expected to fill in. Somebody with no editing credit is graded on every video in the
+     * projects they were assigned to, which is the same population their role credit is
+     * drawn from, so the two sections cannot describe different work.
+     */
+    const ownVideos: MetricVideo[] = isEditor
+        ? projects.flatMap(p => (p.videos ?? []).filter(v => v.main_editor_id === member.id))
+        : [...new Map(
+            roleSections
+                .flatMap(s => s.credit.projects.map(r => r.project))
+                .map(p => [p.id, p]),
+        ).values()].flatMap(p => p.videos ?? []);
+
+    const record = videoCompleteness(ownVideos);
+
     return (
         <article className="report-page flex flex-col p-[13mm] text-[10pt] text-gray-900 shadow-lg print:shadow-none">
             <Masthead
@@ -222,6 +243,46 @@ export default function MemberReport({ member, projects, termNames, generatedAt,
                                 video in the projects assigned. Their figures overlap the editing credit
                                 above — and each other&rsquo;s — rather than adding to it.
                             </p>
+                        </>
+                    )}
+
+                    {record.videos > 0 && (
+                        <>
+                            <SectionRule>Data completion</SectionRule>
+
+                            <section>
+                                <ul className="space-y-2.5">
+                                    <CoverageRow
+                                        label="Videos with a duration recorded"
+                                        have={record.withDuration}
+                                        total={record.videos}
+                                    />
+                                    <CoverageRow
+                                        label="Videos with a delivery date"
+                                        have={record.withDeliveryDate}
+                                        total={record.videos}
+                                    />
+                                    {/* Only meaningful for somebody credited through a project
+                                        role: an editor's own videos all name them by definition,
+                                        so the row would read 100% on every editor's sheet and
+                                        measure nothing. */}
+                                    {!isEditor && (
+                                        <CoverageRow
+                                            label="Videos with an editor recorded"
+                                            have={record.withEditor}
+                                            total={record.videos}
+                                        />
+                                    )}
+                                    {/* Grey, not red — most videos correctly inherit their
+                                        project's deadline. */}
+                                    <CoverageRow
+                                        label="Videos with their own deadline"
+                                        have={record.withOwnDeadline}
+                                        total={record.videos}
+                                        neutral
+                                    />
+                                </ul>
+                            </section>
                         </>
                     )}
                 </div>

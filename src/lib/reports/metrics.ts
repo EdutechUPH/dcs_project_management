@@ -243,15 +243,24 @@ export interface ProjectRoleCredit {
 export function projectRoleCredit(
     projects: MetricProject[],
     profileId: string,
-    role: string,
+    /**
+     * One role, or several treated as one.
+     *
+     * Several is not the same as adding up the single-role results: somebody who is both
+     * Assistant Editor and Assistant Videographer on the same project would have that
+     * project — and every video in it — counted twice. Taking the union of the projects
+     * first is the only way "assistant editors and videographers" can be one figure.
+     */
+    role: string | string[],
 ): ProjectRoleCredit {
+    const roles = Array.isArray(role) ? role : [role];
     const rows: { project: MetricProject; completed: number; inProduction: number }[] = [];
     const faculties = new Set<string>();
     let completedVideos = 0, videosInProduction = 0, minutesCompleted = 0;
 
     for (const project of projects) {
         const assigned = (project.project_assignments ?? [])
-            .some(a => a.profile_id === profileId && a.role === role);
+            .some(a => a.profile_id === profileId && roles.includes(a.role));
         if (!assigned) continue;
 
         let completed = 0, inProduction = 0;
@@ -339,49 +348,103 @@ export interface TrackerCompleteness {
  * one with no delivery date cannot be counted on time or late.
  */
 export function trackerCompleteness(projects: MetricProject[]): TrackerCompleteness {
-    let videos = 0, withEditor = 0, withDuration = 0, withDeliveryDate = 0, withOwnDeadline = 0;
+    return videoCompleteness(projects.flatMap(project => project.videos ?? []));
+}
 
-    for (const project of projects) {
-        for (const video of project.videos ?? []) {
-            videos++;
-            if (video.main_editor_id) withEditor++;
-            if (video.duration_minutes) withDuration++;
-            if (video.delivered_at) withDeliveryDate++;
-            if (video.due_date) withOwnDeadline++;
-        }
+/**
+ * The same measure over an arbitrary set of videos.
+ *
+ * Exists so a member's report can grade the record of THEIR OWN work — the videos they are
+ * credited on — using the identical rules as the team sheet. A per-person completeness
+ * figure computed a second way would be the first thing anyone disputed.
+ */
+export function videoCompleteness(videos: MetricVideo[]): TrackerCompleteness {
+    let withEditor = 0, withDuration = 0, withDeliveryDate = 0, withOwnDeadline = 0;
+
+    for (const video of videos) {
+        if (video.main_editor_id) withEditor++;
+        // Both columns, because a 45-second clip has no whole minutes and would otherwise
+        // read as having no duration recorded at all.
+        if (video.duration_minutes || video.duration_seconds) withDuration++;
+        if (video.delivered_at) withDeliveryDate++;
+        if (video.due_date) withOwnDeadline++;
     }
 
-    return { videos, withEditor, withDuration, withDeliveryDate, withOwnDeadline };
+    return { videos: videos.length, withEditor, withDuration, withDeliveryDate, withOwnDeadline };
 }
 
 // ---------------------------------------------------------------------------
 // Satisfaction (project-level — the form is submitted once per finished project)
 // ---------------------------------------------------------------------------
 
+export interface SatisfactionCategory {
+    label: string;
+    /** Mean of the ratings given. Null when nobody rated it — never a zero score. */
+    score: number | null;
+    /**
+     * How many forms actually rated THIS category.
+     *
+     * Not the same as `responses`: a lecturer can submit the form and leave a category
+     * blank, and a 5.0 from one rating means something very different from a 5.0 from
+     * fifteen. Reported per row so the reader can tell those apart.
+     */
+    count: number;
+    /** The spread behind the mean. Null when nothing was rated. */
+    lowest: number | null;
+    highest: number | null;
+}
+
 export interface SatisfactionSummary {
+    /** Forms submitted, i.e. projects rated. */
     responses: number;
+    /** Projects that could have been rated, so `responses` has a denominator. */
+    projects: number;
     /** Null when nothing has been rated — never rendered as a zero score. */
     finalProduct: number | null;
-    categories: { label: string; score: number | null }[];
+    /**
+     * Mean of the category means, weighting each category equally.
+     *
+     * Not a mean over every individual rating: that would silently weight whichever
+     * category lecturers happen to fill in most often.
+     */
+    overall: number | null;
+    categories: SatisfactionCategory[];
 }
 
 export function satisfaction(projects: MetricProject[]): SatisfactionSummary {
     const rows = projects.map(firstFeedback).filter((f): f is FeedbackRow => Boolean(f?.submitted_at));
 
-    const mean = (pick: (f: FeedbackRow) => number | null | undefined) => {
+    const summarise = (
+        label: string,
+        pick: (f: FeedbackRow) => number | null | undefined,
+    ): SatisfactionCategory => {
+        // `> 0` filters out both nulls and the zeroes an unanswered question can store,
+        // which would otherwise drag a mean down as though the lecturer had scored it.
         const values = rows.map(pick).filter((v): v is number => typeof v === 'number' && v > 0);
-        return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null;
+        return {
+            label,
+            score: values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null,
+            count: values.length,
+            lowest: values.length > 0 ? Math.min(...values) : null,
+            highest: values.length > 0 ? Math.max(...values) : null,
+        };
     };
+
+    const categories = [
+        summarise('Pre-production', f => f.rating_pre_production),
+        summarise('Communication', f => f.rating_communication),
+        summarise('Quality', f => f.rating_quality),
+        summarise('Timeliness', f => f.rating_timeliness),
+        summarise('Final product', f => f.rating_final_product),
+    ];
+
+    const scored = categories.map(c => c.score).filter((s): s is number => s != null);
 
     return {
         responses: rows.length,
-        finalProduct: mean(f => f.rating_final_product),
-        categories: [
-            { label: 'Pre-production', score: mean(f => f.rating_pre_production) },
-            { label: 'Communication', score: mean(f => f.rating_communication) },
-            { label: 'Quality', score: mean(f => f.rating_quality) },
-            { label: 'Timeliness', score: mean(f => f.rating_timeliness) },
-            { label: 'Final product', score: mean(f => f.rating_final_product) },
-        ],
+        projects: projects.length,
+        finalProduct: categories.find(c => c.label === 'Final product')?.score ?? null,
+        overall: scored.length > 0 ? scored.reduce((a, b) => a + b, 0) / scored.length : null,
+        categories,
     };
 }

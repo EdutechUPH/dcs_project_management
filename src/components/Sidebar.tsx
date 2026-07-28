@@ -4,58 +4,10 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import {
-    LayoutDashboard,
-    FolderOpen,
-    BarChart3,
-    FileText,
-    Settings,
-    LogOut,
-    PlusCircle,
-    Users,
-    ClipboardCheck
-} from "lucide-react"
-
-const sidebarItems = [
-    {
-        title: "Dashboard",
-        href: "/",
-        icon: LayoutDashboard,
-    },
-    {
-        title: "My Projects",
-        href: "/my-projects",
-        icon: FolderOpen,
-    },
-    {
-        title: "Analytics",
-        href: "/analytics",
-        icon: BarChart3,
-    },
-    {
-        // Next to Analytics because they read the same numbers, but its own destination
-        // rather than a tab inside it: analytics is for exploring, this produces a document
-        // every member needs their own copy of.
-        title: "Reports",
-        href: "/reports",
-        icon: FileText,
-    },
-    {
-        title: "Team Workload",
-        href: "/workload",
-        icon: Users,
-    },
-    {
-        title: "Quality Standard",
-        href: "/quality",
-        icon: ClipboardCheck,
-    },
-    {
-        title: "Admin",
-        href: "/admin",
-        icon: Settings,
-    }
-]
+import { LogOut, PlusCircle } from "lucide-react"
+// The list lives in lib/nav so the mobile header can name the page the sidebar links to,
+// without either file owning a private copy of the routes.
+import { NAV_ITEMS } from "@/lib/nav"
 
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
@@ -110,7 +62,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
             </div>
 
             <nav className="flex-1 px-4 space-y-2 mt-4">
-                {sidebarItems.map((item) => {
+                {NAV_ITEMS.map((item) => {
                     const Icon = item.icon
                     const isActive = pathname === item.href
 
