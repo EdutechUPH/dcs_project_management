@@ -1,6 +1,13 @@
-# DCS Project Tracker - AI Architecture & Design Guide
+# DCS Project Tracker — Rules & Design Contract
 
-This document provides a comprehensive overview of the **DCS Project Tracker**, serving as context for any AI assistant working on this codebase. It outlines the technology stack, application structure, database schema, data flow, and design conventions.
+This document is the **contract**: the rules that must not be broken, the schema as it actually
+is, and the conventions the app depends on. Its numbered sections are cited directly from code
+comments as `§8`, `§11`, `§16` and so on — renumbering them breaks those references.
+
+**For how the app is put together — the domain model, the lifecycle, where the shared layer
+lives and why each page is shaped the way it is — read [`ARCHITECTURE.md`](ARCHITECTURE.md)
+first.** That document is the map; this one is the rulebook. Where the two disagree, this one
+is right and `ARCHITECTURE.md` needs fixing.
 
 ## 1. Technology Stack
 - **Framework:** [Next.js](https://nextjs.org/) (App Router, Version 15/16+)

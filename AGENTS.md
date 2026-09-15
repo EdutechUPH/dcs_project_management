@@ -1,4 +1,4 @@
-# Claude Code Instructions
+# Codex Instructions
 
 Before starting any task, read both of these in the project root:
 

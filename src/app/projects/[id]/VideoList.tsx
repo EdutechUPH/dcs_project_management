@@ -127,7 +127,7 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
           sortedVideos.map((video, index) => (
             <div key={video.id} className="p-4 border rounded-lg bg-white flex gap-4">
               {/* Order Controls */}
-              <div className="flex flex-col gap-1 justify-center border-r pr-4">
+              <div className="flex shrink-0 flex-col gap-1 justify-center border-r pr-4">
                 <form action={moveVideo}>
                   <input type="hidden" name="videoId" value={video.id} />
                   <input type="hidden" name="projectId" value={projectId} />
@@ -154,7 +154,7 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                 </form>
               </div>
 
-              <div className="flex-grow">
+              <div className="min-w-0 flex-1">
                 {editingId === video.id ? (
                   <VideoEditForm
                     video={video}
@@ -168,10 +168,10 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                     onDirtyChange={setIsEditingDirty}
                   />
                 ) : (
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium text-gray-900">{video.title}</p>
-                      <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:justify-between sm:items-center">
+                    <div className="min-w-0 flex-1 sm:basis-64">
+                      <p className="font-medium text-gray-900 [overflow-wrap:anywhere]">{video.title}</p>
+                      <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm text-gray-600">Duration: {video.duration_minutes || 0}m {video.duration_seconds || 0}s</p>
                         <span className="text-gray-300">|</span>
                         <p className="text-sm text-gray-600">Size: {video.video_size_mb ? `${video.video_size_mb} MB` : 'N/A'}</p>
@@ -223,7 +223,7 @@ export default function VideoList({ videos, projectId, profiles, assignments }: 
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex max-w-full shrink-0 flex-wrap items-center gap-4 sm:justify-end">
                       <StatusBadge status={video.status} />
 
                       {video.status === 'Video Editing' && (
